@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Props</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .tab-active  { border-bottom-color: #6366f1; color: #fff; }
+    .tab-inactive { border-bottom-color: transparent; color: #6b7280; }
+    .tab-inactive:hover { color: #d1d5db; }
+  </style>
+</head>
+<body class="bg-[#0f1117] text-gray-200 min-h-screen">
+
+<header class="sticky top-0 z-10 bg-[#0f1117]/95 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+  <h1 class="text-sm font-bold text-white tracking-tight">Props</h1>
+  <button onclick="load()" id="refresh-btn" class="ml-auto text-xs text-gray-600 hover:text-gray-400 transition-colors">↺ Refresh</button>
+  <span id="updated" class="text-xs text-gray-700"></span>
+</header>
+
+<div class="border-b border-gray-800 px-4 flex overflow-x-auto" id="sport-tabs"></div>
+
+<main class="max-w-2xl mx-auto px-4 py-5 space-y-3" id="content">
+  <p class="text-xs text-gray-600">Loading…</p>
+</main>
+
+<script>
+const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
+const SUPABASE_ANON = 'sb_publishable_mXQB6BSxNpWyL0D3HG0gwA_fwdWoqVh'
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+const SEASON_INFO = {
+  137954: { sport: 'Soccer', league: 'Liga MX' },
+  130979: { sport: 'Soccer', league: 'Liga MX' },
+  127243: { sport: 'Soccer', league: 'Liga MX' },
+  119017: { sport: 'Soccer', league: 'Liga MX' },
+  134469: { sport: 'MLB',    league: 'MLB'     },
+  125735: { sport: 'MLB',    league: 'MLB'     },
+  131631: { sport: 'NBA',    league: 'NBA'     },
+  119257: { sport: 'NBA',    league: 'NBA'     },
+  127985: { sport: 'NFL',    league: 'NFL'     },
+  115087: { sport: 'NFL',    league: 'NFL'     },
+  130805: { sport: 'Soccer', league: 'La Liga' },
+  131129: { sport: 'Soccer', league: 'Champions League' },
+  130281: { sport: 'Soccer', league: 'Premier League'   },
+}
+
+let activeTab = 'All'
+let allMatches = []
+
+async function fetchAll(queryFn) {
+  const PAGE = 1000
+  let rows = [], from = 0
+  while (true) {
+    const { data } = await queryFn(from, from + PAGE - 1)
+    if (!data?.length) break
+    rows = rows.concat(data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return rows
+}
+
+async function load() {
+  document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>'
+  document.getElementById('refresh-btn').textContent = '↺ Loading…'
+
+  // 1. Published odds
+  const odds = await fetchAll((f, t) =>
+    db.from('sr_match_odds')
+      .select('match_id, mkt_name, seln_name, seln_hcap, dec_prc, us_prc')
+      .eq('published', true)
+      .order('match_id').order('mkt_name').order('seln_hcap').order('seln_name')
+      .range(f, t)
+  )
+
+  if (!odds.length) {
+    document.getElementById('sport-tabs').innerHTML = ''
+    document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600 mt-12 text-center">No published props yet.</p>'
+    document.getElementById('refresh-btn').textContent = '↺ Refresh'
+    return
+  }
+
+  // 2. Matches
+  const matchIds = [...new Set(odds.map(r => r.match_id))]
+  const matchRows = []
+  for (let i = 0; i < matchIds.length; i += 200) {
+    const { data } = await db.from('sr_matches')
+      .select('id, match_date, home_team_uid, away_team_uid, season_id')
+      .in('id', matchIds.slice(i, i + 200))
+    if (data) matchRows.push(...data)
+  }
+  const matchMap = Object.fromEntries(matchRows.map(m => [m.id, m]))
+
+  // 3. Teams
+  const teamUids = [...new Set(matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid]).filter(Boolean))]
+  const teamRows = []
+  for (let i = 0; i < teamUids.length; i += 200) {
+    const { data } = await db.from('sr_teams').select('uid, name, abbr').in('uid', teamUids.slice(i, i + 200))
+    if (data) teamRows.push(...data)
+  }
+  const teamMap = Object.fromEntries(teamRows.map(t => [t.uid, t]))
+
+  // 4. Group by match → market
+  const byMatch = {}
+  for (const row of odds) {
+    if (!byMatch[row.match_id]) byMatch[row.match_id] = {}
+    const key = row.mkt_name || '—'
+    if (!byMatch[row.match_id][key]) byMatch[row.match_id][key] = []
+    byMatch[row.match_id][key].push(row)
+  }
+
+  allMatches = Object.entries(byMatch).map(([mid, markets]) => {
+    const m = matchMap[Number(mid)]
+    const info = (m && SEASON_INFO[m.season_id]) ?? { sport: 'Other', league: '—' }
+    return {
+      matchId: Number(mid),
+      match: m,
+      home: teamMap[m?.home_team_uid],
+      away: teamMap[m?.away_team_uid],
+      sport: info.sport,
+      league: info.league,
+      markets,
+    }
+  }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
+
+  // 5. Build sport tabs from available data
+  const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
+  if (!sports.includes(activeTab)) activeTab = 'All'
+  document.getElementById('sport-tabs').innerHTML = sports.map(s => `
+    <button onclick="setTab('${s}')" id="tab-${s}"
+      class="tab-btn px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${s === activeTab ? 'tab-active' : 'tab-inactive'}">
+      ${s}
+    </button>
+  `).join('')
+
+  document.getElementById('updated').textContent = new Date().toLocaleTimeString()
+  document.getElementById('refresh-btn').textContent = '↺ Refresh'
+  render()
+}
+
+function setTab(tab) {
+  activeTab = tab
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const active = btn.id === `tab-${tab}`
+    btn.classList.remove('tab-active', 'tab-inactive')
+    btn.classList.add(active ? 'tab-active' : 'tab-inactive')
+  })
+  render()
+}
+
+// Strip player name + team abbr from front of selection name
+// "Aaron Judge (NYY) Más De 0.5" → "Más De 0.5"
+function getLine(seln_name, seln_hcap) {
+  if (!seln_hcap || !seln_name) return seln_name || '—'
+  if (seln_name.startsWith(seln_hcap)) {
+    const rest = seln_name.slice(seln_hcap.length).replace(/^\s*\([^)]+\)\s*/, '').trim()
+    return rest || seln_name
+  }
+  return seln_name
+}
+
+function fmtUS(p) {
+  if (p == null) return '—'
+  return p > 0 ? `+${p}` : String(p)
+}
+
+function oddsClass(p) {
+  if (p == null) return 'text-gray-400'
+  return p > 0 ? 'text-green-400' : 'text-red-400'
+}
+
+function renderMatch(entry) {
+  const { match, home, away, league, markets } = entry
+  const homeFull = home?.name ?? '?'
+  const awayFull = away?.name ?? '?'
+  const dateStr = match?.match_date
+    ? new Date(match.match_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+    : '—'
+
+  const mktsHtml = Object.entries(markets).map(([mktName, rows]) => {
+    // Group rows by player
+    const players = {}
+    for (const r of rows) {
+      const k = r.seln_hcap || r.seln_name || '—'
+      if (!players[k]) players[k] = []
+      players[k].push(r)
+    }
+
+    const bodyRows = Object.entries(players).flatMap(([player, prows]) =>
+      prows.map((r, i) => {
+        const line = getLine(r.seln_name, r.seln_hcap)
+        const cls = oddsClass(r.us_prc)
+        const playerCell = i === 0
+          ? `<td class="px-3 py-2 text-gray-300 align-top" rowspan="${prows.length}">${player}</td>`
+          : ''
+        return `
+          <tr class="border-t border-gray-700/40 hover:bg-white/[0.02]">
+            ${playerCell}
+            <td class="px-3 py-2 text-gray-500 text-[11px]">${line}</td>
+            <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}">${fmtUS(r.us_prc)}</td>
+            <td class="px-3 py-2 text-right font-mono text-gray-500 text-[11px]">${r.dec_prc ?? '—'}</td>
+          </tr>`
+      })
+    ).join('')
+
+    return `
+      <div class="mt-4">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-600 px-3 mb-1">${mktName}</p>
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="border-b border-gray-700/60">
+              <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Player</th>
+              <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Line</th>
+              <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono">US</th>
+              <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono">Dec</th>
+            </tr>
+          </thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>`
+  }).join('')
+
+  return `
+    <div class="bg-gray-900 rounded-xl overflow-hidden border border-gray-800/50">
+      <div class="px-4 py-3 flex items-start justify-between bg-gray-800/40">
+        <div>
+          <p class="text-sm font-semibold text-white">${homeFull} vs ${awayFull}</p>
+          <p class="text-xs text-gray-600 mt-0.5">${dateStr}</p>
+        </div>
+        <span class="text-[10px] px-2 py-0.5 rounded bg-gray-700/70 text-gray-500 mt-0.5 shrink-0">${league}</span>
+      </div>
+      <div class="pb-3">${mktsHtml}</div>
+    </div>`
+}
+
+function render() {
+  const entries = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  if (!entries.length) {
+    document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600 mt-12 text-center">No published props for this sport.</p>'
+    return
+  }
+  document.getElementById('content').innerHTML = entries.map(renderMatch).join('')
+}
+
+load()
+setInterval(load, 5 * 60 * 1000) // auto-refresh every 5 min
+</script>
+</body>
+</html>
