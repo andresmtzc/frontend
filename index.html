@@ -11,6 +11,9 @@
     .tab-active   { border-bottom-color: #6366f1; color: #fff; }
     .tab-inactive { border-bottom-color: transparent; color: #6b7280; }
     .tab-inactive:hover { color: #d1d5db; }
+    .match-pill-active   { background: #6366f1; color: #fff; border-color: #6366f1; }
+    .match-pill-inactive { background: transparent; color: #6b7280; border-color: #374151; }
+    .match-pill-inactive:hover { border-color: #6366f1; color: #d1d5db; }
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
   </style>
 </head>
@@ -20,20 +23,20 @@
   <h1 class="text-sm font-bold text-white tracking-tight shrink-0">pierdemenos.com</h1>
   <div class="flex items-center gap-1 ml-2">
     <span class="text-xs text-gray-600">$</span>
-    <input type="number" id="bet-amt" value="100" min="1" step="10" oninput="render()"
-      class="w-16 bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700 focus:outline-none focus:border-indigo-500 text-center font-mono" />
+    <input type="number" id="bet-amt" value="100" min="1" step="10"
+      class="w-16 bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700 focus:outline-none focus:border-indigo-500 text-center font-mono" oninput="updateOddsInPlace()" />
   </div>
   <div class="flex items-center gap-2 ml-auto">
     <button id="mode-btn" onclick="cycleMode()"
-      class="text-xs px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:border-indigo-500 transition-colors font-mono shrink-0">
+      class="text-xs w-10 py-1 text-center rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:border-indigo-500 transition-colors font-mono shrink-0">
       US
     </button>
     <button onclick="load()" id="refresh-btn" class="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">↺</button>
-    <span id="updated" class="text-xs text-gray-700 shrink-0"></span>
   </div>
 </header>
 
 <div class="border-b border-gray-800 px-4 flex overflow-x-auto" id="sport-tabs"></div>
+<div class="px-4 flex items-center gap-1.5 overflow-x-auto" id="match-pills"></div>
 
 <main class="max-w-2xl mx-auto px-4 py-5 space-y-3" id="content">
   <p class="text-xs text-gray-600">Loading…</p>
@@ -61,7 +64,6 @@ const SEASON_INFO = {
   130281: { sport: 'Soccer', league: 'Premier League'   },
 }
 
-// Odds display modes: US / Decimal / Implied % / $ profit
 const MODES = [
   { id: 'US',  label: 'US',   col: 'US'     },
   { id: 'Dec', label: 'Dec',  col: 'Dec'    },
@@ -73,7 +75,18 @@ let modeIdx = 0
 function cycleMode() {
   modeIdx = (modeIdx + 1) % MODES.length
   document.getElementById('mode-btn').textContent = MODES[modeIdx].label
-  render()
+  updateOddsInPlace()
+}
+
+function updateOddsInPlace() {
+  document.querySelectorAll('[data-us]').forEach(td => {
+    const us = td.dataset.us === '' ? null : Number(td.dataset.us)
+    td.textContent = fmtOdds(us)
+    td.className = td.className.replace(/text-(white|gray|green|red)-\w+/, oddsClass(us))
+  })
+  document.querySelectorAll('[data-col-label]').forEach(th => {
+    th.textContent = MODES[modeIdx].col
+  })
 }
 
 function betAmt() {
@@ -83,32 +96,19 @@ function betAmt() {
 function fmtOdds(us) {
   if (us == null) return '—'
   const mode = MODES[modeIdx].id
-  if (mode === 'US') {
-    return us > 0 ? `+${us}` : String(us)
-  }
-  if (mode === 'Dec') {
-    const dec = us > 0 ? us / 100 + 1 : 100 / Math.abs(us) + 1
-    return `${dec.toFixed(2)}×`
-  }
-  if (mode === 'Pct') {
-    const imp = us > 0 ? 100 / (us + 100) * 100 : Math.abs(us) / (Math.abs(us) + 100) * 100
-    return `${imp.toFixed(1)}%`
-  }
-  if (mode === '$') {
-    const profit = us > 0 ? betAmt() * us / 100 : betAmt() * 100 / Math.abs(us)
-    return `$${profit.toFixed(0)}`
-  }
+  if (mode === 'US')  return us > 0 ? `+${us}` : String(us)
+  if (mode === 'Dec') { const dec = us > 0 ? us/100+1 : 100/Math.abs(us)+1; return `${dec.toFixed(2)}×` }
+  if (mode === 'Pct') { const imp = us > 0 ? 100/(us+100)*100 : Math.abs(us)/(Math.abs(us)+100)*100; return `${imp.toFixed(1)}%` }
+  if (mode === '$')   { const p = us > 0 ? betAmt()*us/100 : betAmt()*100/Math.abs(us); return `$${p.toFixed(0)}` }
 }
 
 function oddsClass(us) {
-  if (us == null) return 'text-gray-400'
-  const mode = MODES[modeIdx].id
-  if (mode === 'Pct') return 'text-gray-300' // implied prob, no color bias
-  return us > 0 ? 'text-green-400' : 'text-red-400'
+  return us == null ? 'text-gray-400' : 'text-white'
 }
 
-let activeTab = 'All'
-let allMatches = []
+let activeTab   = 'All'
+let activeMatch = null   // matchId or null = show all
+let allMatches  = []
 
 async function fetchAll(queryFn) {
   const PAGE = 1000
@@ -123,9 +123,22 @@ async function fetchAll(queryFn) {
   return rows
 }
 
+function dateLabel(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  const today    = new Date()
+  const tomorrow = new Date()
+  tomorrow.setDate(today.getDate() + 1)
+  const fmt = dt => dt.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' })
+  const sameDay = (a, b) =>
+    a.toLocaleDateString('en-US', { timeZone: 'UTC' }) === b.toLocaleDateString('en-US', { timeZone: 'UTC' })
+  if (sameDay(d, today))    return 'Today'
+  if (sameDay(d, tomorrow)) return 'Tomorrow'
+  return fmt(d)
+}
+
 async function load() {
   document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>'
-  document.getElementById('refresh-btn').textContent = '↺'
 
   const odds = await fetchAll((f, t) =>
     db.from('sr_match_odds')
@@ -137,6 +150,7 @@ async function load() {
 
   if (!odds.length) {
     document.getElementById('sport-tabs').innerHTML = ''
+    document.getElementById('match-pills').innerHTML = ''
     document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600 mt-12 text-center">No published props yet.</p>'
     return
   }
@@ -168,19 +182,22 @@ async function load() {
   }
 
   allMatches = Object.entries(byMatch).map(([mid, markets]) => {
-    const m = matchMap[Number(mid)]
+    const m    = matchMap[Number(mid)]
     const info = (m && SEASON_INFO[m.season_id]) ?? { sport: 'Other', league: '—' }
+    const home = teamMap[m?.home_team_uid]
+    const away = teamMap[m?.away_team_uid]
     return {
       matchId: Number(mid),
       match: m,
-      home: teamMap[m?.home_team_uid],
-      away: teamMap[m?.away_team_uid],
+      home, away,
+      abbr: `${home?.abbr ?? '?'} v ${away?.abbr ?? '?'}`,
       sport: info.sport,
       league: info.league,
       markets,
     }
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
 
+  // Sport tabs
   const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
   if (!sports.includes(activeTab)) activeTab = 'All'
   document.getElementById('sport-tabs').innerHTML = sports.map(s => `
@@ -190,17 +207,55 @@ async function load() {
     </button>
   `).join('')
 
-  document.getElementById('updated').textContent = new Date().toLocaleTimeString()
+  // Validate activeMatch still exists in current data
+  if (activeMatch !== null && !allMatches.find(e => e.matchId === activeMatch)) activeMatch = null
+
+  renderPills()
   render()
 }
 
+function renderPills() {
+  const visible = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  const pillsEl = document.getElementById('match-pills')
+
+  if (visible.length <= 1) { pillsEl.innerHTML = ''; pillsEl.className = 'px-4 flex items-center gap-1.5 overflow-x-auto'; return }
+  pillsEl.className = 'border-b border-gray-800 px-4 py-2 flex items-center gap-1.5 overflow-x-auto'
+
+  // Group by date label
+  let lastLabel = null
+  const parts = []
+  for (const e of visible) {
+    const lbl = dateLabel(e.match?.match_date)
+    if (lbl !== lastLabel) {
+      parts.push(`<span class="text-[10px] text-gray-600 shrink-0 ${lastLabel !== null ? 'ml-2' : ''}">${lbl}</span>`)
+      lastLabel = lbl
+    }
+    const active = activeMatch === e.matchId
+    parts.push(`
+      <button onclick="setMatch(${e.matchId})"
+        class="match-pill text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 font-mono
+               ${active ? 'match-pill-active' : 'match-pill-inactive'}">
+        ${e.abbr}
+      </button>`)
+  }
+  pillsEl.innerHTML = parts.join('')
+}
+
 function setTab(tab) {
-  activeTab = tab
+  activeTab   = tab
+  activeMatch = null
   document.querySelectorAll('.tab-btn').forEach(btn => {
     const active = btn.id === `tab-${tab}`
     btn.classList.remove('tab-active', 'tab-inactive')
     btn.classList.add(active ? 'tab-active' : 'tab-inactive')
   })
+  renderPills()
+  render()
+}
+
+function setMatch(matchId) {
+  activeMatch = activeMatch === matchId ? null : matchId  // toggle
+  renderPills()
   render()
 }
 
@@ -217,7 +272,7 @@ function renderMatch(entry) {
   const { match, home, away, league, markets } = entry
   const homeFull = home?.name ?? '?'
   const awayFull = away?.name ?? '?'
-  const dateStr = match?.match_date
+  const dateStr  = match?.match_date
     ? new Date(match.match_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
     : '—'
   const colLabel = MODES[modeIdx].col
@@ -229,7 +284,6 @@ function renderMatch(entry) {
       if (!players[k]) players[k] = []
       players[k].push(r)
     }
-
     const bodyRows = Object.entries(players).flatMap(([player, prows]) =>
       prows.map((r, i) => {
         const line = getLine(r.seln_name, r.seln_hcap)
@@ -242,7 +296,7 @@ function renderMatch(entry) {
           <tr class="border-t border-gray-700/40 hover:bg-white/[0.02]">
             ${playerCell}
             <td class="px-3 py-2 text-gray-500 text-[11px]">${line}</td>
-            <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}">${val}</td>
+            <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}" data-us="${r.us_prc ?? ''}">${val}</td>
           </tr>`
       })
     ).join('')
@@ -254,13 +308,13 @@ function renderMatch(entry) {
           <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500">${mktName}</p>
           <span class="chev text-gray-600 text-[9px] ml-2">▼</span>
         </div>
-        <div>
+        <div class="mkt-body">
           <table class="w-full text-xs">
             <thead>
               <tr class="border-b border-gray-700/60">
                 <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Player</th>
                 <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Line</th>
-                <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono">${colLabel}</th>
+                <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono" data-col-label>${colLabel}</th>
               </tr>
             </thead>
             <tbody>${bodyRows}</tbody>
@@ -271,19 +325,24 @@ function renderMatch(entry) {
 
   return `
     <div class="bg-gray-900 rounded-xl overflow-hidden border border-gray-800/50">
-      <div class="px-4 py-3 flex items-start justify-between bg-gray-800/40">
+      <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.mchev').textContent=open?'▶':'▼';b.querySelectorAll('.mkt-body').forEach(function(el){el.style.display='none'});b.querySelectorAll('.chev').forEach(function(el){el.textContent='▶'})"
+        class="px-4 py-3 flex items-start justify-between bg-gray-800/40 cursor-pointer select-none">
         <div>
           <p class="text-sm font-semibold text-white">${homeFull} vs ${awayFull}</p>
           <p class="text-xs text-gray-600 mt-0.5">${dateStr}</p>
         </div>
-        <span class="text-[10px] px-2 py-0.5 rounded bg-gray-700/70 text-gray-500 mt-0.5 shrink-0">${league}</span>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="text-[10px] px-2 py-0.5 rounded bg-gray-700/70 text-gray-500 shrink-0">${league}</span>
+          <span class="mchev text-gray-600 text-[9px] shrink-0">▼</span>
+        </div>
       </div>
       <div class="pb-3">${mktsHtml}</div>
     </div>`
 }
 
 function render() {
-  const entries = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  let entries = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  if (activeMatch !== null) entries = entries.filter(e => e.matchId === activeMatch)
   if (!entries.length) {
     document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600 mt-12 text-center">No published props for this sport.</p>'
     return
