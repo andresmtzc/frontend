@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pierdemenos.com</title>
+  <title>palo.mx</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
@@ -20,7 +20,7 @@
 <body class="bg-[#0f1117] text-gray-200 min-h-screen">
 
 <header class="sticky top-0 z-10 bg-[#0f1117]/95 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center gap-2">
-  <h1 class="text-sm font-bold text-white tracking-tight shrink-0">pierdemenos.com</h1>
+  <h1 class="text-sm font-bold text-white tracking-tight shrink-0">palo.mx</h1>
   <div class="flex items-center gap-1 ml-2">
     <span class="text-xs text-gray-600">$</span>
     <input type="number" id="bet-amt" value="100" min="1" step="10"
@@ -306,9 +306,9 @@ function renderMatch(entry) {
         <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.chev').textContent=open?'▶':'▼';"
           class="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-white/[0.03] rounded select-none">
           <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500">${mktName}</p>
-          <span class="chev text-gray-600 text-[9px] ml-2">▼</span>
+          <span class="chev text-gray-600 text-[9px] ml-2">▶</span>
         </div>
-        <div class="mkt-body">
+        <div class="mkt-body" style="display:none">
           <table class="w-full text-xs">
             <thead>
               <tr class="border-b border-gray-700/60">
