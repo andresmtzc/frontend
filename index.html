@@ -53,14 +53,14 @@
     <div class="w-px bg-gray-700 shrink-0 mx-0.5"></div>
     <!-- -200 line filter -->
     <button onclick="toggleHeavyLine()" id="heavy-btn"
-      class="text-[10px] px-2.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-400 font-mono shrink-0 transition-colors hover:border-indigo-500">−200</button>
+      class="text-[10px] px-2.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-400 font-mono shrink-0 transition-colors outline-none focus:outline-none">−200</button>
     <!-- O/U stacked pill — at the end -->
     <div class="flex flex-col rounded-lg overflow-hidden border border-gray-700 shrink-0" id="ou-toggle">
       <button onclick="setDirection('over')"  data-dir="over"
-        class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-gray-800 text-gray-400">over</button>
+        class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-gray-800 text-gray-400 outline-none focus:outline-none">over</button>
       <div class="h-px bg-gray-700"></div>
       <button onclick="setDirection('under')" data-dir="under"
-        class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-gray-800 text-gray-400">under</button>
+        class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-gray-800 text-gray-400 outline-none focus:outline-none">under</button>
     </div>
   </div>
   <span class="filter-status-global text-[10px] text-gray-600 mt-1 block"></span>
@@ -277,9 +277,9 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys) {
     )
     // Heavy line filter — only applies when a stat filter is also active
     const isHeavy = hasFilter && filterHeavyLines && dirRow?.us_prc != null && dirRow.us_prc < -200
-    // Filter if heavy line, OR no data, OR fails ANY window
+    // Filter if heavy line, OR no data, OR fails ANY window, OR edge is exactly 0
     const shouldFilter = hasFilter && (isHeavy || noData || (
-      imp !== null && validStats.some(s => s.hitRate < imp)
+      imp !== null && validStats.some(s => s.hitRate <= imp)
     ))
 
     // Grid of stats — each filter gets its own column: label / fraction / pct
@@ -288,13 +288,11 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys) {
       rateLinesHtml = `<div class="text-[9px] text-gray-600 font-mono mt-0.5">?</div>`
     } else if (hasFilter && filterStats.length) {
       const cols = filterStats.map(s => {
-        const label = filterKeys.length > 1
-          ? `<div class="text-gray-600">${s.fk.toLowerCase()}</div>` : ''
         const frac  = s.total > 0 ? `<div>${s.hits}/${s.total}</div>` : `<div class="text-gray-700">—</div>`
         const pct   = s.total > 0 ? `<div class="text-gray-500">${Math.round(s.hitRate * 100)}%</div>` : ''
-        return `<div class="font-mono leading-tight">${label}${frac}${pct}</div>`
+        return `<div class="font-mono leading-tight">${frac}${pct}</div>`
       })
-      rateLinesHtml = `<div class="flex gap-3 text-[9px] text-gray-400 mt-0.5">${cols.join('')}</div>`
+      rateLinesHtml = `<div class="flex gap-3 justify-center text-[9px] text-gray-400 mt-0.5">${cols.join('')}</div>`
     }
 
     // Edge — use most recent window (smallest N) that has data
@@ -319,7 +317,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys) {
         ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap" rowspan="${rs}">${abbrName(playerName)}</td>`
         : ''
       const statsCell = i === 0
-        ? `<td class="stats-col px-3 py-2 align-top" rowspan="${rs}">${rateLinesHtml}</td>`
+        ? `<td class="stats-col px-3 py-2 align-top text-center" rowspan="${rs}">${rateLinesHtml}</td>`
         : ''
       const edgeCell = i === 0
         ? `<td class="edge-col px-3 py-2 text-right font-mono font-semibold text-xs ${edgeCls}"
@@ -335,10 +333,12 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys) {
       </tr>`
     }).join('')
 
-    if (shouldFilter) failing.push({ trows })
-    else              passing.push({ trows })
+    if (shouldFilter) failing.push({ trows, edgePct: edgePct ?? -Infinity })
+    else              passing.push({ trows, edgePct: edgePct ?? -Infinity })
   }
 
+  passing.sort((a, b) => b.edgePct - a.edgePct)
+  failing.sort((a, b) => b.edgePct - a.edgePct)
   let html = passing.map(p => p.trows).join('')
   if (failing.length) {
     html += `<tr class="filter-summary-row border-t border-gray-700/20 cursor-pointer select-none" onclick="toggleFilteredRows(this)">
@@ -363,14 +363,15 @@ function toggleFilteredRows(el) {
 }
 
 // ── Filter state ────────────────────────────────────────────────────────────
-let activeFilters    = new Set()         // multi-select
-let activeDirection  = null              // null | 'over' | 'under'
+let activeFilters    = new Set()         // all currently active filter keys
+let pinnedFilters    = new Set()         // subset locked via corner circle (stay on main-click)
+let activeDirection  = 'over'            // null | 'over' | 'under'
 let filterHeavyLines = false             // hide lines worse than -200
 let filterCache      = {}
 let filterLoading    = {}
 
 function filterBtnClass(isActive) {
-  return `flex-1 rounded-lg border transition-colors font-mono text-center py-1.5 ${
+  return `relative flex-1 rounded-lg border transition-colors font-mono text-center py-1.5 outline-none focus:outline-none ${
     isActive
       ? 'bg-indigo-600 border-indigo-500 text-white'
       : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500'
@@ -379,13 +380,20 @@ function filterBtnClass(isActive) {
 
 function toggleHeavyLine() {
   filterHeavyLines = !filterHeavyLines
-  const btn = document.getElementById('heavy-btn')
-  btn.className = `text-[10px] px-2.5 rounded-lg border font-mono shrink-0 transition-colors ${
-    filterHeavyLines
-      ? 'bg-indigo-600 border-indigo-500 text-white'
-      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500'
-  }`
+  updateHeavyBtn()
   refreshMktTbodies([...activeFilters])
+}
+
+function updateHeavyBtn() {
+  const hasFilter = activeFilters.size > 0
+  const btn = document.getElementById('heavy-btn')
+  if (!btn) return
+  const active = hasFilter && filterHeavyLines
+  btn.className = `text-[10px] px-2.5 rounded-lg border font-mono shrink-0 transition-colors ${
+    active
+      ? 'bg-indigo-600 border-indigo-500 text-white'
+      : `bg-gray-800 border-gray-700 text-gray-400${hasFilter ? ' hover:border-indigo-500' : ''}`
+  }`
 }
 
 function updateOUToggle() {
@@ -410,17 +418,23 @@ const FILTER_LABELS = {
   CS:  ['current', 'season'],
 }
 
-function filterBtnInner(f, active) {
+function filterBtnInner(f, active, pinned) {
   const [line1, line2] = FILTER_LABELS[f]
   const col = active ? 'text-white' : 'text-gray-400'
+  const circleCls = pinned
+    ? 'bg-indigo-300 border-indigo-200'
+    : active ? 'border-white/30' : 'border-gray-600/60'
   return `<div class="text-[10px] leading-tight ${col}">${line1}</div>
-          <div class="text-[10px] leading-tight ${col}">${line2}</div>`
+          <div class="text-[10px] leading-tight ${col}">${line2}</div>
+          <span onclick="pinFilter('${f}');event.stopPropagation()"
+                class="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border ${circleCls} transition-colors"></span>`
 }
 
 function filterBtnHtml(f) {
   const active = activeFilters.has(f)
-  return `<button onclick="toggleFilter('${f}')" data-filter="${f}" class="${filterBtnClass(active)}">
-    ${filterBtnInner(f, active)}
+  const pinned = pinnedFilters.has(f)
+  return `<button onclick="selectFilter('${f}')" data-filter="${f}" class="${filterBtnClass(active)}">
+    ${filterBtnInner(f, active, pinned)}
   </button>`
 }
 
@@ -431,9 +445,11 @@ function renderGlobalFilterBar() {
 
 function updateGlobalFilterButtons() {
   document.querySelectorAll('#global-filter-bar [data-filter]').forEach(btn => {
-    const active = activeFilters.has(btn.dataset.filter)
+    const f      = btn.dataset.filter
+    const active = activeFilters.has(f)
+    const pinned = pinnedFilters.has(f)
     btn.className = filterBtnClass(active)
-    btn.innerHTML = filterBtnInner(btn.dataset.filter, active)
+    btn.innerHTML = filterBtnInner(f, active, pinned)
   })
 }
 
@@ -442,7 +458,13 @@ function setGlobalFilterStatus(msg) {
   if (el) el.textContent = msg
 }
 
+const FILTER_ORDER = ['L3','L6','L9','L12','CS']
+function sortFilterKeys(keys) {
+  return [...keys].sort((a, b) => FILTER_ORDER.indexOf(a) - FILTER_ORDER.indexOf(b))
+}
+
 function refreshMktTbodies(filterKeys) {
+  filterKeys = sortFilterKeys(filterKeys)
   const hasF = filterKeys.length > 0
   for (const entry of allMatches) {
     const card = document.querySelector(`[data-match-id="${entry.matchId}"]`)
@@ -459,12 +481,10 @@ function refreshMktTbodies(filterKeys) {
   updateOddsInPlace()
 }
 
-async function toggleFilter(f) {
-  if (activeFilters.has(f)) activeFilters.delete(f)
-  else                       activeFilters.add(f)
+async function applyFilters() {
   updateGlobalFilterButtons()
-
   updateOUToggle()
+  updateHeavyBtn()
   if (!activeFilters.size) { refreshMktTbodies([]); return }
   const filters = [...activeFilters]
 
@@ -485,6 +505,36 @@ async function toggleFilter(f) {
   }
 
   refreshMktTbodies(filters)
+}
+
+async function selectFilter(f) {
+  // Main area click: single-select replacing any non-pinned transient,
+  // but deselect if f is already the sole non-pinned active filter
+  const isTransientOnly = activeFilters.has(f) && !pinnedFilters.has(f) &&
+    activeFilters.size === pinnedFilters.size + 1
+  activeFilters = isTransientOnly
+    ? new Set(pinnedFilters)
+    : new Set([...pinnedFilters, f])
+  await applyFilters()
+}
+
+async function pinFilter(f) {
+  if (activeFilters.has(f)) {
+    // Already active → remove entirely
+    activeFilters.delete(f)
+    pinnedFilters.delete(f)
+  } else {
+    // Not active → if no pins yet, auto-pin current transient (first grouping)
+    // If pins already exist, just add f — don't drag the transient in
+    if (pinnedFilters.size === 0) {
+      // First pin — auto-lock current transient too
+      for (const k of activeFilters) pinnedFilters.add(k)
+    }
+    pinnedFilters.add(f)
+    // activeFilters = only pinned set (drop any transient)
+    activeFilters = new Set([...pinnedFilters])
+  }
+  await applyFilters()
 }
 
 async function fetchFilterStats(matchId, seasonId) {
@@ -754,7 +804,7 @@ function renderMatch(entry) {
   const colLabel = MODES[modeIdx].col
   const cache    = filterCache[matchId] ?? null
 
-  const filterKeys = [...activeFilters]
+  const filterKeys = sortFilterKeys([...activeFilters])
   const hasFilter  = filterKeys.length > 0
 
   const mktsHtml = Object.entries(markets).map(([mktName, rows]) => {
@@ -774,7 +824,7 @@ function renderMatch(entry) {
             <thead>
               <tr class="border-b border-gray-700/60">
                 <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Player</th>
-                <th class="stats-col text-left px-3 py-1.5 text-gray-600 font-normal font-mono">Hit</th>
+                <th class="stats-col text-center px-3 py-1.5 text-gray-600 font-normal font-mono">Hit</th>
                 <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Line</th>
                 <th class="edge-col text-right px-3 py-1.5 text-gray-600 font-normal font-mono">Edge</th>
                 <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono" data-col-label>${colLabel}</th>
