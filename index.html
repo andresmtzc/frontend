@@ -19,26 +19,49 @@
 </head>
 <body class="bg-[#0f1117] text-gray-200 min-h-screen">
 
-<header class="sticky top-0 z-10 bg-[#0f1117]/95 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center gap-2">
-  <h1 class="text-sm font-bold text-white tracking-tight shrink-0">palo.mx</h1>
-  <div class="flex items-center gap-1 ml-2">
-    <span class="text-xs text-gray-600">$</span>
-    <input type="number" id="bet-amt" value="100" min="1" step="10"
-      class="w-16 bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700 focus:outline-none focus:border-indigo-500 text-center font-mono" oninput="updateOddsInPlace()" />
-  </div>
-  <div class="flex items-center gap-2 ml-auto">
-    <button id="mode-btn" onclick="cycleMode()"
-      class="text-xs w-10 py-1 text-center rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:border-indigo-500 transition-colors font-mono shrink-0">
-      US
-    </button>
-    <button onclick="load()" id="refresh-btn" class="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">↺</button>
+<header class="sticky top-0 z-10 bg-[#0f1117]/95 backdrop-blur border-b border-gray-800">
+  <div class="max-w-[960px] mx-auto px-4 py-3 flex items-center relative">
+    <h1 class="text-sm font-bold text-white tracking-tight shrink-0">palo.mx</h1>
+    <div class="flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+      <span class="text-xs text-gray-600">$</span>
+      <input type="number" id="bet-amt" value="100" min="1" step="10"
+        class="w-16 bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700 focus:outline-none focus:border-indigo-500 text-center font-mono" oninput="updateOddsInPlace()" />
+    </div>
+    <div class="flex items-center gap-2 ml-auto">
+      <button id="mode-btn" onclick="cycleMode()"
+        class="text-xs w-10 py-1 text-center rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:border-indigo-500 transition-colors font-mono shrink-0">
+        US
+      </button>
+      <button onclick="load()" id="refresh-btn" class="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">↺</button>
+    </div>
   </div>
 </header>
 
-<div class="border-b border-gray-800 px-4 flex overflow-x-auto" id="sport-tabs"></div>
-<div class="px-4 flex items-center gap-1.5 overflow-x-auto" id="match-pills"></div>
+<div class="border-b border-gray-800">
+  <div class="max-w-[960px] mx-auto px-4 flex overflow-x-auto" id="sport-tabs"></div>
+</div>
+<div id="match-pills-wrapper">
+  <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center gap-1.5 overflow-x-auto" id="match-pills"></div>
+</div>
+<div class="max-w-[960px] mx-auto px-4 pt-3 pb-1">
+  <div class="flex items-stretch gap-1.5">
+    <!-- L3 L6 L9 L12 CS — fill remaining space -->
+    <div class="flex gap-1.5 flex-1" id="global-filter-bar"></div>
+    <!-- divider -->
+    <div class="w-px bg-gray-700 shrink-0 mx-0.5"></div>
+    <!-- O/U stacked pill — at the end -->
+    <div class="flex flex-col rounded-lg overflow-hidden border border-gray-700 shrink-0" id="ou-toggle">
+      <button onclick="setDirection('over')"  data-dir="over"
+        class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-indigo-600 text-white">over</button>
+      <div class="h-px bg-gray-700"></div>
+      <button onclick="setDirection('under')" data-dir="under"
+        class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-gray-800 text-gray-400">under</button>
+    </div>
+  </div>
+  <span class="filter-status-global text-[10px] text-gray-600 mt-1 block"></span>
+</div>
 
-<main class="max-w-2xl mx-auto px-4 py-5 space-y-3" id="content">
+<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content">
   <p class="text-xs text-gray-600">Loading…</p>
 </main>
 
@@ -106,8 +129,400 @@ function oddsClass(us) {
   return us == null ? 'text-gray-400' : 'text-white'
 }
 
+// ── Filter helpers ──────────────────────────────────────────────────────────
+
+function normName(n) {
+  return (n || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/-/g, ' ')          // "Jung-Hoo" → "Jung Hoo" (separate tokens)
+    .replace(/[^a-z\s]/g, '')    // strip commas, apostrophes, etc.
+    .trim().split(/\s+/).sort().join(' ')
+}
+
+// Two tokens match if equal OR one is a prefix of the other (min 3 chars each)
+function tokenMatch(a, b) {
+  if (a === b) return true
+  const m = Math.min(a.length, b.length)
+  return m >= 3 && (a.startsWith(b) || b.startsWith(a))
+}
+
+// Look up player_id from cache, falling back to fuzzy match:
+// allow nickname/prefix differences as long as >50% of both names' tokens match.
+function findPlayerId(name, cache) {
+  const norm = normName(name)
+  if (cache[norm] != null) return cache[norm]
+
+  const tokA = norm.split(' ')
+  let bestId = null, bestScore = -1
+
+  for (const [cn, id] of Object.entries(cache)) {
+    const tokB = cn.split(' ')
+    const usedB = new Set()
+    let hits = 0
+    for (const a of tokA) {
+      for (let i = 0; i < tokB.length; i++) {
+        if (!usedB.has(i) && tokenMatch(a, tokB[i])) { hits++; usedB.add(i); break }
+      }
+    }
+    if (!hits) continue
+    const recA = hits / tokA.length
+    const recB = hits / tokB.length
+    if (recA > 0.5 && recB > 0.5) {
+      const score = recA + recB
+      if (score > bestScore) { bestScore = score; bestId = id }
+    }
+  }
+  return bestId
+}
+
+function mktToStatKey(mktName) {
+  const m = mktName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (m.includes('pitcher') && m.includes('strikeout')) return 'pitching_overall_total_strikeouts'
+  if (m.includes('strikeout'))  return 'hitting_total_strikeouts'
+  if (m.includes('hit'))        return 'hitting_hits'
+  if (m.includes('base'))       return 'hitting_total_bases'
+  if (m.includes('run'))        return 'hitting_total_runs_scored'
+  return null
+}
+
+function impliedProb(us) {
+  if (us == null) return null
+  return us < 0 ? Math.abs(us) / (Math.abs(us) + 100) : 100 / (us + 100)
+}
+
+function parseLine(selnName) {
+  const m = (selnName || '').match(/(\d+\.?\d*)\s*$/)
+  return m ? parseFloat(m[1]) : null
+}
+
+function isOver(selnName) {
+  const low = (selnName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return low.includes('mas') || low.includes('over')
+}
+
+function buildPlayerMap(rows) {
+  const players = {}
+  for (const r of rows) {
+    const k = r.seln_hcap || r.seln_name || '—'
+    if (!players[k]) players[k] = []
+    players[k].push(r)
+  }
+  return players
+}
+
+// ── Render market tbody (passing players first, filtered grouped at bottom) ──
+
+function renderMktTbodyContent(mktName, playerMap, cache, filterKey) {
+  const statKey = mktToStatKey(mktName)
+  const isCS    = filterKey === 'CS'
+  const N       = filterKey ? (isCS ? Infinity : parseInt(filterKey.slice(1))) : null
+
+  const passing = []
+  const failing = []
+
+  for (const [playerName, prows] of Object.entries(playerMap)) {
+    const normPlayer = normName(playerName)
+    const overRow    = prows.find(r =>  isOver(r.seln_name))
+    const underRow   = prows.find(r => !isOver(r.seln_name))
+    const dirRow     = activeDirection === 'under' ? underRow : overRow
+
+    let hitRate = null, hits = 0, total = 0
+
+    if (filterKey && overRow && statKey && cache?.normNameToGames?.[normPlayer]) {
+      const lineVal = parseLine(overRow.seln_name)   // line is the same for both sides
+      const games   = cache.normNameToGames[normPlayer]
+      const slice   = isCS ? games.filter(g => g.inSeason) : games.slice(0, N)
+      total = slice.length
+      if (total > 0 && lineVal != null) {
+        const overHits = slice.filter(g => (g.stats?.[statKey] ?? 0) > lineVal).length
+        hits    = activeDirection === 'under' ? (total - overHits) : overHits
+        hitRate = hits / total
+      }
+    }
+
+    const imp          = dirRow ? impliedProb(dirRow.us_prc) : null
+    // No stats in DB → treat as filtered (unknown = no confidence)
+    const noData      = filterKey && statKey && !cache?.normNameToGames?.[normPlayer] && cache != null
+    const shouldFilter = filterKey && (noData || (hitRate !== null && imp !== null && hitRate < imp))
+
+    // Rate label: X/N XX% — or "?" for no-data players
+    const rateLabel = filterKey && total > 0
+      ? `${hits}/${total} ${Math.round(hitRate * 100)}%`
+      : (noData ? '?' : '')
+
+    // When filter active, only show the selected direction's row
+    const visibleRows = filterKey
+      ? prows.filter(r => activeDirection === 'over' ? isOver(r.seln_name) : !isOver(r.seln_name))
+      : prows
+    const displayRows = visibleRows.length ? visibleRows : prows  // fallback if no matching row
+
+    const trows = displayRows.map((r, i) => {
+      const line = getLine(r.seln_name, r.seln_hcap)
+      const val  = fmtOdds(r.us_prc)
+      const cls  = oddsClass(r.us_prc)
+      const rateHtml = (i === 0 && rateLabel)
+        ? `<span class="text-[10px] text-gray-500 ml-1.5 font-mono">${rateLabel}</span>`
+        : ''
+      const playerCell = i === 0
+        ? `<td class="px-3 py-2 text-gray-300 align-top" rowspan="${displayRows.length}">${playerName}${rateHtml}</td>`
+        : ''
+      return `<tr class="${shouldFilter ? 'filtered-row' : ''} border-t border-gray-700/40 hover:bg-white/[0.02]"${shouldFilter ? ' style="display:none"' : ''}>
+        ${playerCell}
+        <td class="px-3 py-2 text-gray-500 text-[11px]">${line}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}" data-us="${r.us_prc ?? ''}">${val}</td>
+      </tr>`
+    }).join('')
+
+    if (shouldFilter) {
+      failing.push({ playerName, trows, rateLabel })
+    } else {
+      passing.push({ trows })
+    }
+  }
+
+  let html = passing.map(p => p.trows).join('')
+
+  if (failing.length > 0) {
+    html += `<tr class="filter-summary-row border-t border-gray-700/20 cursor-pointer select-none" onclick="toggleFilteredRows(this)">
+      <td colspan="3" class="px-3 py-1.5">
+        <span class="filter-chev text-[10px] text-gray-600">▷ </span>
+        <span class="text-[11px] text-gray-500">${failing.length} filtered</span>
+      </td>
+    </tr>`
+    html += failing.map(p => p.trows).join('')
+  }
+
+  return html
+}
+
+function toggleFilteredRows(el) {
+  const row    = el.closest('tr')
+  const tbody  = row.closest('tbody')
+  const chevEl = row.querySelector('.filter-chev')
+  const rows   = [...tbody.querySelectorAll('tr.filtered-row')]
+  const hidden = rows[0]?.style.display === 'none'
+  rows.forEach(r => { r.style.display = hidden ? '' : 'none' })
+  if (chevEl) chevEl.textContent = hidden ? '▽ ' : '▷ '
+}
+
+// ── Filter state ────────────────────────────────────────────────────────────
+let activeFilter    = null
+let activeDirection = 'over'   // 'over' | 'under'
+let filterCache     = {}
+let filterLoading   = {}
+
+function filterBtnClass(isActive) {
+  return `flex-1 rounded-lg border transition-colors font-mono text-center py-1.5 ${
+    isActive
+      ? 'bg-indigo-600 border-indigo-500 text-white'
+      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500'
+  }`
+}
+
+function setDirection(dir) {
+  activeDirection = dir
+  document.querySelectorAll('#ou-toggle [data-dir]').forEach(btn => {
+    const active = btn.dataset.dir === dir
+    btn.className = `text-[11px] px-2.5 py-1 font-mono transition-colors ${active ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400'}`
+  })
+  if (activeFilter) refreshMktTbodies(activeFilter)
+}
+
+const FILTER_LABELS = {
+  L3:  ['last', '3'],
+  L6:  ['last', '6'],
+  L9:  ['last', '9'],
+  L12: ['last', '12'],
+  CS:  ['current', 'season'],
+}
+
+function filterBtnInner(f, active) {
+  const [line1, line2] = FILTER_LABELS[f]
+  const col = active ? 'text-white' : 'text-gray-400'
+  return `<div class="text-[10px] leading-tight ${col}">${line1}</div>
+          <div class="text-[10px] leading-tight ${col}">${line2}</div>`
+}
+
+function filterBtnHtml(f) {
+  const active = activeFilter === f
+  return `<button onclick="toggleFilter('${f}')" data-filter="${f}" class="${filterBtnClass(active)}">
+    ${filterBtnInner(f, active)}
+  </button>`
+}
+
+function renderGlobalFilterBar() {
+  document.getElementById('global-filter-bar').innerHTML =
+    ['L3','L6','L9','L12','CS'].map(f => filterBtnHtml(f)).join('')
+}
+
+function updateGlobalFilterButtons() {
+  document.querySelectorAll('#global-filter-bar [data-filter]').forEach(btn => {
+    const active = btn.dataset.filter === activeFilter
+    btn.className = filterBtnClass(active)
+    btn.innerHTML = filterBtnInner(btn.dataset.filter, active)
+  })
+}
+
+function setGlobalFilterStatus(msg) {
+  const el = document.querySelector('.filter-status-global')
+  if (el) el.textContent = msg
+}
+
+function refreshMktTbodies(f) {
+  for (const entry of allMatches) {
+    const card = document.querySelector(`[data-match-id="${entry.matchId}"]`)
+    if (!card) continue
+    const cache = f ? filterCache[entry.matchId] : null
+    card.querySelectorAll('tbody.mkt-tbody').forEach(tbody => {
+      const normMkt = tbody.dataset.mkt
+      const mktName = Object.keys(entry.markets).find(k => normName(k) === normMkt)
+      if (!mktName) return
+      tbody.innerHTML = renderMktTbodyContent(mktName, buildPlayerMap(entry.markets[mktName]), cache, f)
+    })
+  }
+  updateOddsInPlace()
+}
+
+async function toggleFilter(f) {
+  if (activeFilter === f) {
+    activeFilter = null
+    updateGlobalFilterButtons()
+    refreshMktTbodies(null)
+    return
+  }
+
+  activeFilter = f
+  updateGlobalFilterButtons()
+
+  const visible = allMatches
+    .filter(e => activeTab === 'All' || e.sport === activeTab)
+    .filter(e => activeMatch === null || e.matchId === activeMatch)
+
+  const pending = visible.filter(e => !filterCache[e.matchId] && !filterLoading[e.matchId])
+  if (pending.length) {
+    setGlobalFilterStatus('Loading…')
+    await Promise.all(pending.map(e => {
+      filterLoading[e.matchId] = true
+      return fetchFilterStats(e.matchId, e.match.season_id).then(() => {
+        filterLoading[e.matchId] = false
+      })
+    }))
+    setGlobalFilterStatus('')
+  }
+
+  refreshMktTbodies(f)
+}
+
+async function fetchFilterStats(matchId, seasonId) {
+  const entry = allMatches.find(e => e.matchId === matchId)
+  if (!entry) return
+
+  const playerNames = [...new Set(
+    Object.values(entry.markets).flatMap(rows => rows.map(r => r.seln_hcap).filter(Boolean))
+  )]
+
+  // Build player name→id cache — query ALL sr_players (no season filter, paginated)
+  if (!window._playerNameCache) {
+    const allPlayers = await fetchAll((from, to) =>
+      db.from('sr_players').select('id, name').range(from, to)
+    )
+    window._playerNameCache = {}
+    for (const p of allPlayers) window._playerNameCache[normName(p.name)] = p.id
+  }
+
+  const normToId  = window._playerNameCache
+  const playerIds = [...new Set(playerNames.map(n => findPlayerId(n, normToId)).filter(Boolean))]
+
+  // Debug: surface players whose names don't resolve to any known ID (even fuzzy)
+  const missing = playerNames.filter(n => !findPlayerId(n, normToId))
+  if (missing.length) console.warn('[filter] no sr_players match for:', missing.map(n => `"${n}" → "${normName(n)}"`))
+
+  if (!playerIds.length) { filterCache[matchId] = { normNameToGames: {} }; return }
+
+  const matchDate = entry.match?.match_date ?? new Date().toISOString()
+
+  // Stage 1: get all (player_id, match_id, season_id) for these players — no JSONB, lightweight
+  const playerMatchLinks = await fetchAll((from, to) =>
+    db.from('sr_player_match_stats')
+      .select('player_id, match_id, season_id')
+      .in('player_id', playerIds)
+      .range(from, to)
+  )
+  if (!playerMatchLinks.length) { filterCache[matchId] = { normNameToGames: {} }; return }
+
+  const allMatchIds = [...new Set(playerMatchLinks.map(r => r.match_id))]
+
+  // Stage 2: get dates for those matches, filter to completed before this match
+  const matchDateRows = await fetchAll((from, to) =>
+    db.from('sr_matches')
+      .select('id, match_date')
+      .in('id', allMatchIds)
+      .not('home_score', 'is', null)
+      .lt('match_date', matchDate)
+      .range(from, to)
+  )
+  if (!matchDateRows.length) { filterCache[matchId] = { normNameToGames: {} }; return }
+
+  const validMatchIds = new Set(matchDateRows.map(m => m.id))
+  const dateByMid     = Object.fromEntries(matchDateRows.map(m => [m.id, m.match_date]))
+
+  // Which match IDs count as current season?
+  const csMatchIds = new Set(
+    playerMatchLinks.filter(r => r.season_id === seasonId && validMatchIds.has(r.match_id)).map(r => r.match_id)
+  )
+
+  // Per-player: bucket valid match IDs, sort desc, take last 12 + all CS
+  const perPlayer = {}
+  for (const r of playerMatchLinks) {
+    if (!validMatchIds.has(r.match_id)) continue
+    if (!perPlayer[r.player_id]) perPlayer[r.player_id] = []
+    perPlayer[r.player_id].push(r.match_id)
+  }
+
+  const neededByPlayer = new Map() // player_id → Set<match_id>
+  const neededMatchIds = new Set()
+  for (const [pid, mids] of Object.entries(perPlayer)) {
+    const sorted = [...mids].sort((a, b) => new Date(dateByMid[b]) - new Date(dateByMid[a]))
+    const l12    = new Set(sorted.slice(0, 12))
+    const cs     = new Set(sorted.filter(mid => csMatchIds.has(mid)))
+    const needed = new Set([...l12, ...cs])
+    neededByPlayer.set(Number(pid), needed)
+    needed.forEach(mid => neededMatchIds.add(mid))
+  }
+  if (!neededMatchIds.size) { filterCache[matchId] = { normNameToGames: {} }; return }
+
+  // Stage 3: fetch stats JSONB only for the (player_id × match_id) pairs we need
+  const { data: stats } = await db.from('sr_player_match_stats')
+    .select('player_id, match_id, stats')
+    .in('player_id', playerIds)
+    .in('match_id', [...neededMatchIds])
+
+  const idToGames = {}
+  for (const s of stats ?? []) {
+    if (!neededByPlayer.get(s.player_id)?.has(s.match_id)) continue
+    if (!idToGames[s.player_id]) idToGames[s.player_id] = []
+    idToGames[s.player_id].push({ stats: s.stats, match_date: dateByMid[s.match_id], match_id: s.match_id })
+  }
+  for (const g of Object.values(idToGames)) g.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
+
+  const normNameToGames = {}
+  for (const name of playerNames) {
+    const norm = normName(name)
+    const id   = findPlayerId(name, normToId)
+    if (id && idToGames[id]) {
+      normNameToGames[norm] = idToGames[id].map(g => ({ ...g, inSeason: csMatchIds.has(g.match_id) }))
+    } else if (id) {
+      console.warn(`[filter] "${name}" (id=${id}) resolved but 0 completed games before ${matchDate}`)
+    }
+  }
+
+  filterCache[matchId] = { normNameToGames }
+}
+
+// ── Core ────────────────────────────────────────────────────────────────────
+
 let activeTab   = 'All'
-let activeMatch = null   // matchId or null = show all
+let activeMatch = null
 let allMatches  = []
 
 async function fetchAll(queryFn) {
@@ -125,13 +540,11 @@ async function fetchAll(queryFn) {
 
 function dateLabel(dateStr) {
   if (!dateStr) return '—'
-  const d = new Date(dateStr)
+  const d        = new Date(dateStr)
   const today    = new Date()
-  const tomorrow = new Date()
-  tomorrow.setDate(today.getDate() + 1)
-  const fmt = dt => dt.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' })
-  const sameDay = (a, b) =>
-    a.toLocaleDateString('en-US', { timeZone: 'UTC' }) === b.toLocaleDateString('en-US', { timeZone: 'UTC' })
+  const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1)
+  const fmt      = dt => dt.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' })
+  const sameDay  = (a, b) => a.toLocaleDateString('en-US', { timeZone: 'UTC' }) === b.toLocaleDateString('en-US', { timeZone: 'UTC' })
   if (sameDay(d, today))    return 'Today'
   if (sameDay(d, tomorrow)) return 'Tomorrow'
   return fmt(d)
@@ -187,27 +600,22 @@ async function load() {
     const home = teamMap[m?.home_team_uid]
     const away = teamMap[m?.away_team_uid]
     return {
-      matchId: Number(mid),
-      match: m,
-      home, away,
+      matchId: Number(mid), match: m, home, away,
       abbr: `${home?.abbr ?? '?'} v ${away?.abbr ?? '?'}`,
-      sport: info.sport,
-      league: info.league,
-      markets,
+      sport: info.sport, league: info.league, markets,
     }
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
 
-  // Sport tabs
+  filterCache = {}; filterLoading = {}; window._playerNameCache = null
+
   const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
   if (!sports.includes(activeTab)) activeTab = 'All'
   document.getElementById('sport-tabs').innerHTML = sports.map(s => `
     <button onclick="setTab('${s}')" id="tab-${s}"
       class="tab-btn px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${s === activeTab ? 'tab-active' : 'tab-inactive'}">
       ${s}
-    </button>
-  `).join('')
+    </button>`).join('')
 
-  // Validate activeMatch still exists in current data
   if (activeMatch !== null && !allMatches.find(e => e.matchId === activeMatch)) activeMatch = null
 
   renderPills()
@@ -217,11 +625,11 @@ async function load() {
 function renderPills() {
   const visible = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
   const pillsEl = document.getElementById('match-pills')
+  const wrapper = document.getElementById('match-pills-wrapper')
 
-  if (visible.length <= 1) { pillsEl.innerHTML = ''; pillsEl.className = 'px-4 flex items-center gap-1.5 overflow-x-auto'; return }
-  pillsEl.className = 'border-b border-gray-800 px-4 py-2 flex items-center gap-1.5 overflow-x-auto'
+  if (visible.length <= 1) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
+  wrapper.className = 'border-b border-gray-800'
 
-  // Group by date label
   let lastLabel = null
   const parts = []
   for (const e of visible) {
@@ -242,21 +650,18 @@ function renderPills() {
 }
 
 function setTab(tab) {
-  activeTab   = tab
-  activeMatch = null
+  activeTab = tab; activeMatch = null
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    const active = btn.id === `tab-${tab}`
+    const a = btn.id === `tab-${tab}`
     btn.classList.remove('tab-active', 'tab-inactive')
-    btn.classList.add(active ? 'tab-active' : 'tab-inactive')
+    btn.classList.add(a ? 'tab-active' : 'tab-inactive')
   })
-  renderPills()
-  render()
+  renderPills(); render()
 }
 
 function setMatch(matchId) {
-  activeMatch = activeMatch === matchId ? null : matchId  // toggle
-  renderPills()
-  render()
+  activeMatch = activeMatch === matchId ? null : matchId
+  renderPills(); render()
 }
 
 function getLine(seln_name, seln_hcap) {
@@ -269,37 +674,19 @@ function getLine(seln_name, seln_hcap) {
 }
 
 function renderMatch(entry) {
-  const { match, home, away, league, markets } = entry
+  const { matchId, match, home, away, league, markets } = entry
   const homeFull = home?.name ?? '?'
   const awayFull = away?.name ?? '?'
   const dateStr  = match?.match_date
-    ? new Date(match.match_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+    ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
     : '—'
   const colLabel = MODES[modeIdx].col
+  const cache    = filterCache[matchId] ?? null
 
   const mktsHtml = Object.entries(markets).map(([mktName, rows]) => {
-    const players = {}
-    for (const r of rows) {
-      const k = r.seln_hcap || r.seln_name || '—'
-      if (!players[k]) players[k] = []
-      players[k].push(r)
-    }
-    const bodyRows = Object.entries(players).flatMap(([player, prows]) =>
-      prows.map((r, i) => {
-        const line = getLine(r.seln_name, r.seln_hcap)
-        const val  = fmtOdds(r.us_prc)
-        const cls  = oddsClass(r.us_prc)
-        const playerCell = i === 0
-          ? `<td class="px-3 py-2 text-gray-300 align-top" rowspan="${prows.length}">${player}</td>`
-          : ''
-        return `
-          <tr class="border-t border-gray-700/40 hover:bg-white/[0.02]">
-            ${playerCell}
-            <td class="px-3 py-2 text-gray-500 text-[11px]">${line}</td>
-            <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}" data-us="${r.us_prc ?? ''}">${val}</td>
-          </tr>`
-      })
-    ).join('')
+    const normMkt   = normName(mktName)
+    const playerMap = buildPlayerMap(rows)
+    const tbodyHtml = renderMktTbodyContent(mktName, playerMap, cache, activeFilter)
 
     return `
       <div class="mt-4">
@@ -317,14 +704,14 @@ function renderMatch(entry) {
                 <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono" data-col-label>${colLabel}</th>
               </tr>
             </thead>
-            <tbody>${bodyRows}</tbody>
+            <tbody class="mkt-tbody" data-mkt="${normMkt}">${tbodyHtml}</tbody>
           </table>
         </div>
       </div>`
   }).join('')
 
   return `
-    <div class="bg-gray-900 rounded-xl overflow-hidden border border-gray-800/50">
+    <div class="bg-gray-900 rounded-xl overflow-hidden border border-gray-800/50" data-match-id="${matchId}">
       <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.mchev').textContent=open?'▶':'▼';b.querySelectorAll('.mkt-body').forEach(function(el){el.style.display='none'});b.querySelectorAll('.chev').forEach(function(el){el.textContent='▶'})"
         class="px-4 py-3 flex items-start justify-between bg-gray-800/40 cursor-pointer select-none">
         <div>
@@ -341,6 +728,7 @@ function renderMatch(entry) {
 }
 
 function render() {
+  renderGlobalFilterBar()
   let entries = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
   if (activeMatch !== null) entries = entries.filter(e => e.matchId === activeMatch)
   if (!entries.length) {
