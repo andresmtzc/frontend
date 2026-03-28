@@ -45,7 +45,7 @@
 <div id="match-pills-wrapper">
   <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center gap-1.5 overflow-x-auto" id="match-pills"></div>
 </div>
-<div id="filter-section" class="max-w-[960px] mx-auto px-4 pt-3 pb-1">
+<div class="max-w-[960px] mx-auto px-4 pt-3 pb-1">
   <div class="flex items-stretch gap-1.5">
     <!-- L3 L6 L9 L12 CS — fill remaining space -->
     <div class="flex gap-1.5 flex-1" id="global-filter-bar"></div>
@@ -69,14 +69,6 @@
 <main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content">
   <p class="text-xs text-gray-600">Loading…</p>
 </main>
-
-<!-- Player card overlay -->
-<div id="player-card" style="display:none" class="fixed left-0 right-0 bottom-0 z-50 flex justify-center">
-  <div class="w-full max-w-[960px] px-4 pb-4 h-full flex flex-col">
-    <div id="player-card-inner" class="bg-gray-900 rounded-xl border border-gray-800/50 overflow-hidden flex flex-col flex-1">
-    </div>
-  </div>
-</div>
 
 <script>
 const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
@@ -244,7 +236,7 @@ function buildPlayerMap(rows) {
 
 // ── Render market tbody (passing players first, filtered grouped at bottom) ──
 
-function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
+function renderMktTbodyContent(mktName, playerMap, cache, filterKeys) {
   const statKey   = mktToStatKey(mktName)
   const hasFilter = filterKeys.length > 0
   const passing   = [], failing = []
@@ -321,12 +313,8 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const cls  = oddsClass(r.us_prc)
       const rs   = displayRows.length
 
-      const clickLine   = overRow ? parseLine(overRow.seln_name) : null
-      const safePlayer  = (playerName || '').replace(/\\/g,'\\\\').replace(/'/g,'&#39;')
-      const safeMkt     = (mktName    || '').replace(/\\/g,'\\\\').replace(/'/g,'&#39;')
       const playerCell = i === 0
-        ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors select-none" rowspan="${rs}"
-             onclick="openPlayerCard('${safePlayer}','${safeMkt}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${abbrName(playerName)}</td>`
+        ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap" rowspan="${rs}">${abbrName(playerName)}</td>`
         : ''
       const statsCell = i === 0
         ? `<td class="stats-col px-3 py-2 align-top text-center" rowspan="${rs}">${rateLinesHtml}</td>`
@@ -345,42 +333,13 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       </tr>`
     }).join('')
 
-    // Determine which side of this match the player belongs to
-    const homeUid = entry?.match?.home_team_uid
-    const awayUid = entry?.match?.away_team_uid
-    const playerId = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
-    const playerTeamUid = playerId != null ? window._playerTeamUidCache?.[playerId] : null
-    const teamKey = playerTeamUid === homeUid ? 'home'
-                  : playerTeamUid === awayUid ? 'away'
-                  : 'unknown'
-
-    if (shouldFilter) failing.push({ trows, edgePct: edgePct ?? -Infinity, teamKey })
-    else              passing.push({ trows, edgePct: edgePct ?? -Infinity, teamKey })
+    if (shouldFilter) failing.push({ trows, edgePct: edgePct ?? -Infinity })
+    else              passing.push({ trows, edgePct: edgePct ?? -Infinity })
   }
 
   passing.sort((a, b) => b.edgePct - a.edgePct)
   failing.sort((a, b) => b.edgePct - a.edgePct)
-
-  // Group passing by home/away team (always, not just when filtered)
-  const byTeam = new Map()
-  for (const e of passing) {
-    if (!byTeam.has(e.teamKey)) byTeam.set(e.teamKey, [])
-    byTeam.get(e.teamKey).push(e)
-  }
-  const groups    = [...byTeam.entries()].sort(([, a], [, b]) => b[0].edgePct - a[0].edgePct)
-  const multiTeam = groups.length > 1
-
-  let html = ''
-  for (const [key, entries] of groups) {
-    if (multiTeam) {
-      const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
-      const teamLabel = teamObj?.abbr ?? teamObj?.name ?? '?'
-      html += `<tr class="border-t border-gray-700/30">
-        <td colspan="5" class="px-3 pt-2 pb-0.5 text-[9px] text-gray-600 font-mono uppercase tracking-widest">${teamLabel}</td>
-      </tr>`
-    }
-    html += entries.map(e => e.trows).join('')
-  }
+  let html = passing.map(p => p.trows).join('')
   if (failing.length) {
     html += `<tr class="filter-summary-row border-t border-gray-700/20 cursor-pointer select-none" onclick="toggleFilteredRows(this)">
       <td colspan="4" class="px-3 py-1.5">
@@ -515,7 +474,7 @@ function refreshMktTbodies(filterKeys) {
       const normMkt = tbody.dataset.mkt
       const mktName = Object.keys(entry.markets).find(k => normName(k) === normMkt)
       if (!mktName) return
-      tbody.innerHTML = renderMktTbodyContent(mktName, buildPlayerMap(entry.markets[mktName]), cache, filterKeys, entry)
+      tbody.innerHTML = renderMktTbodyContent(mktName, buildPlayerMap(entry.markets[mktName]), cache, filterKeys)
       tbody.closest('table').classList.toggle('has-filter', hasF)
     })
   }
@@ -586,21 +545,13 @@ async function fetchFilterStats(matchId, seasonId) {
     Object.values(entry.markets).flatMap(rows => rows.map(r => r.seln_hcap).filter(Boolean))
   )]
 
-  // Build player name→id cache — may already be populated from eager load at startup
-  // If not (e.g. first filter applied before eager load finished), fetch all players now
+  // Build player name→id cache — query ALL sr_players (no season filter, paginated)
   if (!window._playerNameCache) {
-    const [allPlayers, allTeams] = await Promise.all([
-      fetchAll((from, to) => db.from('sr_players').select('id, name, team_uid').range(from, to)),
-      fetchAll((from, to) => db.from('sr_teams').select('uid, name, abbr').range(from, to))
-    ])
-    window._playerNameCache    = {}
-    window._playerTeamUidCache = {}
-    window._teamCache          = {}
-    for (const p of allPlayers) {
-      window._playerNameCache[normName(p.name)] = p.id
-      window._playerTeamUidCache[p.id]          = p.team_uid
-    }
-    for (const t of allTeams) window._teamCache[t.uid] = t
+    const allPlayers = await fetchAll((from, to) =>
+      db.from('sr_players').select('id, name').range(from, to)
+    )
+    window._playerNameCache = {}
+    for (const p of allPlayers) window._playerNameCache[normName(p.name)] = p.id
   }
 
   const normToId  = window._playerNameCache
@@ -610,7 +561,7 @@ async function fetchFilterStats(matchId, seasonId) {
   const missing = playerNames.filter(n => !findPlayerId(n, normToId))
   if (missing.length) console.warn('[filter] no sr_players match for:', missing.map(n => `"${n}" → "${normName(n)}"`))
 
-  if (!playerIds.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
+  if (!playerIds.length) { filterCache[matchId] = { normNameToGames: {} }; return }
 
   const matchDate = entry.match?.match_date ?? new Date().toISOString()
 
@@ -621,24 +572,23 @@ async function fetchFilterStats(matchId, seasonId) {
       .in('player_id', playerIds)
       .range(from, to)
   )
-  if (!playerMatchLinks.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
+  if (!playerMatchLinks.length) { filterCache[matchId] = { normNameToGames: {} }; return }
 
   const allMatchIds = [...new Set(playerMatchLinks.map(r => r.match_id))]
 
   // Stage 2: get dates for those matches, filter to completed before this match
   const matchDateRows = await fetchAll((from, to) =>
     db.from('sr_matches')
-      .select('id, match_date, home_team_uid, away_team_uid')
+      .select('id, match_date')
       .in('id', allMatchIds)
       .not('home_score', 'is', null)
       .lt('match_date', matchDate)
       .range(from, to)
   )
-  if (!matchDateRows.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
+  if (!matchDateRows.length) { filterCache[matchId] = { normNameToGames: {} }; return }
 
-  const validMatchIds  = new Set(matchDateRows.map(m => m.id))
-  const dateByMid      = Object.fromEntries(matchDateRows.map(m => [m.id, m.match_date]))
-  const teamsInfoByMid = Object.fromEntries(matchDateRows.map(m => [m.id, { homeTeamUid: m.home_team_uid, awayTeamUid: m.away_team_uid }]))
+  const validMatchIds = new Set(matchDateRows.map(m => m.id))
+  const dateByMid     = Object.fromEntries(matchDateRows.map(m => [m.id, m.match_date]))
 
   // Which match IDs count as current season?
   const csMatchIds = new Set(
@@ -663,7 +613,7 @@ async function fetchFilterStats(matchId, seasonId) {
     neededByPlayer.set(Number(pid), needed)
     needed.forEach(mid => neededMatchIds.add(mid))
   }
-  if (!neededMatchIds.size) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid }; return }
+  if (!neededMatchIds.size) { filterCache[matchId] = { normNameToGames: {} }; return }
 
   // Stage 3: fetch stats JSONB only for the (player_id × match_id) pairs we need
   const { data: stats } = await db.from('sr_player_match_stats')
@@ -690,7 +640,7 @@ async function fetchFilterStats(matchId, seasonId) {
     }
   }
 
-  filterCache[matchId] = { normNameToGames, teamsInfoByMid }
+  filterCache[matchId] = { normNameToGames }
 }
 
 // ── Core ────────────────────────────────────────────────────────────────────
@@ -780,23 +730,7 @@ async function load() {
     }
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
 
-  filterCache = {}; filterLoading = {}
-  window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null
-
-  // Eagerly load players for match teams so team grouping works without a filter
-  ;(async () => {
-    const allPlayers = await fetchAll((from, to) =>
-      db.from('sr_players').select('id, name, team_uid').in('team_uid', teamUids).range(from, to)
-    )
-    window._playerNameCache    = {}
-    window._playerTeamUidCache = {}
-    window._teamCache          = teamMap
-    for (const p of allPlayers) {
-      window._playerNameCache[normName(p.name)] = p.id
-      window._playerTeamUidCache[p.id]          = p.team_uid
-    }
-    refreshMktTbodies([...activeFilters])
-  })()
+  filterCache = {}; filterLoading = {}; window._playerNameCache = null
 
   const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
   if (!sports.includes(activeTab)) activeTab = 'All'
@@ -876,7 +810,7 @@ function renderMatch(entry) {
   const mktsHtml = Object.entries(markets).map(([mktName, rows]) => {
     const normMkt   = normName(mktName)
     const playerMap = buildPlayerMap(rows)
-    const tbodyHtml = renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry)
+    const tbodyHtml = renderMktTbodyContent(mktName, playerMap, cache, filterKeys)
 
     return `
       <div class="mt-4">
@@ -932,183 +866,6 @@ function render() {
 
 load()
 setInterval(load, 5 * 60 * 1000)
-
-// ── Player Card ──────────────────────────────────────────────────────────────
-
-let playerCardState = null
-
-function openPlayerCard(playerName, mktName, propLine, matchId, seasonId) {
-  // Decode HTML entities in names
-  const decode = s => s.replace(/&#39;/g, "'")
-  const lockedDirection = activeDirection || 'over'
-  playerCardState = {
-    playerName: decode(playerName), mktName: decode(mktName),
-    propLine, matchId, seasonId, lockedDirection, activeFilter: 'L6'
-  }
-
-  const card = document.getElementById('player-card')
-  // Position below the filter section (measuring at open time)
-  const filterSection = document.getElementById('filter-section')
-  const headerEl      = document.querySelector('header')
-  let topOffset = 140
-  if (filterSection) {
-    topOffset = filterSection.getBoundingClientRect().bottom + 4
-  } else if (headerEl) {
-    topOffset = headerEl.getBoundingClientRect().bottom + 4
-  }
-  card.style.top = topOffset + 'px'
-  card.style.display = 'flex'
-
-  if (filterCache[matchId]) {
-    renderPlayerCardContent()
-  } else {
-    document.getElementById('player-card-inner').innerHTML = `
-      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-        <div>
-          <p class="text-sm font-semibold text-white">${abbrName(playerName)}</p>
-          <p class="text-xs text-gray-500">${mktName}</p>
-        </div>
-        <button onclick="closePlayerCard()" class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-white text-xl leading-none rounded-lg hover:bg-gray-800 transition-colors">×</button>
-      </div>
-      <div class="flex-1 flex items-center justify-center">
-        <p class="text-xs text-gray-500">Loading…</p>
-      </div>`
-    fetchFilterStats(matchId, seasonId).then(() => renderPlayerCardContent())
-  }
-}
-
-function closePlayerCard() {
-  document.getElementById('player-card').style.display = 'none'
-  playerCardState = null
-}
-
-function setPlayerFilter(f) {
-  if (!playerCardState || f === 'CS') return
-  playerCardState.activeFilter = f
-  renderPlayerCardContent()
-}
-
-function renderPlayerCardContent() {
-  if (!playerCardState) return
-  const { playerName, mktName, propLine, matchId, seasonId, lockedDirection, activeFilter } = playerCardState
-  const cache = filterCache[matchId]
-  if (!cache) return
-
-  const normPlayer = normName(playerName)
-  const allGames   = cache.normNameToGames?.[normPlayer] ?? []
-  const statKey    = mktToStatKey(mktName)
-  const N          = parseInt(activeFilter.slice(1))   // L3→3, L6→6 etc
-  const barsData   = allGames.slice(0, N).reverse()    // oldest → newest
-
-  const playerId      = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
-  const playerTeamUid = playerId ? window._playerTeamUidCache?.[playerId] : null
-  const sport         = SEASON_INFO[seasonId]?.sport ?? ''
-  const showMinutes   = sport === 'Soccer' || sport === 'Basketball' || sport === 'NBA'
-
-  const bars = barsData.map(g => {
-    const rawVal  = statKey ? (g.stats?.[statKey] ?? null) : null
-    const value   = rawVal != null ? Number(rawVal) : 0
-    const info    = cache.teamsInfoByMid?.[g.match_id]
-    const isHome  = (info && playerTeamUid != null) ? info.homeTeamUid === playerTeamUid : null
-    const oppUid  = info ? (isHome ? info.awayTeamUid : info.homeTeamUid) : null
-    const opp     = oppUid ? window._teamCache?.[oppUid] : null
-    const passes  = propLine != null
-      ? (lockedDirection === 'under' ? value < propLine : value > propLine)
-      : null
-    const minutes = showMinutes
-      ? (g.stats?.minutes ?? g.stats?.minutes_played ?? g.stats?.time_played ?? null)
-      : null
-    const dateStr = g.match_date
-      ? new Date(g.match_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'numeric', day: 'numeric' })
-      : '—'
-    return { value, oppAbbr: opp?.abbr ?? '?', isHome, dateStr, passes, minutes }
-  })
-
-  // Chart sizing — keep the line always visible in the chart area
-  const CHART_H  = 130
-  const allVals  = bars.map(b => b.value)
-  const maxVal   = Math.max(...allVals, propLine ?? 0, 0)
-  const maxChart = maxVal > 0 ? maxVal * 1.35 : 1
-  const linePct  = (propLine != null && maxChart > 0) ? (propLine / maxChart * 100) : null
-
-  const lineStr = propLine != null ? `${lockedDirection === 'under' ? '<' : '>'}${propLine}` : '—'
-  const dirCls  = lockedDirection === 'under' ? 'text-blue-400' : 'text-orange-400'
-
-  // Filter buttons (no pin circles, single-select, CS disabled)
-  const filterBtnsHtml = ['L3','L6','L9','L12','CS'].map(f => {
-    const isActive   = f === activeFilter
-    const isDisabled = f === 'CS'
-    if (isDisabled) return `<button disabled
-      class="flex-1 rounded-lg border text-[10px] font-mono py-1.5 bg-gray-900 border-gray-800 text-gray-700 cursor-not-allowed">${f}</button>`
-    return `<button onclick="setPlayerFilter('${f}')"
-      class="flex-1 rounded-lg border text-[10px] font-mono py-1.5 transition-colors outline-none focus:outline-none ${
-        isActive ? 'bg-indigo-600 border-indigo-500 text-white'
-                 : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500'
-      }">${f}</button>`
-  }).join('')
-
-  // Individual bar columns
-  const barsHtml = bars.length === 0
-    ? `<p class="text-xs text-gray-600 w-full text-center pt-8">No games in this window</p>`
-    : bars.map(b => {
-        const heightPx = maxChart > 0 ? Math.round((b.value / maxChart) * CHART_H) : 0
-        const barH     = b.value > 0 ? Math.max(heightPx, 3) : 0
-        const color    = b.passes === null ? 'bg-gray-600' : b.passes ? 'bg-green-500' : 'bg-red-500'
-        const dispVal  = b.value % 1 === 0 ? String(b.value) : b.value.toFixed(1)
-        const homeAway = b.isHome === null ? '' : b.isHome ? 'H' : 'A'
-        const haCls    = b.isHome === null ? 'text-gray-600' : b.isHome ? 'text-blue-400' : 'text-orange-400'
-        const valAbove = heightPx < 18  // put value above bar when bar is too short
-        const valCls   = b.passes === true ? 'text-green-400' : b.passes === false ? 'text-red-400' : 'text-gray-400'
-
-        // Bar + value label
-        let barInner
-        if (b.value === 0) {
-          barInner = `
-            <span class="absolute text-[10px] font-bold text-gray-600 leading-none text-center w-full" style="bottom:6px">0</span>
-            <div class="absolute bottom-0 left-0.5 right-0.5 bg-gray-800 rounded-t" style="height:3px"></div>`
-        } else if (valAbove) {
-          barInner = `
-            <span class="absolute text-[10px] font-bold ${valCls} leading-none text-center w-full" style="bottom:${barH + 3}px">${dispVal}</span>
-            <div class="${color} absolute bottom-0 left-0.5 right-0.5 rounded-t" style="height:${barH}px"></div>`
-        } else {
-          barInner = `
-            <div class="${color} absolute bottom-0 left-0.5 right-0.5 rounded-t flex items-center justify-center" style="height:${barH}px">
-              <span class="text-[10px] font-bold text-white leading-none">${dispVal}</span>
-            </div>`
-        }
-
-        return `
-          <div class="flex-1 flex flex-col items-center gap-0.5 min-w-0">
-            <span class="text-[10px] font-mono text-gray-300 leading-none truncate">${b.oppAbbr}</span>
-            <span class="text-[9px] ${haCls} leading-none">${homeAway}</span>
-            <div class="relative w-full mt-1" style="height:${CHART_H}px">
-              ${linePct != null ? `<div class="absolute left-0 right-0 border-t border-white/40 pointer-events-none" style="bottom:${linePct.toFixed(1)}%"></div>` : ''}
-              ${barInner}
-            </div>
-            <span class="text-[9px] text-gray-500 mt-0.5 leading-none">${b.dateStr}</span>
-            ${b.minutes != null ? `<span class="text-[9px] text-gray-600 leading-none">${b.minutes}m</span>` : ''}
-          </div>`
-      }).join('')
-
-  const noStatMsg = !statKey
-    ? `<p class="text-[11px] text-gray-600 text-center pt-8">No stat mapping for this market type</p>`
-    : ''
-
-  document.getElementById('player-card-inner').innerHTML = `
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-      <div class="min-w-0">
-        <p class="text-sm font-semibold text-white truncate">${abbrName(playerName)}</p>
-        <p class="text-xs text-gray-500 truncate">${mktName} · <span class="font-mono">${lineStr}</span> · <span class="${dirCls} font-mono">${lockedDirection}</span></p>
-      </div>
-      <button onclick="closePlayerCard()" class="w-7 h-7 ml-3 flex items-center justify-center text-gray-500 hover:text-white text-xl leading-none rounded-lg hover:bg-gray-800 transition-colors shrink-0">×</button>
-    </div>
-    <div class="flex gap-1.5 px-4 py-2.5 shrink-0 border-b border-gray-800/50">
-      ${filterBtnsHtml}
-    </div>
-    <div class="flex-1 overflow-hidden px-4 py-4">
-      ${noStatMsg || `<div class="flex gap-2 h-full">${barsHtml}</div>`}
-    </div>`
-}
 </script>
 </body>
 </html>
