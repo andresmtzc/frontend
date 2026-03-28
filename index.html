@@ -317,7 +317,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const isHeavy = hasFilter && filterHeavyLines && dirRow?.us_prc != null && dirRow.us_prc < -200
     // Filter if heavy line, OR no data, OR fails ANY window, OR edge is exactly 0
     const shouldFilter = hasFilter && (isHeavy || noData || (
-      imp !== null && validStats.some(s => (s.adjustedHitRate ?? s.hitRate) <= imp)
+      imp !== null && validStats.some(s => Math.round(((s.adjustedHitRate ?? s.hitRate) - imp) * 100) <= 0)
     ))
 
     // Grid of stats — each filter gets its own column: label / fraction / pct
@@ -1183,16 +1183,21 @@ function getExpCell(key) {
 }
 
 function reinstateExpansion() {
+  const toCollapse = []
   for (const [key, exp] of expansions) {
     exp.tr = null
     const { normMkt, matchId } = exp
     const td = document.querySelector(
       `[data-match-id="${matchId}"] tbody.mkt-tbody[data-mkt="${normMkt}"] [data-player-exp="${key}"]`)
     if (!td) continue
+    // Collapse if player's row is now filtered out
+    if (td.closest('tr')?.classList.contains('filtered-row')) { toCollapse.push(key); continue }
     insertExpansionRow(td, key)
     if (exp.games !== undefined) renderExpansionContent(key)
     else fetchExpansionData(key)
   }
+  toCollapse.forEach(key => collapseExpansion(key))
+  if (!expansions.size) updateGlobalFilterButtons()
 }
 
 function renderExpansionContent(key) {
@@ -1285,7 +1290,7 @@ function renderExpansionContent(key) {
 
   cell.innerHTML = !statKey
     ? '<p class="text-[11px] text-gray-600 py-2">No stat mapping for this market</p>'
-    : `<div class="flex gap-1.5 overflow-x-auto overflow-y-hidden">${barsHtml}</div>`
+    : `<div class="flex gap-1.5 overflow-hidden">${barsHtml}</div>`
 }
 </script>
 </body>
