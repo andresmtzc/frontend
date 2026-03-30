@@ -15,7 +15,6 @@
     .match-pill-inactive { background: transparent; color: #6b7280; border-color: #374151; }
     .match-pill-inactive:hover { border-color: #6366f1; color: #d1d5db; }
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    table:not(.has-filter) .edge-col  { display: none; }
     table:not(.has-filter) .stats-col { display: none; }
   </style>
 </head>
@@ -115,26 +114,6 @@ function updateOddsInPlace() {
   })
   document.querySelectorAll('[data-col-label]').forEach(th => {
     th.textContent = MODES[modeIdx].col
-  })
-  document.querySelectorAll('[data-hitrate]').forEach(td => {
-    const hr = td.dataset.hitrate, eu = td.dataset.edgeUs
-    if (hr === '' || eu === '') return
-    const imp   = impliedProb(Number(eu))
-    const rates = hr.split(',').map(Number)
-    if (rates.length > 1) {
-      const cols = rates.map(r => {
-        const p = Math.round((r - imp) * 100)
-        return `<div class="${p > 0 ? 'text-green-400' : 'text-red-400'}">${p > 0 ? '+' : ''}${p}%</div>`
-      })
-      td.innerHTML = `<div class="flex gap-2 justify-end leading-tight">${cols.join('')}</div>`
-      const first = Math.round((rates[0] - imp) * 100)
-      td.className = td.className.replace(/text-(white|gray|green|red)-\w+/, first > 0 ? 'text-green-400' : 'text-red-400')
-    } else {
-      const edge = rates[0] - imp
-      const pct  = Math.round(edge * 100)
-      td.textContent = `${pct > 0 ? '+' : ''}${pct}%`
-      td.className = td.className.replace(/text-(white|gray|green|red)-\w+/, edge > 0 ? 'text-green-400' : 'text-red-400')
-    }
   })
 }
 
@@ -276,7 +255,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const filterStats = hasFilter ? filterKeys.map(fk => {
       const isCS  = fk === 'CS'
       const N     = isCS ? Infinity : parseInt(fk.slice(1))
-      let hits = 0, total = 0, hitRate = null, adjustedHitRate = null
+      let hits = 0, total = 0, hitRate = null
       if (overRow && statKey && cache?.normNameToGames?.[normPlayer]) {
         const lineVal = parseLine(overRow.seln_name)
         const games   = cache.normNameToGames[normPlayer]
@@ -288,22 +267,8 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
           hits    = activeDirection === 'under' ? (total - ov) : ov
           hitRate = hits / total
         }
-        // For hits markets: per-game binomial probability using actual AB per game
-        if (statKey === 'hitting_hits' && total > 0) {
-          const totalHits = slice.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
-          const totalAB   = slice.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
-          if (totalAB > 0) {
-            const ba      = totalHits / totalAB
-            const perGame = slice.map(g => {
-              const ab = Number(g.stats?.hitting_at_bats ?? 0)
-              return ab > 0 ? 1 - Math.pow(1 - ba, ab) : 0
-            })
-            adjustedHitRate = perGame.reduce((s, p) => s + p, 0) / perGame.length
-            console.log('[adj] ba:', ba.toFixed(3), 'perGame:', perGame.map(p => p.toFixed(3)), 'adjusted:', adjustedHitRate.toFixed(3))
-          }
-        }
       }
-      return { fk, hits, total, hitRate, adjustedHitRate }
+      return { fk, hits, total, hitRate }
     }) : []
 
     const validStats = filterStats.filter(s => s.hitRate !== null)
@@ -315,10 +280,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     )
     // Heavy line filter — only applies when a stat filter is also active
     const isHeavy = hasFilter && filterHeavyLines && dirRow?.us_prc != null && dirRow.us_prc < -200
-    // Filter if heavy line, OR no data, OR fails ANY window, OR edge is exactly 0
-    const shouldFilter = hasFilter && (isHeavy || noData || (
-      imp !== null && validStats.some(s => Math.round(((s.adjustedHitRate ?? s.hitRate) - imp) * 100) <= 0)
-    ))
+    const shouldFilter = hasFilter && (isHeavy || noData)
 
     // Grid of stats — each filter gets its own column: label / fraction / pct
     let rateLinesHtml = ''
@@ -331,29 +293,6 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
         return `<div class="font-mono leading-tight">${frac}${pct}</div>`
       })
       rateLinesHtml = `<div class="flex gap-3 justify-center text-[9px] text-gray-400 mt-0.5">${cols.join('')}</div>`
-    }
-
-    // Edge — per window when multiple filters, single window otherwise
-    const edgeStat  = validStats[0] ?? null
-    const edgeRate  = edgeStat ? (edgeStat.adjustedHitRate ?? edgeStat.hitRate) : null
-    const edgePct   = (edgeRate != null && imp != null) ? Math.round((edgeRate - imp) * 100) : null
-
-    const multiEdge = hasFilter && filterStats.length > 1
-    let edgeStr, edgeCls, edgeHitrates
-    if (multiEdge) {
-      const cols = filterStats.map(s => {
-        const rate = s.adjustedHitRate ?? s.hitRate
-        if (rate == null || imp == null) return `<div class="text-gray-600">—</div>`
-        const p = Math.round((rate - imp) * 100)
-        return `<div class="${p > 0 ? 'text-green-400' : 'text-red-400'}">${p > 0 ? '+' : ''}${p}%</div>`
-      })
-      edgeStr      = `<div class="flex gap-2 justify-end leading-tight">${cols.join('')}</div>`
-      edgeHitrates = filterStats.map(s => s.adjustedHitRate ?? s.hitRate ?? '').join(',')
-      edgeCls      = edgePct != null ? (edgePct > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-700'
-    } else {
-      edgeStr      = edgePct != null ? `${edgePct > 0 ? '+' : ''}${edgePct}%` : (noData ? '?' : '—')
-      edgeCls      = edgePct != null ? (edgePct > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-700'
-      edgeHitrates = edgeRate ?? ''
     }
 
     // Show only active-direction row when stat filter + direction both active
@@ -381,16 +320,10 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const statsCell = i === 0
         ? `<td class="stats-col px-3 py-2 align-top text-center" rowspan="${rs}">${rateLinesHtml}</td>`
         : ''
-      const edgeCell = i === 0
-        ? `<td class="edge-col px-3 py-2 text-right font-mono font-semibold ${multiEdge ? 'text-[9px]' : 'text-xs'} ${edgeCls}"
-               rowspan="${rs}" data-hitrate="${edgeHitrates}" data-edge-us="${dirRow?.us_prc ?? ''}">${edgeStr}</td>`
-        : ''
-
       return `<tr class="${shouldFilter ? 'filtered-row' : ''} border-t border-gray-700/40 hover:bg-white/[0.02]"${shouldFilter ? ' style="display:none"' : ''}>
         ${playerCell}
         ${statsCell}
         <td class="px-3 py-2 text-gray-500 text-[11px]">${line}</td>
-        ${edgeCell}
         <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}" data-us="${r.us_prc ?? ''}">${val}</td>
       </tr>`
     }).join('')
@@ -404,12 +337,9 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
                   : playerTeamUid === awayUid ? 'away'
                   : 'unknown'
 
-    if (shouldFilter) failing.push({ trows, edgePct: edgePct ?? -Infinity, teamKey })
-    else              passing.push({ trows, edgePct: edgePct ?? -Infinity, teamKey })
+    if (shouldFilter) failing.push({ trows, teamKey })
+    else              passing.push({ trows, teamKey })
   }
-
-  passing.sort((a, b) => b.edgePct - a.edgePct)
-  failing.sort((a, b) => b.edgePct - a.edgePct)
 
   // Group passing by home/away team (always, not just when filtered)
   const byTeam = new Map()
@@ -417,7 +347,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     if (!byTeam.has(e.teamKey)) byTeam.set(e.teamKey, [])
     byTeam.get(e.teamKey).push(e)
   }
-  const groups = [...byTeam.entries()].sort(([, a], [, b]) => b[0].edgePct - a[0].edgePct)
+  const groups = [...byTeam.entries()]
 
   let html = ''
   for (const [key, entries] of groups) {
@@ -425,7 +355,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
     if (teamLabel) {
       html += `<tr class="border-t border-gray-700/30">
-        <td colspan="5" class="px-3 pt-2 pb-0.5 text-[9px] text-gray-600 font-mono uppercase tracking-widest">${teamLabel}</td>
+        <td colspan="4" class="px-3 pt-2 pb-0.5 text-[9px] text-gray-600 font-mono uppercase tracking-widest">${teamLabel}</td>
       </tr>`
     }
     html += entries.map(e => e.trows).join('')
@@ -447,7 +377,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
       if (teamLabel) {
         html += `<tr class="filtered-row border-t border-gray-700/20" style="display:none">
-          <td colspan="5" class="px-3 pt-2 pb-0.5 text-[9px] text-gray-600 font-mono uppercase tracking-widest">${teamLabel}</td>
+          <td colspan="4" class="px-3 pt-2 pb-0.5 text-[9px] text-gray-600 font-mono uppercase tracking-widest">${teamLabel}</td>
         </tr>`
       }
       html += entries.map(p => p.trows).join('')
@@ -512,6 +442,10 @@ function setDirection(dir) {
   activeDirection = activeDirection === dir ? null : dir   // toggle off if already active
   updateOUToggle()
   refreshMktTbodies([...activeFilters])
+  for (const [key, exp] of expansions) {
+    exp.lockedDirection = activeDirection || 'over'
+    renderExpansionContent(key)
+  }
 }
 
 const FILTER_LABELS = {
@@ -525,7 +459,7 @@ const FILTER_LABELS = {
 function filterBtnInner(f, active, pinned) {
   const [line1, line2] = FILTER_LABELS[f]
   const col = active ? 'text-white' : 'text-gray-400'
-  const showCircle = expansions.size === 0
+  const showCircle = true
   const circleCls = pinned
     ? 'bg-indigo-300 border-indigo-200'
     : active ? 'border-white/30' : 'border-gray-600/60'
@@ -625,7 +559,6 @@ async function selectFilter(f) {
 }
 
 async function pinFilter(f) {
-  if (expansions.size > 0) return   // circles disabled while any player is expanded
   if (activeFilters.has(f)) {
     // Already active → remove entirely
     activeFilters.delete(f)
@@ -775,9 +708,10 @@ async function fetchFilterStats(matchId, seasonId) {
 
 // ── Core ────────────────────────────────────────────────────────────────────
 
-let activeTab   = 'All'
-let activeMatch = null
-let allMatches  = []
+let activeTab      = 'All'
+let activeMatch    = null
+let allMatches     = []
+let pastExpanded   = false
 
 async function fetchAll(queryFn) {
   const PAGE = 1000
@@ -873,10 +807,10 @@ async function load() {
   filterCache = {}; filterLoading = {}
   window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null
 
-  // Eagerly load players for match teams so team grouping works without a filter
+  // Eagerly load all players so name resolution works for any match
   ;(async () => {
     const allPlayers = await fetchAll((from, to) =>
-      db.from('sr_players').select('id, name, team_uid').in('team_uid', teamUids).range(from, to)
+      db.from('sr_players').select('id, name, team_uid').range(from, to)
     )
     window._playerNameCache    = {}
     window._playerTeamUidCache = {}
@@ -903,12 +837,13 @@ async function load() {
 }
 
 function renderPills() {
-  const visible = (activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab))
-    .filter(e => !isMatchOld(e.match?.match_date))
-  const pillsEl = document.getElementById('match-pills')
-  const wrapper = document.getElementById('match-pills-wrapper')
+  const tabMatches = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  const visible    = tabMatches.filter(e => !isMatchOld(e.match?.match_date))
+  const past       = tabMatches.filter(e =>  isMatchOld(e.match?.match_date))
+  const pillsEl    = document.getElementById('match-pills')
+  const wrapper    = document.getElementById('match-pills-wrapper')
 
-  if (visible.length <= 1) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
+  if (visible.length <= 1 && past.length === 0) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
   wrapper.className = 'border-b border-gray-800'
 
   let lastLabel = null
@@ -927,6 +862,34 @@ function renderPills() {
         ${e.abbr}
       </button>`)
   }
+
+  if (past.length > 0) {
+    parts.push(`<span class="text-[10px] text-gray-600 shrink-0 ml-2">·</span>`)
+    parts.push(`
+      <button onclick="pastExpanded=!pastExpanded;renderPills()"
+        class="text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 font-mono
+               border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500">
+        ${pastExpanded ? '▾' : '▸'} Past (${past.length})
+      </button>`)
+    if (pastExpanded) {
+      let pastLabel = null
+      for (const e of past) {
+        const lbl = dateLabel(e.match?.match_date)
+        if (lbl !== pastLabel) {
+          parts.push(`<span class="text-[10px] text-gray-600 shrink-0 ml-2">${lbl}</span>`)
+          pastLabel = lbl
+        }
+        const active = activeMatch === e.matchId
+        parts.push(`
+          <button onclick="setMatch(${e.matchId})"
+            class="match-pill text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 font-mono opacity-60
+                   ${active ? 'match-pill-active' : 'match-pill-inactive'}">
+            ${e.abbr}
+          </button>`)
+      }
+    }
+  }
+
   pillsEl.innerHTML = parts.join('')
 }
 
@@ -983,7 +946,6 @@ function renderMatch(entry) {
                 <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Player</th>
                 <th class="stats-col text-center px-3 py-1.5 text-gray-600 font-normal font-mono">Hit</th>
                 <th class="text-left px-3 py-1.5 text-gray-600 font-normal">Line</th>
-                <th class="edge-col text-right px-3 py-1.5 text-gray-600 font-normal font-mono">Edge</th>
                 <th class="text-right px-3 py-1.5 text-gray-600 font-normal font-mono" data-col-label>${colLabel}</th>
               </tr>
             </thead>
@@ -1013,7 +975,7 @@ function renderMatch(entry) {
 function render() {
   renderGlobalFilterBar()
   let entries = (activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab))
-    .filter(e => !isMatchOld(e.match?.match_date))
+    .filter(e => !isMatchOld(e.match?.match_date) || e.matchId === activeMatch)
   if (activeMatch !== null) entries = entries.filter(e => e.matchId === activeMatch)
   if (!entries.length) {
     document.getElementById('content').innerHTML = '<p class="text-xs text-gray-600 mt-12 text-center">No published props for this sport.</p>'
@@ -1029,6 +991,10 @@ load()
 // Map: playerKey → { playerName, mktName, normMkt, propLine, matchId, seasonId, lockedDirection, tr }
 const expansions = new Map()
 
+// Cache: key → { games, playerTeamUid } — persists across collapse/re-expand
+const expansionCache = new Map()
+
+
 function togglePlayerExpansion(td, playerName, mktName, normMkt, propLine, matchId, seasonId) {
   const decode = s => s.replace(/&#39;/g, "'")
   playerName = decode(playerName)
@@ -1042,33 +1008,31 @@ function togglePlayerExpansion(td, playerName, mktName, normMkt, propLine, match
     return
   }
 
-  const wasFirst = expansions.size === 0
-
-  // On first expansion: if multiple filters active, reduce to the single transient (or largest)
-  if (wasFirst && (pinnedFilters.size > 0 || activeFilters.size > 1)) {
-    const transient = [...activeFilters].find(f => !pinnedFilters.has(f))
-    const chosen    = transient ?? sortFilterKeys([...activeFilters]).at(-1)
-    pinnedFilters   = new Set()
-    activeFilters   = chosen ? new Set([chosen]) : new Set()
-    refreshMktTbodies([...activeFilters])
+  if (expansions.size === 0) {
     updateGlobalFilterButtons()
-    // td is stale after tbody re-render — re-find it
-    const freshTd = document
-      .querySelector(`[data-match-id="${matchId}"] tbody.mkt-tbody[data-mkt="${normMkt}"] [data-player-exp="${key}"]`)
-    if (freshTd) td = freshTd
-  } else if (wasFirst) {
-    updateGlobalFilterButtons()   // hide circles on first expansion
   }
 
-  expansions.set(key, { playerName, mktName, normMkt, propLine, matchId, seasonId, lockedDirection: activeDirection || 'over', tr: null })
+  const openedWhileFiltered = td.closest('tr')?.classList.contains('filtered-row') ?? false
+  expansions.set(key, { playerName, mktName, normMkt, propLine, matchId, seasonId, lockedDirection: activeDirection || 'over', tr: null, openedWhileFiltered })
 
   insertExpansionRow(td, key)
   fetchExpansionData(key)
 }
 
-async function fetchExpansionData(key) {
+async function fetchExpansionData(key, prefetchOnly = false) {
   const exp = expansions.get(key)
   if (!exp) return
+
+  const realKey = key.replace(/^__prefetch__/, '')
+
+  // Use cache if available
+  if (expansionCache.has(realKey)) {
+    const cached = expansionCache.get(realKey)
+    exp.games = cached.games
+    exp.playerTeamUid = cached.playerTeamUid
+    if (!prefetchOnly) renderExpansionContent(key)
+    return
+  }
 
   const cell = getExpCell(key)
   if (cell) cell.innerHTML = '<p class="text-xs text-gray-500">Loading…</p>'
@@ -1110,23 +1074,25 @@ async function fetchExpansionData(key) {
 
   if (!matchLinks?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
-    renderExpansionContent(key); return
+    expansionCache.set(realKey, { games: [], playerTeamUid })
+    if (!prefetchOnly) renderExpansionContent(key); return
   }
 
   const allMatchIds = matchLinks.map(r => r.match_id)
 
-  // Stage 2: filter those to completed matches before the prop date, take 12 most recent
+  // Stage 2: filter those to completed matches up to and including the prop date, take 12 most recent
   const { data: matchRows } = await db.from('sr_matches')
     .select('id, match_date, home_team_uid, away_team_uid, season_id')
     .in('id', allMatchIds)
     .not('home_score', 'is', null)
-    .lt('match_date', propMatchDate)
+    .lte('match_date', propMatchDate)
     .order('match_date', { ascending: false })
     .limit(12)
 
   if (!matchRows?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
-    renderExpansionContent(key); return
+    expansionCache.set(realKey, { games: [], playerTeamUid })
+    if (!prefetchOnly) renderExpansionContent(key); return
   }
 
   // Stage 3: fetch actual JSONB stats for those 12 matches
@@ -1153,11 +1119,13 @@ async function fetchExpansionData(key) {
     season_id:   m.season_id,
     homeTeamUid: m.home_team_uid,
     awayTeamUid: m.away_team_uid,
-    stats:       statsByMid[m.id] ?? null
+    stats:       statsByMid[m.id] ?? null,
+    isPropGame:  m.id === matchId
   }))
   exp.playerTeamUid = playerTeamUid
 
-  renderExpansionContent(key)
+  expansionCache.set(realKey, { games: exp.games, playerTeamUid })
+  if (!prefetchOnly) renderExpansionContent(key)
 }
 
 function insertExpansionRow(td, key) {
@@ -1190,8 +1158,9 @@ function reinstateExpansion() {
     const td = document.querySelector(
       `[data-match-id="${matchId}"] tbody.mkt-tbody[data-mkt="${normMkt}"] [data-player-exp="${key}"]`)
     if (!td) continue
-    // Collapse if player's row is now filtered out
-    if (td.closest('tr')?.classList.contains('filtered-row')) { toCollapse.push(key); continue }
+    // Collapse if filtered state changed in either direction
+    const nowFiltered = td.closest('tr')?.classList.contains('filtered-row') ?? false
+    if (nowFiltered || exp.openedWhileFiltered) { toCollapse.push(key); continue }
     insertExpansionRow(td, key)
     if (exp.games !== undefined) renderExpansionContent(key)
     else fetchExpansionData(key)
@@ -1217,8 +1186,7 @@ function renderExpansionContent(key) {
     return
   }
 
-  const transient   = [...activeFilters].find(f => !pinnedFilters.has(f))
-  const filterKey   = transient ?? sortFilterKeys([...activeFilters]).at(-1)
+  const filterKey   = sortFilterKeys([...activeFilters]).at(-1)
   const isCS        = filterKey === 'CS'
   const N           = isCS ? Infinity : parseInt(filterKey.slice(1))
 
@@ -1249,12 +1217,13 @@ function renderExpansionContent(key) {
         const isHome   = playerTeamUid != null ? g.homeTeamUid === playerTeamUid : null
         const oppUid   = isHome !== null ? (isHome ? g.awayTeamUid : g.homeTeamUid) : null
         const opp      = oppUid ? window._teamCache?.[oppUid] : null
+        const isProp   = g.isPropGame === true
         const passes   = propLine != null ? (lockedDirection === 'under' ? value < propLine : value > propLine) : null
         const minutes  = showMinutes ? (g.stats?.minutes ?? g.stats?.minutes_played ?? g.stats?.time_played ?? null) : null
         const dateStr  = g.match_date ? new Date(g.match_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'numeric', day: 'numeric' }) : '—'
         const heightPx = maxChart > 0 ? Math.round((value / maxChart) * CHART_H) : 0
         const barH     = value > 0 ? Math.max(heightPx, 3) : 0
-        const color    = passes === null ? 'bg-gray-600' : passes ? 'bg-green-500' : 'bg-red-500'
+        const color    = isProp ? 'bg-yellow-400' : passes === null ? 'bg-gray-600' : passes ? 'bg-green-500' : 'bg-red-500'
         const dispVal  = value % 1 === 0 ? String(value) : value.toFixed(1)
         const homeAway = isHome === null ? '' : isHome ? 'Home' : 'Away'
         const haCls    = isHome === null ? 'text-gray-600' : isHome ? 'text-blue-400' : 'text-orange-400'
@@ -1275,15 +1244,20 @@ function renderExpansionContent(key) {
                       </div>`
         }
 
+        const hitMissLabel = isProp && passes !== null
+          ? `<span class="text-[9px] font-bold leading-none ${passes ? 'text-green-400' : 'text-red-400'}">${passes ? 'HIT' : 'MISS'}</span>`
+          : `<span class="text-[9px] leading-none opacity-0">·</span>`
+
         return `<div class="flex-1 min-w-0 flex flex-col items-center gap-0.5">
           <span class="text-[10px] font-mono text-gray-300 leading-none truncate w-full text-center">${opp?.abbr ?? '?'}</span>
           <span class="text-[9px] ${haCls} leading-none">${homeAway}</span>
+          ${hitMissLabel}
           <div class="relative w-full mt-1" style="height:${CHART_H}px">
             ${ab != null && ab > 0 ? `<div class="absolute bottom-0 left-0 right-0 rounded-t bg-sky-500/20 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px"><span class="text-[9px] text-sky-400 font-mono leading-none">${ab}</span></div>` : ''}
             ${barInner}
             ${linePct != null ? `<div class="absolute border-t border-white/70 pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10"></div>` : ''}
           </div>
-          <span class="text-[9px] text-gray-500 mt-0.5 leading-none">${dateStr}</span>
+          <span class="text-[9px] ${isProp ? 'text-white/60' : 'text-gray-500'} mt-0.5 leading-none">${dateStr}</span>
           ${minutes != null ? `<span class="text-[9px] text-gray-600 leading-none">${minutes}m</span>` : ''}
         </div>`
       }).join('')
