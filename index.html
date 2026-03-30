@@ -108,9 +108,10 @@ function cycleMode() {
 
 function updateOddsInPlace() {
   document.querySelectorAll('[data-us]').forEach(td => {
-    const us = td.dataset.us === '' ? null : Number(td.dataset.us)
-    td.textContent = fmtOdds(us)
-    td.className = td.className.replace(/text-(white|gray|green|red)-\w+/, oddsClass(us))
+    const us      = td.dataset.us      === '' ? null : Number(td.dataset.us)
+    const otherUs = td.dataset.otherUs === '' ? null : (td.dataset.otherUs != null ? Number(td.dataset.otherUs) : null)
+    td.innerHTML  = fmtOdds(us, otherUs)
+    td.className  = td.className.replace(/text-(white|gray|green|red)-\w+/, oddsClass(us))
   })
   document.querySelectorAll('[data-col-label]').forEach(th => {
     th.textContent = MODES[modeIdx].col
@@ -121,12 +122,20 @@ function betAmt() {
   return Math.max(1, Number(document.getElementById('bet-amt').value) || 100)
 }
 
-function fmtOdds(us) {
+function fmtOdds(us, otherUs) {
   if (us == null) return '—'
   const mode = MODES[modeIdx].id
   if (mode === 'US')  return us > 0 ? `+${us}` : String(us)
   if (mode === 'Dec') { const dec = us > 0 ? us/100+1 : 100/Math.abs(us)+1; return `${dec.toFixed(2)}×` }
-  if (mode === 'Pct') { const imp = us > 0 ? 100/(us+100)*100 : Math.abs(us)/(Math.abs(us)+100)*100; return `${imp.toFixed(1)}%` }
+  if (mode === 'Pct') {
+    const imp = us > 0 ? 100/(us+100)*100 : Math.abs(us)/(Math.abs(us)+100)*100
+    if (otherUs != null) {
+      const otherImp = otherUs > 0 ? 100/(otherUs+100)*100 : Math.abs(otherUs)/(Math.abs(otherUs)+100)*100
+      const trueProb = imp / (imp + otherImp) * 100
+      return `${imp.toFixed(1)}% <span class="text-gray-500 text-[10px]">(${trueProb.toFixed(1)}%)</span>`
+    }
+    return `${imp.toFixed(1)}%`
+  }
   if (mode === '$')   { const p = us > 0 ? betAmt()*us/100 : betAmt()*100/Math.abs(us); return `$${p.toFixed(0)}` }
 }
 
@@ -255,7 +264,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const filterStats = hasFilter ? filterKeys.map(fk => {
       const isCS  = fk === 'CS'
       const N     = isCS ? Infinity : parseInt(fk.slice(1))
-      let hits = 0, total = 0, hitRate = null
+      let hits = 0, total = 0, hitRate = null, ba = null
       if (overRow && statKey && cache?.normNameToGames?.[normPlayer]) {
         const lineVal = parseLine(overRow.seln_name)
         const games   = cache.normNameToGames[normPlayer]
@@ -267,11 +276,23 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
           hits    = activeDirection === 'under' ? (total - ov) : ov
           hitRate = hits / total
         }
+        if (statKey === 'hitting_hits' && total > 0) {
+          const tH  = slice.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
+          const tAB = slice.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+          if (tAB > 0) ba = tH / tAB
+        }
       }
-      return { fk, hits, total, hitRate }
+      return { fk, hits, total, hitRate, ba }
     }) : []
 
     const validStats = filterStats.filter(s => s.hitRate !== null)
+
+    // Career BA — from full DB history via _careerBACache
+    let careerBA = null
+    if (statKey === 'hitting_hits' && window._careerBACache) {
+      const pid = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
+      if (pid != null) careerBA = window._careerBACache[pid] ?? null
+    }
 
     const imp    = dirRow ? impliedProb(dirRow.us_prc) : null
     // noData: not in cache at all, OR in cache but zero games in every selected window
@@ -290,7 +311,8 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const cols = filterStats.map(s => {
         const frac  = s.total > 0 ? `<div>${s.hits}/${s.total}</div>` : `<div class="text-gray-700">—</div>`
         const pct   = s.total > 0 ? `<div class="text-gray-500">${Math.round(s.hitRate * 100)}%</div>` : ''
-        return `<div class="font-mono leading-tight">${frac}${pct}</div>`
+        const ba    = s.ba    != null ? `<div class="text-sky-400/70">.${Math.round(s.ba * 1000).toString().padStart(3,'0')}</div>` : ''
+        return `<div class="font-mono leading-tight">${frac}${pct}${ba}</div>`
       })
       rateLinesHtml = `<div class="flex gap-3 justify-center text-[9px] text-gray-400 mt-0.5">${cols.join('')}</div>`
     }
@@ -302,9 +324,10 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const displayRows = visibleRows.length ? visibleRows : prows
 
     const trows = displayRows.map((r, i) => {
-      const line = getLine(r.seln_name, r.seln_hcap)
-      const val  = fmtOdds(r.us_prc)
-      const cls  = oddsClass(r.us_prc)
+      const line     = getLine(r.seln_name, r.seln_hcap)
+      const otherRow = isOver(r.seln_name) ? underRow : overRow
+      const val      = fmtOdds(r.us_prc, otherRow?.us_prc)
+      const cls      = oddsClass(r.us_prc)
       const rs   = displayRows.length
 
       const clickLine   = overRow ? parseLine(overRow.seln_name) : null
@@ -312,10 +335,13 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const safeMkt     = (mktName    || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")
       const normPlayer  = normName(playerName)
       const safeMktNorm = normName(mktName).replace(/'/g,"\\'")
+      const careerStr = careerBA != null
+        ? ` <span class="text-[9px] text-gray-500 font-mono">.${Math.round(careerBA * 1000).toString().padStart(3,'0')}</span>`
+        : ''
       const playerCell = i === 0
         ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors select-none" rowspan="${rs}"
              data-player-exp="${normPlayer}_${entry?.matchId ?? 0}"
-             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${abbrName(playerName)}</td>`
+             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${abbrName(playerName)}${careerStr}</td>`
         : ''
       const statsCell = i === 0
         ? `<td class="stats-col px-3 py-2 align-top text-center" rowspan="${rs}">${rateLinesHtml}</td>`
@@ -324,7 +350,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
         ${playerCell}
         ${statsCell}
         <td class="px-3 py-2 text-gray-500 text-[11px]">${line}</td>
-        <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}" data-us="${r.us_prc ?? ''}">${val}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold text-sm ${cls}" data-us="${r.us_prc ?? ''}" data-other-us="${otherRow?.us_prc ?? ''}">${val}</td>
       </tr>`
     }).join('')
 
@@ -678,6 +704,31 @@ async function fetchFilterStats(matchId, seasonId) {
   }
   if (!neededMatchIds.size) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid }; return }
 
+  // Career BA fetch — all games for these players, just hits + AB (no JSONB overhead)
+  if (!window._careerBACache) window._careerBACache = {}
+  const missingCareer = playerIds.filter(id => !window._careerBACache[id])
+  if (missingCareer.length) {
+    const careerRows = await fetchAll((from, to) =>
+      db.from('sr_player_match_stats')
+        .select('player_id, stats->hitting_hits, stats->hitting_at_bats')
+        .in('player_id', missingCareer)
+        .range(from, to)
+    )
+    const totals = {}
+    for (const r of careerRows) {
+      const pid = r.player_id
+      const h   = Number(r.hitting_hits   ?? 0)
+      const ab  = Number(r.hitting_at_bats ?? 0)
+      if (!totals[pid]) totals[pid] = { h: 0, ab: 0 }
+      totals[pid].h  += h
+      totals[pid].ab += ab
+    }
+    for (const pid of missingCareer) {
+      const t = totals[pid]
+      window._careerBACache[pid] = (t && t.ab > 0) ? t.h / t.ab : null
+    }
+  }
+
   // Stage 3: fetch stats JSONB only for the (player_id × match_id) pairs we need
   const { data: stats } = await db.from('sr_player_match_stats')
     .select('player_id, match_id, stats')
@@ -805,7 +856,7 @@ async function load() {
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
 
   filterCache = {}; filterLoading = {}
-  window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null
+  window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null; window._careerBACache = null
 
   // Eagerly load all players so name resolution works for any match
   ;(async () => {
@@ -905,7 +956,7 @@ function setTab(tab) {
 
 function setMatch(matchId) {
   activeMatch = activeMatch === matchId ? null : matchId
-  renderPills(); render()
+  renderPills(); render(); applyFilters()
 }
 
 function getLine(seln_name, seln_hcap) {
