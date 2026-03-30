@@ -397,7 +397,7 @@ function toggleFilteredRows(el) {
 }
 
 // ── Filter state ────────────────────────────────────────────────────────────
-let activeFilters    = new Set()         // all currently active filter keys
+let activeFilters    = new Set(['L12'])   // all currently active filter keys — default L12
 let pinnedFilters    = new Set()         // subset locked via corner circle (stay on main-click)
 let activeDirection  = 'over'            // null | 'over' | 'under'
 let filterHeavyLines = false             // hide lines worse than -200
@@ -819,7 +819,7 @@ async function load() {
       window._playerNameCache[normName(p.name)] = p.id
       window._playerTeamUidCache[p.id]          = p.team_uid
     }
-    refreshMktTbodies([...activeFilters])
+    applyFilters()
   })()
 
   const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
