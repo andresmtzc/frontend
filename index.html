@@ -214,6 +214,25 @@ function impliedProb(us) {
   return us < 0 ? Math.abs(us) / (Math.abs(us) + 100) : 100 / (us + 100)
 }
 
+function binomialProb(ba, avgAB, line) {
+  if (ba == null || avgAB == null || avgAB <= 0) return null
+  const n = Math.round(avgAB)
+  const k = Math.floor(line) // 0 for 0.5 line, 1 for 1.5, etc
+  let pUnder = 0
+  for (let i = 0; i <= k; i++) {
+    let comb = 1
+    for (let j = 0; j < i; j++) comb = comb * (n - j) / (j + 1)
+    pUnder += comb * Math.pow(ba, i) * Math.pow(1 - ba, n - i)
+  }
+  return Math.max(0, Math.min(1, 1 - pUnder))
+}
+
+function trueImplied(overUs, underUs) {
+  if (overUs == null || underUs == null) return null
+  const io = impliedProb(overUs), iu = impliedProb(underUs)
+  return io / (io + iu)
+}
+
 function parseLine(selnName) {
   const m = (selnName || '').match(/(\d+\.?\d*)\s*$/)
   return m ? parseFloat(m[1]) : null
@@ -264,7 +283,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const filterStats = hasFilter ? filterKeys.map(fk => {
       const isCS  = fk === 'CS'
       const N     = isCS ? Infinity : parseInt(fk.slice(1))
-      let hits = 0, total = 0, hitRate = null, ba = null
+      let hits = 0, total = 0, hitRate = null, ba = null, avgAB = null
       if (overRow && statKey && cache?.normNameToGames?.[normPlayer]) {
         const lineVal = parseLine(overRow.seln_name)
         const games   = cache.normNameToGames[normPlayer]
@@ -279,10 +298,10 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
         if (statKey === 'hitting_hits' && total > 0) {
           const tH  = slice.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
           const tAB = slice.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
-          if (tAB > 0) ba = tH / tAB
+          if (tAB > 0) { ba = tH / tAB; avgAB = tAB / slice.length }
         }
       }
-      return { fk, hits, total, hitRate, ba }
+      return { fk, hits, total, hitRate, ba, avgAB }
     }) : []
 
     const validStats = filterStats.filter(s => s.hitRate !== null)
@@ -303,16 +322,31 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const isHeavy = hasFilter && filterHeavyLines && dirRow?.us_prc != null && dirRow.us_prc < -200
     const shouldFilter = hasFilter && (isHeavy || noData)
 
+    // Binomial edge per filter window (hits markets only)
+    const propLine    = overRow ? parseLine(overRow.seln_name) : null
+    const trueOvProb  = (overRow && underRow) ? trueImplied(overRow.us_prc, underRow.us_prc) : null
+    const binomEdges  = statKey === 'hitting_hits' && trueOvProb != null && propLine != null
+      ? filterStats.map(s => {
+          if (s.ba == null || s.avgAB == null) return null
+          const p    = binomialProb(s.ba, s.avgAB, propLine)
+          if (p == null) return null
+          const prob = activeDirection === 'under' ? (1 - p) : p
+          const ref  = activeDirection === 'under' ? (1 - trueOvProb) : trueOvProb
+          return Math.round((prob - ref) * 100)
+        })
+      : filterStats.map(() => null)
+
     // Grid of stats — each filter gets its own column: label / fraction / pct
     let rateLinesHtml = ''
     if (hasFilter && noData) {
       rateLinesHtml = `<div class="text-[9px] text-gray-600 font-mono mt-0.5">?</div>`
     } else if (hasFilter && filterStats.length) {
-      const cols = filterStats.map(s => {
+      const cols = filterStats.map((s, idx) => {
         const frac  = s.total > 0 ? `<div>${s.hits}/${s.total}</div>` : `<div class="text-gray-700">—</div>`
         const pct   = s.total > 0 ? `<div class="text-gray-500">${Math.round(s.hitRate * 100)}%</div>` : ''
         const ba    = s.ba    != null ? `<div class="text-sky-400/70">.${Math.round(s.ba * 1000).toString().padStart(3,'0')}</div>` : ''
-        return `<div class="font-mono leading-tight">${frac}${pct}${ba}</div>`
+        const edge  = binomEdges[idx] != null ? `<div class="${binomEdges[idx] > 0 ? 'text-emerald-400' : 'text-red-400'} font-bold">${binomEdges[idx] > 0 ? '+' : ''}${binomEdges[idx]}%</div>` : ''
+        return `<div class="font-mono leading-tight">${frac}${pct}${ba}${edge}</div>`
       })
       rateLinesHtml = `<div class="flex gap-3 justify-center text-[9px] text-gray-400 mt-0.5">${cols.join('')}</div>`
     }
@@ -335,8 +369,23 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const safeMkt     = (mktName    || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")
       const normPlayer  = normName(playerName)
       const safeMktNorm = normName(mktName).replace(/'/g,"\\'")
-      const careerStr = careerBA != null
-        ? ` <span class="text-[9px] text-gray-500 font-mono">.${Math.round(careerBA * 1000).toString().padStart(3,'0')}</span>`
+      // Pick avgAB from L6 window, or smallest active window
+      const l6Stat    = filterStats.find(s => s.fk === 'L6') ?? filterStats.find(s => s.fk !== 'CS') ?? filterStats[0]
+      const dispAvgAB = l6Stat?.avgAB ?? null
+      // Inline binomial edge from career BA vs vig-stripped implied
+      let dbEdgeStr = ''
+      if (careerBA != null && dispAvgAB != null && propLine != null && trueOvProb != null) {
+        const p    = binomialProb(careerBA, dispAvgAB, propLine)
+        if (p != null) {
+          const prob = activeDirection === 'under' ? (1 - p) : p
+          const ref  = activeDirection === 'under' ? (1 - trueOvProb) : trueOvProb
+          const edgePct = Math.round((prob - ref) * 100)
+          const col  = edgePct > 0 ? 'text-emerald-400' : 'text-red-400'
+          dbEdgeStr  = ` <span class="${col} font-mono text-[9px]">${edgePct > 0 ? '+' : ''}${edgePct}%</span>`
+        }
+      }
+      const careerStr = (careerBA != null || dispAvgAB != null)
+        ? ` <span class="text-[9px] text-gray-500 font-mono">${careerBA != null ? '.' + Math.round(careerBA * 1000).toString().padStart(3,'0') : ''}${dispAvgAB != null ? ' ' + dispAvgAB.toFixed(1) + 'ab' : ''}</span>${dbEdgeStr}`
         : ''
       const playerCell = i === 0
         ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors select-none" rowspan="${rs}"
@@ -426,7 +475,6 @@ function toggleFilteredRows(el) {
 let activeFilters    = new Set(['L12'])   // all currently active filter keys — default L12
 let pinnedFilters    = new Set()         // subset locked via corner circle (stay on main-click)
 let activeDirection  = 'over'            // null | 'over' | 'under'
-let filterHeavyLines = false             // hide lines worse than -200
 let filterCache      = {}
 let filterLoading    = {}
 
@@ -437,6 +485,8 @@ function filterBtnClass(isActive) {
       : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500'
   }`
 }
+
+let filterHeavyLines = false             // hide lines worse than -200
 
 function toggleHeavyLine() {
   filterHeavyLines = !filterHeavyLines
