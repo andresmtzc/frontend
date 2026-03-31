@@ -741,6 +741,7 @@ async function fetchFilterStats(matchId, seasonId) {
     db.from('sr_player_match_stats')
       .select('player_id, match_id, season_id')
       .in('player_id', playerIds)
+      .order('player_id').order('match_id')
       .range(from, to)
   )
   if (!playerMatchLinks.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
@@ -754,6 +755,7 @@ async function fetchFilterStats(matchId, seasonId) {
       .in('id', allMatchIds)
       .not('home_score', 'is', null)
       .lt('match_date', matchDate)
+      .order('id')
       .range(from, to)
   )
   if (!matchDateRows.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
@@ -832,6 +834,7 @@ async function fetchFilterStats(matchId, seasonId) {
       .select('player_id, match_id, stats, team_uid')
       .in('player_id', playerIds)
       .in('match_id', [...neededMatchIds])
+      .order('player_id').order('match_id')
       .range(from, to)
   )
 
