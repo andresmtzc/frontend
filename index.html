@@ -992,7 +992,8 @@ async function load() {
 function renderPills() {
   const tabMatches = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
   const visible    = tabMatches.filter(e => !isMatchOld(e.match?.match_date))
-  const past       = tabMatches.filter(e =>  isMatchOld(e.match?.match_date))
+  const _cutoffBase = new Date(); _cutoffBase.setDate(_cutoffBase.getDate() - 2); _cutoffBase.setHours(0, 0, 0, 0)
+  const past       = tabMatches.filter(e => isMatchOld(e.match?.match_date) && e.match?.match_date && new Date(e.match.match_date) >= _cutoffBase)
   const pillsEl    = document.getElementById('match-pills')
   const wrapper    = document.getElementById('match-pills-wrapper')
 
@@ -1022,7 +1023,7 @@ function renderPills() {
       <button onclick="pastExpanded=!pastExpanded;renderPills()"
         class="text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 font-mono
                border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500">
-        ${pastExpanded ? '▾' : '▸'} Past (${past.length})
+        ${pastExpanded ? '▾' : '▸'} Past 48h (${past.length})
       </button>`)
     if (pastExpanded) {
       let pastLabel = null
