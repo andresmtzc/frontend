@@ -307,10 +307,14 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const validStats = filterStats.filter(s => s.hitRate !== null)
 
     // Career BA — from full DB history via _careerBACache
-    let careerBA = null
+    let careerBA = null, careerAvgAB = null
     if (statKey === 'hitting_hits' && window._careerBACache) {
       const pid = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
-      if (pid != null) careerBA = window._careerBACache[pid] ?? null
+      if (pid != null) {
+        const entry = window._careerBACache[pid]
+        careerBA    = entry?.ba    ?? null
+        careerAvgAB = entry?.avgAB ?? null
+      }
     }
 
     const imp    = dirRow ? impliedProb(dirRow.us_prc) : null
@@ -345,8 +349,9 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
         const frac  = s.total > 0 ? `<div>${s.hits}/${s.total}</div>` : `<div class="text-gray-700">—</div>`
         const pct   = s.total > 0 ? `<div class="text-gray-500">${Math.round(s.hitRate * 100)}%</div>` : ''
         const ba    = s.ba    != null ? `<div class="text-sky-400/70">.${Math.round(s.ba * 1000).toString().padStart(3,'0')}</div>` : ''
+        const abStr = s.avgAB != null ? `<div class="text-gray-600">${s.avgAB.toFixed(1)}ab</div>` : ''
         const edge  = binomEdges[idx] != null ? `<div class="${binomEdges[idx] > 0 ? 'text-emerald-400' : 'text-red-400'} font-bold">${binomEdges[idx] > 0 ? '+' : ''}${binomEdges[idx]}%</div>` : ''
-        return `<div class="font-mono leading-tight">${frac}${pct}${ba}${edge}</div>`
+        return `<div class="font-mono leading-tight">${frac}${pct}${ba}${abStr}${edge}</div>`
       })
       rateLinesHtml = `<div class="flex gap-3 justify-center text-[9px] text-gray-400 mt-0.5">${cols.join('')}</div>`
     }
@@ -356,6 +361,22 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       ? prows.filter(r => activeDirection === 'over' ? isOver(r.seln_name) : !isOver(r.seln_name))
       : prows
     const displayRows = visibleRows.length ? visibleRows : prows
+
+    // Inline binomial edge from career BA vs vig-stripped implied (player-level, stable across filter changes)
+    let dbInlineEdge = null, dbEdgeStr = ''
+    if (careerBA != null && careerAvgAB != null && propLine != null && trueOvProb != null) {
+      const p = binomialProb(careerBA, careerAvgAB, propLine)
+      if (p != null) {
+        const prob = activeDirection === 'under' ? (1 - p) : p
+        const ref  = activeDirection === 'under' ? (1 - trueOvProb) : trueOvProb
+        dbInlineEdge = Math.round((prob - ref) * 100)
+        const col = dbInlineEdge > 0 ? 'text-emerald-400' : 'text-red-400'
+        dbEdgeStr = ` <span class="${col} font-mono text-[9px]">${dbInlineEdge > 0 ? '+' : ''}${dbInlineEdge}%</span>`
+      }
+    }
+    const careerStr = careerBA != null
+      ? ` <span class="text-[9px] text-gray-500 font-mono">.${Math.round(careerBA * 1000).toString().padStart(3,'0')}</span>${dbEdgeStr}`
+      : ''
 
     const trows = displayRows.map((r, i) => {
       const line     = getLine(r.seln_name, r.seln_hcap)
@@ -369,24 +390,6 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const safeMkt     = (mktName    || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")
       const normPlayer  = normName(playerName)
       const safeMktNorm = normName(mktName).replace(/'/g,"\\'")
-      // Pick avgAB from L6 window, or smallest active window
-      const l6Stat    = filterStats.find(s => s.fk === 'L6') ?? filterStats.find(s => s.fk !== 'CS') ?? filterStats[0]
-      const dispAvgAB = l6Stat?.avgAB ?? null
-      // Inline binomial edge from career BA vs vig-stripped implied
-      let dbEdgeStr = ''
-      if (careerBA != null && dispAvgAB != null && propLine != null && trueOvProb != null) {
-        const p    = binomialProb(careerBA, dispAvgAB, propLine)
-        if (p != null) {
-          const prob = activeDirection === 'under' ? (1 - p) : p
-          const ref  = activeDirection === 'under' ? (1 - trueOvProb) : trueOvProb
-          const edgePct = Math.round((prob - ref) * 100)
-          const col  = edgePct > 0 ? 'text-emerald-400' : 'text-red-400'
-          dbEdgeStr  = ` <span class="${col} font-mono text-[9px]">${edgePct > 0 ? '+' : ''}${edgePct}%</span>`
-        }
-      }
-      const careerStr = (careerBA != null || dispAvgAB != null)
-        ? ` <span class="text-[9px] text-gray-500 font-mono">${careerBA != null ? '.' + Math.round(careerBA * 1000).toString().padStart(3,'0') : ''}${dispAvgAB != null ? ' ' + dispAvgAB.toFixed(1) + 'ab' : ''}</span>${dbEdgeStr}`
-        : ''
       const playerCell = i === 0
         ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors select-none" rowspan="${rs}"
              data-player-exp="${normPlayer}_${entry?.matchId ?? 0}"
@@ -412,9 +415,17 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
                   : playerTeamUid === awayUid ? 'away'
                   : 'unknown'
 
-    if (shouldFilter) failing.push({ trows, teamKey })
-    else              passing.push({ trows, teamKey })
+    if (shouldFilter) failing.push({ trows, teamKey, edge: null })
+    else              passing.push({ trows, teamKey, edge: dbInlineEdge })
   }
+
+  // Sort passing by inline edge descending (highest positive first), nulls last
+  passing.sort((a, b) => {
+    if (a.edge == null && b.edge == null) return 0
+    if (a.edge == null) return 1
+    if (b.edge == null) return -1
+    return b.edge - a.edge
+  })
 
   // Group passing by home/away team (always, not just when filtered)
   const byTeam = new Map()
@@ -769,13 +780,15 @@ async function fetchFilterStats(matchId, seasonId) {
       const pid = r.player_id
       const h   = Number(r.hitting_hits   ?? 0)
       const ab  = Number(r.hitting_at_bats ?? 0)
-      if (!totals[pid]) totals[pid] = { h: 0, ab: 0 }
-      totals[pid].h  += h
-      totals[pid].ab += ab
+      if (ab === 0) continue
+      if (!totals[pid]) totals[pid] = { h: 0, ab: 0, games: 0 }
+      totals[pid].h     += h
+      totals[pid].ab    += ab
+      totals[pid].games += 1
     }
     for (const pid of missingCareer) {
       const t = totals[pid]
-      window._careerBACache[pid] = (t && t.ab > 0) ? t.h / t.ab : null
+      window._careerBACache[pid] = (t && t.ab > 0) ? { ba: t.h / t.ab, avgAB: t.ab / t.games } : null
     }
   }
 
