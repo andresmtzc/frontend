@@ -53,7 +53,7 @@
     <!-- -200 line filter -->
     <button onclick="toggleHeavyLine()" id="heavy-btn"
       class="text-[10px] px-2.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-400 font-mono shrink-0 transition-colors outline-none focus:outline-none">−200</button>
-    <!-- O/U stacked pill — at the end -->
+    <!-- O/U stacked pill -->
     <div class="flex flex-col rounded-lg overflow-hidden border border-gray-700 shrink-0" id="ou-toggle">
       <button onclick="setDirection('over')"  data-dir="over"
         class="text-[10px] px-3 flex-1 font-mono transition-colors leading-none py-1.5 bg-gray-800 text-gray-400 outline-none focus:outline-none">over</button>
@@ -279,15 +279,39 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
                      : activeDirection === 'over'  ? overRow
                      : overRow   // fallback for implied prob when no direction set
 
+    // Resolve player id + team uid early (needed for VS filter and team grouping)
+    const homeUid = entry?.match?.home_team_uid
+    const awayUid = entry?.match?.away_team_uid
+    const playerId = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
+    const playerTeamUid = playerId != null ? window._playerTeamUidCache?.[playerId] : null
+
+    // VS filter key setup (computed once per player, used inside the fk loop)
+    const hasVSFilter = hasFilter && filterKeys.includes('VS')
+    const upcomingOpponentUid = hasVSFilter && playerTeamUid != null
+      ? (playerTeamUid === homeUid ? awayUid : playerTeamUid === awayUid ? homeUid : null)
+      : null
+    const vsUnknown = hasVSFilter && playerTeamUid == null
+
     // Compute stats per active filter key
     const filterStats = hasFilter ? filterKeys.map(fk => {
       const isCS  = fk === 'CS'
-      const N     = isCS ? Infinity : parseInt(fk.slice(1))
+      const isVS  = fk === 'VS'
+      const N     = isCS || isVS ? Infinity : parseInt(fk.slice(1))
       let hits = 0, total = 0, hitRate = null, ba = null, avgAB = null
       if (overRow && statKey && cache?.normNameToGames?.[normPlayer]) {
         const lineVal = parseLine(overRow.seln_name)
         const games   = cache.normNameToGames[normPlayer]
-        let slice     = isCS ? games.filter(g => g.inSeason) : games.slice(0, N)
+        const vsGames = isVS && upcomingOpponentUid != null
+          ? games.filter(g => {
+              const ti = cache?.teamsInfoByMid?.[g.match_id]
+              if (!ti) return false
+              const gameTeamUid = g.team_uid != null ? Number(g.team_uid) : playerTeamUid
+              const opp = gameTeamUid === ti.homeTeamUid ? ti.awayTeamUid
+                        : gameTeamUid === ti.awayTeamUid ? ti.homeTeamUid : null
+              return opp === upcomingOpponentUid
+            })
+          : games
+        let slice     = isCS ? vsGames.filter(g => g.inSeason) : isVS ? vsGames : vsGames.slice(0, N)
         if (statKey === 'hitting_hits') slice = slice.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
         total = slice.length
         if (total > 0 && lineVal != null) {
@@ -309,18 +333,17 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     // Career BA — from full DB history via _careerBACache
     let careerBA = null, careerAvgAB = null
     if (statKey === 'hitting_hits' && window._careerBACache) {
-      const pid = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
-      if (pid != null) {
-        const entry = window._careerBACache[pid]
+      if (playerId != null) {
+        const entry = window._careerBACache[playerId]
         careerBA    = entry?.ba    ?? null
         careerAvgAB = entry?.avgAB ?? null
       }
     }
 
     const imp    = dirRow ? impliedProb(dirRow.us_prc) : null
-    // noData: not in cache at all, OR in cache but zero games in every selected window
+    // noData: not in cache at all, OR (no VS filter) in cache but zero games in every window
     const noData = hasFilter && statKey && cache != null && (
-      !cache.normNameToGames?.[normPlayer] || validStats.length === 0
+      !cache.normNameToGames?.[normPlayer] || (!hasVSFilter && validStats.length === 0)
     )
     // Heavy line filter — only applies when a stat filter is also active
     const isHeavy = hasFilter && filterHeavyLines && dirRow?.us_prc != null && dirRow.us_prc < -200
@@ -342,7 +365,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
 
     // Grid of stats — each filter gets its own column: label / fraction / pct
     let rateLinesHtml = ''
-    if (hasFilter && noData) {
+    if (vsUnknown || (hasFilter && noData)) {
       rateLinesHtml = `<div class="text-[9px] text-gray-600 font-mono mt-0.5">?</div>`
     } else if (hasFilter && filterStats.length) {
       const cols = filterStats.map((s, idx) => {
@@ -406,11 +429,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       </tr>`
     }).join('')
 
-    // Determine which side of this match the player belongs to
-    const homeUid = entry?.match?.home_team_uid
-    const awayUid = entry?.match?.away_team_uid
-    const playerId = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
-    const playerTeamUid = playerId != null ? window._playerTeamUidCache?.[playerId] : null
+    // Determine which side of this match the player belongs to (uses playerId/playerTeamUid resolved above)
     const teamKey = playerTeamUid === homeUid ? 'home'
                   : playerTeamUid === awayUid ? 'away'
                   : 'unknown'
@@ -498,7 +517,6 @@ function filterBtnClass(isActive) {
 }
 
 let filterHeavyLines = false             // hide lines worse than -200
-
 function toggleHeavyLine() {
   filterHeavyLines = !filterHeavyLines
   updateHeavyBtn()
@@ -516,6 +534,7 @@ function updateHeavyBtn() {
       : `bg-gray-800 border-gray-700 text-gray-400${hasFilter ? ' hover:border-indigo-500' : ''}`
   }`
 }
+
 
 function updateOUToggle() {
   const hasFilter = activeFilters.size > 0
@@ -541,6 +560,7 @@ const FILTER_LABELS = {
   L9:  ['last', '9'],
   L12: ['last', '12'],
   CS:  ['current', 'season'],
+  VS:  ['vs',     'opp'],
 }
 
 function filterBtnInner(f, active, pinned) {
@@ -566,7 +586,7 @@ function filterBtnHtml(f) {
 
 function renderGlobalFilterBar() {
   document.getElementById('global-filter-bar').innerHTML =
-    ['L3','L6','L9','L12','CS'].map(f => filterBtnHtml(f)).join('')
+    ['L3','L6','L9','L12','CS','VS'].map(f => filterBtnHtml(f)).join('')
 }
 
 function updateGlobalFilterButtons() {
@@ -584,7 +604,7 @@ function setGlobalFilterStatus(msg) {
   if (el) el.textContent = msg
 }
 
-const FILTER_ORDER = ['L3','L6','L9','L12','CS']
+const FILTER_ORDER = ['L3','L6','L9','L12','CS','VS']
 function sortFilterKeys(keys) {
   return [...keys].sort((a, b) => FILTER_ORDER.indexOf(a) - FILTER_ORDER.indexOf(b))
 }
@@ -637,15 +657,22 @@ async function applyFilters() {
 async function selectFilter(f) {
   // Main area click: single-select replacing any non-pinned transient,
   // but deselect if f is already the sole non-pinned active filter
+  const wasVS = activeFilters.has('VS')
   const isTransientOnly = activeFilters.has(f) && !pinnedFilters.has(f) &&
     activeFilters.size === pinnedFilters.size + 1
   activeFilters = isTransientOnly
     ? new Set(pinnedFilters)
     : new Set([...pinnedFilters, f])
+  if (activeFilters.has('VS') && !wasVS) {
+    filterCache = {}
+    expansionCache.clear()
+    for (const [, exp] of expansions) exp.games = undefined
+  }
   await applyFilters()
 }
 
 async function pinFilter(f) {
+  const wasVS = activeFilters.has('VS')
   if (activeFilters.has(f)) {
     // Already active → remove entirely
     activeFilters.delete(f)
@@ -664,6 +691,11 @@ async function pinFilter(f) {
     pinnedFilters.add(f)
     // activeFilters = only pinned set (drop any transient)
     activeFilters = new Set([...pinnedFilters])
+  }
+  if (activeFilters.has('VS') && !wasVS) {
+    filterCache = {}
+    expansionCache.clear()
+    for (const [, exp] of expansions) exp.games = undefined
   }
   await applyFilters()
 }
@@ -757,7 +789,8 @@ async function fetchFilterStats(matchId, seasonId) {
   const neededMatchIds = new Set()
   for (const [pid, mids] of Object.entries(perPlayer)) {
     const sorted = [...mids].sort((a, b) => new Date(dateByMid[b]) - new Date(dateByMid[a]))
-    const l12    = new Set(sorted.slice(0, 12))
+    // VS mode: fetch full history so opponent filter has enough games to work with
+    const l12    = activeFilters.has('VS') ? new Set(sorted) : new Set(sorted.slice(0, 12))
     const cs     = new Set(sorted.filter(mid => csMatchIds.has(mid)))
     const needed = new Set([...l12, ...cs])
     neededByPlayer.set(Number(pid), needed)
@@ -793,16 +826,20 @@ async function fetchFilterStats(matchId, seasonId) {
   }
 
   // Stage 3: fetch stats JSONB only for the (player_id × match_id) pairs we need
-  const { data: stats } = await db.from('sr_player_match_stats')
-    .select('player_id, match_id, stats')
-    .in('player_id', playerIds)
-    .in('match_id', [...neededMatchIds])
+  // Must paginate — VS mode can produce 3000+ rows which exceeds Supabase's 1000-row default
+  const stats = await fetchAll((from, to) =>
+    db.from('sr_player_match_stats')
+      .select('player_id, match_id, stats, team_uid')
+      .in('player_id', playerIds)
+      .in('match_id', [...neededMatchIds])
+      .range(from, to)
+  )
 
   const idToGames = {}
   for (const s of stats ?? []) {
     if (!neededByPlayer.get(s.player_id)?.has(s.match_id)) continue
     if (!idToGames[s.player_id]) idToGames[s.player_id] = []
-    idToGames[s.player_id].push({ stats: s.stats, match_date: dateByMid[s.match_id], match_id: s.match_id })
+    idToGames[s.player_id].push({ stats: s.stats, match_date: dateByMid[s.match_id], match_id: s.match_id, team_uid: s.team_uid })
   }
   for (const g of Object.values(idToGames)) g.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
 
@@ -933,7 +970,6 @@ async function load() {
       window._playerNameCache[normName(p.name)] = p.id
       window._playerTeamUidCache[p.id]          = p.team_uid
     }
-    applyFilters()
   })()
 
   const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
@@ -1194,14 +1230,16 @@ async function fetchExpansionData(key, prefetchOnly = false) {
 
   const allMatchIds = matchLinks.map(r => r.match_id)
 
-  // Stage 2: filter those to completed matches up to and including the prop date, take 12 most recent
-  const { data: matchRows } = await db.from('sr_matches')
+  // Stage 2: filter those to completed matches up to and including the prop date
+  // When VS filter is active fetch full history; otherwise cap at 12
+  let expQ = db.from('sr_matches')
     .select('id, match_date, home_team_uid, away_team_uid, season_id')
     .in('id', allMatchIds)
     .not('home_score', 'is', null)
     .lte('match_date', propMatchDate)
     .order('match_date', { ascending: false })
-    .limit(12)
+  if (!activeFilters.has('VS')) expQ = expQ.limit(12)
+  const { data: matchRows } = await expQ
 
   if (!matchRows?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
@@ -1212,12 +1250,13 @@ async function fetchExpansionData(key, prefetchOnly = false) {
   // Stage 3: fetch actual JSONB stats for those 12 matches
   const neededIds = matchRows.map(m => m.id)
   const { data: statsRows } = await db.from('sr_player_match_stats')
-    .select('match_id, stats')
+    .select('match_id, stats, team_uid')
     .eq('player_id', playerId)
     .in('match_id', neededIds)
 
   const statsByMid = {}
-  for (const s of statsRows ?? []) statsByMid[s.match_id] = s.stats
+  const teamUidByMid = {}
+  for (const s of statsRows ?? []) { statsByMid[s.match_id] = s.stats; teamUidByMid[s.match_id] = s.team_uid }
 
   // Fetch any teams not yet in cache (both home and away for all games)
   const allUids     = matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid])
@@ -1230,6 +1269,7 @@ async function fetchExpansionData(key, prefetchOnly = false) {
   exp.games = matchRows.map(m => ({
     match_id:    m.id,
     match_date:  m.match_date,
+    gameTeamUid: teamUidByMid[m.id] ?? null,
     season_id:   m.season_id,
     homeTeamUid: m.home_team_uid,
     awayTeamUid: m.away_team_uid,
@@ -1302,7 +1342,8 @@ function renderExpansionContent(key) {
 
   const filterKey   = sortFilterKeys([...activeFilters]).at(-1)
   const isCS        = filterKey === 'CS'
-  const N           = isCS ? Infinity : parseInt(filterKey.slice(1))
+  const isVS        = filterKey === 'VS'
+  const N           = isCS || isVS ? Infinity : parseInt(filterKey.slice(1))
 
   const statKey     = mktToStatKey(mktName)
   const isHitsMkt   = statKey === 'hitting_hits'
@@ -1313,7 +1354,30 @@ function renderExpansionContent(key) {
   const gamesFiltered = isHitsMkt
     ? games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
     : games
-  const barsData = (isCS ? gamesFiltered.filter(g => g.season_id === seasonId) : gamesFiltered.slice(0, N)).reverse()
+
+  // VS filter key: restrict bars to games vs upcoming opponent
+  let vsGames = gamesFiltered
+  if (activeFilters.has('VS')) {
+    const matchEntry = allMatches.find(e => e.matchId === exp.matchId)
+    const mHomeUid = matchEntry?.match?.home_team_uid
+    const mAwayUid = matchEntry?.match?.away_team_uid
+    // Determine upcoming opponent from current team or either side of the match
+    const upcomingOpp = playerTeamUid === mHomeUid ? mAwayUid
+                      : playerTeamUid === mAwayUid ? mHomeUid
+                      : mHomeUid ?? null  // fallback: just pick one side
+    if (upcomingOpp != null) {
+      vsGames = gamesFiltered.filter(g => {
+        const gameTeamUid = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+        const oppUid = gameTeamUid === g.homeTeamUid ? g.awayTeamUid
+                     : gameTeamUid === g.awayTeamUid ? g.homeTeamUid : null
+        return oppUid === upcomingOpp
+      })
+    }
+  }
+
+  const barsData = (isCS ? vsGames.filter(g => g.season_id === seasonId)
+                  : isVS ? vsGames
+                  : vsGames.slice(0, N)).reverse()
 
   const CHART_H   = 120
   const allVals    = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
