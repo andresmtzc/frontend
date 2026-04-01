@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLB CryptoPunks 2026</title>
+    <style>
+        :root { --mlb-blue: #002D72; --mlb-red: #BA0C2F; --punk-bg: #638596; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; margin: 0; padding: 20px; color: #eee; }
+        h1 { text-align: center; color: #8be9fd; font-family: monospace; letter-spacing: 3px; text-transform: uppercase; }
+        .controls { display: flex; gap: 10px; max-width: 900px; margin: 0 auto 20px; flex-wrap: wrap; }
+        input, select { padding: 12px; border: 1px solid #444; border-radius: 8px; flex: 1; font-size: 15px; background: #2a2a3e; color: #eee; min-width: 180px; }
+        .btn-group { display: flex; gap: 8px; max-width: 900px; margin: 0 auto 20px; }
+        button { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.2s; }
+        .btn-punk { background: #ff79c6; color: #1a1a2e; }
+        .btn-punk:hover { background: #ff92d0; transform: scale(1.03); }
+        .btn-normal { background: #6272a4; color: #fff; }
+        .btn-normal:hover { background: #7282b4; }
+        .btn-download { background: #50fa7b; color: #1a1a2e; }
+        .btn-download:hover { background: #69ff8e; }
+        .slider-row { display: flex; align-items: center; gap: 12px; max-width: 900px; margin: 0 auto 16px; color: #8be9fd; font-family: monospace; font-size: 13px; }
+        .slider-row input[type=range] { flex: 1; accent-color: #ff79c6; padding: 0; border: none; background: transparent; }
+        .slider-label { white-space: nowrap; min-width: 120px; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; max-width: 1200px; margin: 0 auto; }
+        .card {
+            background: #2a2a3e;
+            border-radius: 8px;
+            overflow: hidden;
+            text-align: center;
+            padding-bottom: 8px;
+            border: 1px solid #444;
+            transition: transform 0.15s;
+        }
+        .card:hover { transform: scale(1.05); border-color: #ff79c6; }
+        .card img, .card canvas {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            display: block;
+            image-rendering: pixelated; /* key for crisp pixels */
+            background: #ffffff;
+        }
+        .name { font-weight: bold; font-size: 0.8rem; margin: 6px 4px 2px; }
+        .pos { font-size: 0.7rem; color: #aaa; }
+        .loading { text-align: center; font-weight: bold; margin-top: 50px; color: #8be9fd; font-family: monospace; }
+        .status { text-align: center; color: #f1fa8c; margin-bottom: 10px; font-family: monospace; font-size: 13px; min-height: 20px; }
+        .badge { display: inline-block; background: #ff79c6; color: #1a1a2e; font-size: 9px; font-weight: bold; padding: 1px 5px; border-radius: 3px; vertical-align: middle; margin-left: 4px; }
+    </style>
+</head>
+<body>
+
+<h1>⛓ MLB CryptoPunks 2026</h1>
+
+<div class="controls">
+    <input type="text" id="search" placeholder="Search player...">
+    <select id="teamFilter"><option value="">All Teams</option></select>
+    <select id="paletteSelect">
+        <option value="mlb">MLB True</option>
+        <option value="punk">Punk Classic</option>
+        <option value="alien">Alien (Blue)</option>
+        <option value="zombie">Zombie (Green)</option>
+        <option value="ape">Ape (Brown)</option>
+        <option value="mono">Monochrome</option>
+    </select>
+</div>
+
+<div class="slider-row">
+    <span class="slider-label">Pixel grid: <strong id="pxLabel">24×24</strong></span>
+    <input type="range" id="pixelSlider" min="8" max="128" step="4" value="24">
+    <span style="color:#aaa; font-size:11px;">← blocky &nbsp;&nbsp; detailed →</span>
+</div>
+<div class="slider-row">
+    <span class="slider-label">BG tolerance: <strong id="tolLabel">40</strong></span>
+    <input type="range" id="tolSlider" min="0" max="150" step="5" value="40">
+    <span style="color:#aaa; font-size:11px;">← strict &nbsp;&nbsp; aggressive →</span>
+</div>
+
+<div class="btn-group">
+    <button class="btn-punk" onclick="punkifyAll()">Punk-ify All Visible</button>
+    <button class="btn-normal" onclick="resetAll()">Reset to Photos</button>
+    <button class="btn-download" onclick="downloadAll()">Download All as ZIP</button>
+</div>
+
+<div class="status" id="status"></div>
+
+<div id="gallery" class="gallery">
+    <div class="loading">Loading roster...</div>
+</div>
+
+<script>
+// ─── CryptoPunk palette presets ───────────────────────────────────────────────
+const PALETTES = {
+    mlb:   ['#ffffff','#f0f0f0','#c8c8c8','#888888','#444444','#1a1a1a',
+            '#ff3333','#cc0000','#a71930','#6b0f1a','#8b0000','#3d0000',
+            '#002d72','#1a6bb5','#6aaee8',
+            '#003831','#4aad52',
+            '#ff6600','#ffd700','#e8a800',
+            '#fde8c8','#e8b88a','#c68642','#8d5524','#4a2912','#1a0800'],
+    punk:  ['#638596','#1a1a2e','#f5c99a','#e8956d','#c06030','#7a3a15',
+            '#ff79c6','#ff5555','#f1fa8c','#50fa7b','#8be9fd','#6272a4',
+            '#44475a','#282a36','#fffaf0','#a0522d'],
+    alien: ['#8be9fd','#1a2a3a','#4fc3f7','#0288d1','#01579b','#003566',
+            '#f5f5f5','#b0bec5','#607d8b','#455a64','#263238','#00acc1',
+            '#006064','#80deea','#26c6da','#e0f7fa'],
+    zombie:['#50fa7b','#1a2e1a','#388e3c','#1b5e20','#a5d6a7','#81c784',
+            '#f5f5f5','#cccccc','#888888','#444444','#1a1a1a','#f9a825',
+            '#ff6f00','#e65100','#bf360c','#4e342e'],
+    ape:   ['#a0522d','#3e1a0a','#c68642','#7b4c2a','#d4a574','#8b5e3c',
+            '#f5deb3','#ffe4b5','#ffa500','#ff8c00','#ff6347','#2f4f4f',
+            '#708090','#c0c0c0','#f0e68c','#daa520'],
+    mono:  ['#ffffff','#eeeeee','#cccccc','#aaaaaa','#888888','#666666',
+            '#444444','#333333','#222222','#111111','#000000','#f0f0f0',
+            '#d0d0d0','#b0b0b0','#909090','#707070'],
+};
+
+function getPixelSize() { return parseInt(document.getElementById('pixelSlider').value); }
+
+function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// ─── OKLAB conversion (perceptually uniform color space) ──────────────────────
+function rgbToOklab(r, g, b) {
+    // sRGB → linear
+    const toLinear = c => {
+        c /= 255;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    const rl = toLinear(r), gl = toLinear(g), bl = toLinear(b);
+
+    // linear RGB → LMS
+    const l = 0.4122214708*rl + 0.5363325363*gl + 0.0514459929*bl;
+    const m = 0.2119034982*rl + 0.6806995451*gl + 0.1073969566*bl;
+    const s = 0.0883024619*rl + 0.2817188376*gl + 0.6299787005*bl;
+
+    // cube root
+    const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
+
+    // LMS → OKLAB
+    return [
+        0.2104542553*l_ + 0.7936177850*m_ - 0.0040720468*s_,
+        1.9779984951*l_ - 2.4285922050*m_ + 0.4505937099*s_,
+        0.0259040371*l_ + 0.7827717662*m_ - 0.8086757660*s_,
+    ];
+}
+
+// Cache palette OKLAB values so we don't recompute every pixel
+const _palOklabCache = new Map();
+function getPalOklab(palette) {
+    const key = palette.join();
+    if (!_palOklabCache.has(key)) {
+        _palOklabCache.set(key, palette.map(hex => {
+            const [r, g, b] = hexToRgb(hex);
+            return rgbToOklab(r, g, b);
+        }));
+    }
+    return _palOklabCache.get(key);
+}
+
+// ─── Color quantization using OKLAB distance ──────────────────────────────────
+function nearestColor(r, g, b, palette) {
+    const [L, A, B] = rgbToOklab(r, g, b);
+    const palOklab = getPalOklab(palette);
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < palOklab.length; i++) {
+        const [pL, pA, pB] = palOklab[i];
+        const dist = (L-pL)**2 + (A-pA)**2 + (B-pB)**2;
+        if (dist < bestDist) { bestDist = dist; best = i; }
+    }
+    return hexToRgb(palette[best]);
+}
+
+// ─── Core punkify: img element → canvas with pixel art effect ─────────────────
+function punkifyImage(img, palette) {
+    const out = document.createElement('canvas');
+    out.width = 96; out.height = 96;
+    const ctx = out.getContext('2d');
+
+    const px = getPixelSize();
+    const tiny = document.createElement('canvas');
+    tiny.width = px; tiny.height = px;
+    const tctx = tiny.getContext('2d');
+    tctx.drawImage(img, 0, 0, px, px);
+
+    const imgData = tctx.getImageData(0, 0, px, px);
+    const d = imgData.data;
+
+    // Sample top-left and top-right corners for background color
+    const tlR = d[0], tlG = d[1], tlB = d[2];
+    const trI = (px - 1) * 4;
+    const trR = d[trI], trG = d[trI+1], trB = d[trI+2];
+    const bgR = (tlR + trR) / 2;
+    const bgG = (tlG + trG) / 2;
+    const bgB = (tlB + trB) / 2;
+    const BG_TOLERANCE = parseInt(document.getElementById('tolSlider').value);
+
+    // Flood-fill from all edges to mark only edge-connected bg pixels
+    const isBgColor = (i) =>
+        Math.abs(d[i]-bgR) + Math.abs(d[i+1]-bgG) + Math.abs(d[i+2]-bgB) < BG_TOLERANCE;
+
+    const bgMask = new Uint8Array(px * px);
+    const queue = [];
+    for (let x = 0; x < px; x++) { queue.push(x, 0); queue.push(x, px-1); }
+    for (let y = 0; y < px; y++) { queue.push(0, y); queue.push(px-1, y); }
+    while (queue.length) {
+        const y = queue.pop(), x = queue.pop();
+        if (x < 0 || x >= px || y < 0 || y >= px) continue;
+        const idx = y * px + x;
+        if (bgMask[idx]) continue;
+        if (!isBgColor(idx * 4)) continue;
+        bgMask[idx] = 1;
+        queue.push(x+1, y, x-1, y, x, y+1, x, y-1);
+    }
+
+    // Quantize: bg-masked pixels → white, subject pixels → palette
+    for (let i = 0; i < d.length; i += 4) {
+        const idx = i / 4;
+        if (bgMask[idx]) {
+            d[i] = 255; d[i+1] = 255; d[i+2] = 255;
+        } else {
+            const [nr, ng, nb] = nearestColor(d[i], d[i+1], d[i+2], palette);
+            d[i] = nr; d[i+1] = ng; d[i+2] = nb;
+        }
+    }
+    tctx.putImageData(imgData, 0, 0);
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tiny, 0, 0, 96, 96);
+    out.style.imageRendering = 'pixelated';
+    return out;
+}
+
+// ─── App state ────────────────────────────────────────────────────────────────
+let players = [];
+let punkMode = false;
+const gallery = document.getElementById('gallery');
+const teamSelect = document.getElementById('teamFilter');
+const statusEl = document.getElementById('status');
+
+async function init() {
+    try {
+        const [playerRes, teamRes] = await Promise.all([
+            fetch('https://statsapi.mlb.com/api/v1/sports/1/players?season=2026'),
+            fetch('https://statsapi.mlb.com/api/v1/teams?sportId=1')
+        ]);
+        const [playerData, teamData] = await Promise.all([playerRes.json(), teamRes.json()]);
+
+        players = playerData.people.sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+        teamData.teams.sort((a,b) => a.name.localeCompare(b.name)).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            teamSelect.appendChild(opt);
+        });
+
+        render(players);
+    } catch (e) {
+        gallery.innerHTML = `<div class="loading">Failed to load. MLB API might be down.</div>`;
+    }
+}
+
+function getVisible() {
+    const term = document.getElementById('search').value.toLowerCase();
+    const teamId = teamSelect.value;
+    return players.filter(p => {
+        const matchesName = p.fullName.toLowerCase().includes(term);
+        const matchesTeam = !teamId || (p.currentTeam && p.currentTeam.id == teamId);
+        return matchesName && matchesTeam;
+    });
+}
+
+function render(list) {
+    gallery.innerHTML = '';
+    list.slice(0, 300).forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.id = p.id;
+
+        const imgUrl = `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:silo:current.png,q_auto:best,f_auto/v1/people/${p.id}/headshot/67/current`;
+
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.alt = p.fullName;
+        img.crossOrigin = 'anonymous';
+        img.onerror = function() {
+            this.src = 'https://midas.mlbstatic.com/v1/people/generic/headshot/silo/current';
+        };
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = p.fullName;
+
+        const pos = document.createElement('div');
+        pos.className = 'pos';
+        pos.textContent = `${p.primaryPosition.abbreviation} | ${p.currentTeam ? p.currentTeam.id : 'FA'}`;
+
+        card.appendChild(img);
+        card.appendChild(name);
+        card.appendChild(pos);
+        gallery.appendChild(card);
+    });
+}
+
+// ─── Punk-ify all visible cards ───────────────────────────────────────────────
+async function punkifyAll() {
+    const palette = PALETTES[document.getElementById('paletteSelect').value];
+    const cards = gallery.querySelectorAll('.card');
+    let done = 0;
+
+    statusEl.textContent = `Processing 0 / ${cards.length}...`;
+
+    for (const card of cards) {
+        const img = card.querySelector('img');
+        if (!img) continue;
+
+        await new Promise(resolve => {
+            const process = () => {
+                try {
+                    const canvas = punkifyImage(img, palette);
+                    canvas.title = img.alt;
+                    img.replaceWith(canvas);
+                } catch(e) {
+                    // CORS block — skip silently
+                }
+                done++;
+                statusEl.textContent = `Punk-ifying... ${done} / ${cards.length}`;
+                resolve();
+            };
+            if (img.complete && img.naturalWidth > 0) process();
+            else { img.onload = process; img.onerror = resolve; }
+        });
+
+        // yield to browser every 10 cards to keep UI responsive
+        if (done % 10 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+
+    statusEl.textContent = `Done! ${done} punks generated.`;
+    punkMode = true;
+}
+
+function resetAll() {
+    const visible = getVisible();
+    render(visible);
+    statusEl.textContent = 'Reset to photos.';
+    punkMode = false;
+}
+
+// ─── Download all punked canvases as a ZIP (using JSZip from CDN) ─────────────
+async function downloadAll() {
+    const canvases = gallery.querySelectorAll('canvas');
+    if (canvases.length === 0) {
+        statusEl.textContent = 'Punk-ify first, then download!';
+        return;
+    }
+
+    statusEl.textContent = 'Loading ZIP library...';
+    if (!window.JSZip) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    }
+
+    const zip = new JSZip();
+    const folder = zip.folder('mlb-punks');
+
+    statusEl.textContent = 'Zipping...';
+    canvases.forEach((canvas, i) => {
+        const name = (canvas.title || `player_${i}`).replace(/[^a-z0-9]/gi, '_');
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64 = dataUrl.split(',')[1];
+        folder.file(`${name}.png`, base64, { base64: true });
+    });
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mlb-punks.zip';
+    a.click();
+    statusEl.textContent = `Downloaded ${canvases.length} punks!`;
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+document.getElementById('search').addEventListener('input', () => render(getVisible()));
+teamSelect.addEventListener('change', () => render(getVisible()));
+document.getElementById('paletteSelect').addEventListener('change', () => {
+    if (punkMode) punkifyAll();
+});
+document.getElementById('pixelSlider').addEventListener('input', e => {
+    const v = e.target.value;
+    document.getElementById('pxLabel').textContent = `${v}×${v}`;
+    if (punkMode) punkifyAll();
+});
+document.getElementById('tolSlider').addEventListener('input', e => {
+    document.getElementById('tolLabel').textContent = e.target.value;
+    if (punkMode) punkifyAll();
+});
+
+init();
+</script>
+</body>
+</html>
