@@ -18,6 +18,10 @@
         .btn-normal:hover { background: #7282b4; }
         .btn-download { background: #50fa7b; color: #1a1a2e; }
         .btn-download:hover { background: #69ff8e; }
+        .btn-toggle { background: #44475a; color: #aaa; }
+        .btn-toggle:hover { background: #555770; }
+        .btn-toggle.on { background: #bd93f9; color: #1a1a2e; }
+        .btn-toggle.on:hover { background: #caa3ff; }
         .slider-row { display: flex; align-items: center; gap: 12px; max-width: 900px; margin: 0 auto 16px; color: #8be9fd; font-family: monospace; font-size: 13px; }
         .slider-row input[type=range] { flex: 1; accent-color: #ff79c6; padding: 0; border: none; background: transparent; }
         .slider-label { white-space: nowrap; min-width: 120px; }
@@ -32,13 +36,16 @@
             transition: transform 0.15s;
         }
         .card:hover { transform: scale(1.05); border-color: #ff79c6; }
-        .card img, .card canvas {
+        .card img {
             width: 100%;
-            aspect-ratio: 1/1;
-            object-fit: cover;
             display: block;
-            image-rendering: pixelated; /* key for crisp pixels */
             background: #ffffff;
+        }
+        .card canvas {
+            width: 100%;
+            display: block;
+            image-rendering: pixelated;
+            background: transparent;
         }
         .name { font-weight: bold; font-size: 0.8rem; margin: 6px 4px 2px; }
         .pos { font-size: 0.7rem; color: #aaa; }
@@ -70,14 +77,16 @@
 </div>
 <div class="slider-row">
     <span class="slider-label">BG tolerance: <strong id="tolLabel">40</strong></span>
-    <input type="range" id="tolSlider" min="0" max="150" step="5" value="40">
+    <input type="range" id="tolSlider" min="0" max="150" step="5" value="60">
     <span style="color:#aaa; font-size:11px;">← strict &nbsp;&nbsp; aggressive →</span>
 </div>
 
 <div class="btn-group">
     <button class="btn-punk" onclick="punkifyAll()">Punk-ify All Visible</button>
+    <button style="background:#bd93f9;color:#1a1a2e;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;" onclick="removeBgAll()">Remove BG Only</button>
     <button class="btn-normal" onclick="resetAll()">Reset to Photos</button>
     <button class="btn-download" onclick="downloadAll()">Download All as ZIP</button>
+    <button class="btn-toggle" id="smoothBtn" onclick="toggleSmoothing()">Smoothing: OFF</button>
 </div>
 
 <div class="status" id="status"></div>
@@ -169,60 +178,79 @@ function nearestColor(r, g, b, palette) {
     return hexToRgb(palette[best]);
 }
 
-// ─── Core punkify: img element → canvas with pixel art effect ─────────────────
-function punkifyImage(img, palette) {
-    const out = document.createElement('canvas');
-    out.width = 96; out.height = 96;
-    const ctx = out.getContext('2d');
+// ─── Smoothing toggle ─────────────────────────────────────────────────────────
+let smoothingOn = false;
+function toggleSmoothing() {
+    smoothingOn = !smoothingOn;
+    const btn = document.getElementById('smoothBtn');
+    btn.textContent = `Smoothing: ${smoothingOn ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('on', smoothingOn);
+    if (punkMode) punkifyAll();
+}
 
+// ─── Core punkify: two-stage — BG removal at high-res, then pixelate ──────────
+function punkifyImage(img, palette) {
+    const HI = 256;
+
+    // ── Stage 1: BG removal — skip if source is already BG-removed canvas ────
+    const hiCanvas = document.createElement('canvas');
+    hiCanvas.width = HI; hiCanvas.height = HI;
+    const hiCtx = hiCanvas.getContext('2d');
+    hiCtx.drawImage(img, 0, 0, HI, HI);
+
+    if (!(img instanceof HTMLCanvasElement)) {
+        const BG_TOLERANCE = parseInt(document.getElementById('tolSlider').value);
+        const hiData = hiCtx.getImageData(0, 0, HI, HI);
+        const d = hiData.data;
+
+        const trI = (HI - 1) * 4;
+        const bgR = (d[0] + d[trI])   / 2;
+        const bgG = (d[1] + d[trI+1]) / 2;
+        const bgB = (d[2] + d[trI+2]) / 2;
+
+        const bgMask = new Uint8Array(HI * HI);
+        const queue = [];
+        for (let x = 0; x < HI; x++) { queue.push(x, 0); queue.push(x, HI-1); }
+        for (let y = 0; y < HI; y++) { queue.push(0, y); queue.push(HI-1, y); }
+        while (queue.length) {
+            const y = queue.pop(), x = queue.pop();
+            if (x < 0 || x >= HI || y < 0 || y >= HI) continue;
+            const idx = y * HI + x;
+            if (bgMask[idx]) continue;
+            if (Math.abs(d[idx*4]-bgR) + Math.abs(d[idx*4+1]-bgG) + Math.abs(d[idx*4+2]-bgB) >= BG_TOLERANCE) continue;
+            bgMask[idx] = 1;
+            queue.push(x+1, y, x-1, y, x, y+1, x, y-1);
+        }
+        for (let i = 0; i < d.length; i += 4) {
+            if (bgMask[i / 4]) d[i+3] = 0;
+        }
+        hiCtx.putImageData(hiData, 0, 0);
+    }
+
+    // ── Stage 2: scale down to pixel grid, quantize ──────────────────────────
     const px = getPixelSize();
     const tiny = document.createElement('canvas');
     tiny.width = px; tiny.height = px;
     const tctx = tiny.getContext('2d');
-    tctx.drawImage(img, 0, 0, px, px);
+    tctx.imageSmoothingEnabled = smoothingOn;
+    tctx.drawImage(hiCanvas, 0, 0, px, px);
 
-    const imgData = tctx.getImageData(0, 0, px, px);
-    const d = imgData.data;
-
-    // Sample top-left and top-right corners for background color
-    const tlR = d[0], tlG = d[1], tlB = d[2];
-    const trI = (px - 1) * 4;
-    const trR = d[trI], trG = d[trI+1], trB = d[trI+2];
-    const bgR = (tlR + trR) / 2;
-    const bgG = (tlG + trG) / 2;
-    const bgB = (tlB + trB) / 2;
-    const BG_TOLERANCE = parseInt(document.getElementById('tolSlider').value);
-
-    // Flood-fill from all edges to mark only edge-connected bg pixels
-    const isBgColor = (i) =>
-        Math.abs(d[i]-bgR) + Math.abs(d[i+1]-bgG) + Math.abs(d[i+2]-bgB) < BG_TOLERANCE;
-
-    const bgMask = new Uint8Array(px * px);
-    const queue = [];
-    for (let x = 0; x < px; x++) { queue.push(x, 0); queue.push(x, px-1); }
-    for (let y = 0; y < px; y++) { queue.push(0, y); queue.push(px-1, y); }
-    while (queue.length) {
-        const y = queue.pop(), x = queue.pop();
-        if (x < 0 || x >= px || y < 0 || y >= px) continue;
-        const idx = y * px + x;
-        if (bgMask[idx]) continue;
-        if (!isBgColor(idx * 4)) continue;
-        bgMask[idx] = 1;
-        queue.push(x+1, y, x-1, y, x, y+1, x, y-1);
-    }
-
-    // Quantize: bg-masked pixels → white, subject pixels → palette
-    for (let i = 0; i < d.length; i += 4) {
-        const idx = i / 4;
-        if (bgMask[idx]) {
-            d[i] = 255; d[i+1] = 255; d[i+2] = 255;
+    const td = tctx.getImageData(0, 0, px, px);
+    const t = td.data;
+    for (let i = 0; i < t.length; i += 4) {
+        if (t[i+3] < 128) {
+            t[i] = 0; t[i+1] = 0; t[i+2] = 0; t[i+3] = 0;
         } else {
-            const [nr, ng, nb] = nearestColor(d[i], d[i+1], d[i+2], palette);
-            d[i] = nr; d[i+1] = ng; d[i+2] = nb;
+            const [nr, ng, nb] = nearestColor(t[i], t[i+1], t[i+2], palette);
+            t[i] = nr; t[i+1] = ng; t[i+2] = nb; t[i+3] = 255;
         }
     }
-    tctx.putImageData(imgData, 0, 0);
+    tctx.putImageData(td, 0, 0);
 
+    // ── Scale up to 96×96 output ─────────────────────────────────────────────
+    const out = document.createElement('canvas');
+    out.width = 96; out.height = 96;
+    const ctx = out.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(tiny, 0, 0, 96, 96);
     out.style.imageRendering = 'pixelated';
@@ -271,7 +299,7 @@ function getVisible() {
 
 function render(list) {
     gallery.innerHTML = '';
-    list.slice(0, 300).forEach(p => {
+    list.forEach(p => {
         const card = document.createElement('div');
         card.className = 'card';
         card.dataset.id = p.id;
@@ -294,11 +322,93 @@ function render(list) {
         pos.className = 'pos';
         pos.textContent = `${p.primaryPosition.abbreviation} | ${p.currentTeam ? p.currentTeam.id : 'FA'}`;
 
+        card.dataset.playerName = p.fullName;
         card.appendChild(img);
         card.appendChild(name);
         card.appendChild(pos);
         gallery.appendChild(card);
     });
+}
+
+// ─── BG removal only (no pixelation) ─────────────────────────────────────────
+function removeBgFromImg(img) {
+    const BG_TOLERANCE = parseInt(document.getElementById('tolSlider').value);
+
+    // Work at native image size, center-crop to square (like object-fit: cover)
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+
+    // Output canvas — full native dimensions, no crop
+    const canvas = document.createElement('canvas');
+    canvas.width = iw; canvas.height = ih;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, iw, ih);
+
+    const imgData = ctx.getImageData(0, 0, iw, ih);
+    const d = imgData.data;
+
+    // Sample BG color from top-left and top-right edge pixels
+    const bgR = (d[0] + d[(iw - 1) * 4])     / 2;
+    const bgG = (d[1] + d[(iw - 1) * 4 + 1]) / 2;
+    const bgB = (d[2] + d[(iw - 1) * 4 + 2]) / 2;
+
+    // Protected oval centered slightly above middle (covers head + shoulders)
+    // Use width as reference so oval scales correctly for portrait images
+    const cx = iw * 0.5, cy = ih * 0.45;
+    const rx = iw * 0.32, ry = ih * 0.35;
+
+    // Protected zone: oval (face) + rectangle below it (neck → bottom)
+    const rectX0 = cx - rx * 0.8, rectX1 = cx + rx * 0.8;
+
+    for (let py = 0; py < ih; py++) {
+        for (let px = 0; px < iw; px++) {
+            const dx = (px - cx) / rx, dy = (py - cy) / ry;
+            const inOval = dx*dx + dy*dy <= 1;
+            const inRect = px >= rectX0 && px <= rectX1 && py >= cy;
+            if (inOval || inRect) continue; // protected
+            const i = (py * iw + px) * 4;
+            if (Math.abs(d[i]-bgR) + Math.abs(d[i+1]-bgG) + Math.abs(d[i+2]-bgB) < BG_TOLERANCE) {
+                d[i+3] = 0;
+            }
+        }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Debug: draw the protected zone
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeRect(rectX0, cy, rx * 2, ih - cy);
+
+    return canvas;
+}
+
+async function removeBgAll() {
+    const cards = gallery.querySelectorAll('.card');
+    let done = 0;
+    statusEl.textContent = `Removing BG... 0 / ${cards.length}`;
+    for (const card of cards) {
+        const img = card.querySelector('img');
+        if (!img) continue;
+        await new Promise(resolve => {
+            const process = () => {
+                try {
+                    const canvas = removeBgFromImg(img);
+                    canvas.title = img.alt;
+                    img.replaceWith(canvas);
+                } catch(e) {}
+                done++;
+                statusEl.textContent = `Removing BG... ${done} / ${cards.length}`;
+                resolve();
+            };
+            if (img.complete && img.naturalWidth > 0) process();
+            else { img.onload = process; img.onerror = resolve; }
+        });
+        if (done % 10 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    statusEl.textContent = `Done! BG removed from ${done} photos.`;
 }
 
 // ─── Punk-ify all visible cards ───────────────────────────────────────────────
@@ -310,7 +420,7 @@ async function punkifyAll() {
     statusEl.textContent = `Processing 0 / ${cards.length}...`;
 
     for (const card of cards) {
-        const img = card.querySelector('img');
+        const img = card.querySelector('img') || card.querySelector('canvas');
         if (!img) continue;
 
         await new Promise(resolve => {
@@ -326,7 +436,7 @@ async function punkifyAll() {
                 statusEl.textContent = `Punk-ifying... ${done} / ${cards.length}`;
                 resolve();
             };
-            if (img.complete && img.naturalWidth > 0) process();
+            if (img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth > 0)) process();
             else { img.onload = process; img.onerror = resolve; }
         });
 
@@ -345,11 +455,11 @@ function resetAll() {
     punkMode = false;
 }
 
-// ─── Download all punked canvases as a ZIP (using JSZip from CDN) ─────────────
+// ─── Download all cards as a ZIP (using JSZip from CDN) ──────────────────────
 async function downloadAll() {
-    const canvases = gallery.querySelectorAll('canvas');
-    if (canvases.length === 0) {
-        statusEl.textContent = 'Punk-ify first, then download!';
+    const cards = gallery.querySelectorAll('.card');
+    if (cards.length === 0) {
+        statusEl.textContent = 'Nothing to download!';
         return;
     }
 
@@ -362,11 +472,28 @@ async function downloadAll() {
     const folder = zip.folder('mlb-punks');
 
     statusEl.textContent = 'Zipping...';
-    canvases.forEach((canvas, i) => {
-        const name = (canvas.title || `player_${i}`).replace(/[^a-z0-9]/gi, '_');
-        const dataUrl = canvas.toDataURL('image/png');
-        const base64 = dataUrl.split(',')[1];
-        folder.file(`${name}.png`, base64, { base64: true });
+    let count = 0;
+    cards.forEach((card, i) => {
+        const el = card.querySelector('canvas') || card.querySelector('img');
+        if (!el) return;
+
+        let canvas;
+        if (el instanceof HTMLCanvasElement) {
+            canvas = el;
+        } else {
+            // img — draw to a temporary canvas
+            canvas = document.createElement('canvas');
+            canvas.width = el.naturalWidth;
+            canvas.height = el.naturalHeight;
+            canvas.getContext('2d').drawImage(el, 0, 0);
+        }
+
+        try {
+            const name = (card.dataset.playerName || `player_${i}`).replace(/[^a-z0-9]/gi, '_');
+            const base64 = canvas.toDataURL('image/png').split(',')[1];
+            folder.file(`${name}.png`, base64, { base64: true });
+            count++;
+        } catch(e) {} // skip CORS-blocked images
     });
 
     const blob = await zip.generateAsync({ type: 'blob' });
@@ -374,7 +501,7 @@ async function downloadAll() {
     a.href = URL.createObjectURL(blob);
     a.download = 'mlb-punks.zip';
     a.click();
-    statusEl.textContent = `Downloaded ${canvases.length} punks!`;
+    statusEl.textContent = `Downloaded ${count} images!`;
 }
 
 function loadScript(src) {
