@@ -71,11 +71,6 @@
 
 
 <script>
-function punkImg(name) {
-  const file = (name || '').replace(/[^a-z0-9]/gi, '_') + '.png'
-  return `<img src="mlb-punks/${file}" style="height:32px;width:auto;display:inline;vertical-align:middle;margin-right:4px;border-radius:2px;" onerror="this.onerror=null;this.src='mlb-punks/fallback.png'">`
-}
-
 const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
 const SUPABASE_ANON = 'sb_publishable_mXQB6BSxNpWyL0D3HG0gwA_fwdWoqVh'
 const { createClient } = supabase
@@ -421,7 +416,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const playerCell = i === 0
         ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors select-none" rowspan="${rs}"
              data-player-exp="${normPlayer}_${entry?.matchId ?? 0}"
-             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${punkImg(playerName)}${abbrName(playerName)}${careerStr}</td>`
+             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${abbrName(playerName)}${careerStr}</td>`
         : ''
       const statsCell = i === 0
         ? `<td class="stats-col px-3 py-2 align-top text-center" rowspan="${rs}">${rateLinesHtml}</td>`
