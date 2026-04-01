@@ -55,7 +55,6 @@
     <input type="text" id="search" placeholder="Search player...">
     <select id="teamFilter"><option value="">All Teams</option></select>
     <select id="paletteSelect">
-        <option value="mlb">MLB True</option>
         <option value="punk">Punk Classic</option>
         <option value="alien">Alien (Blue)</option>
         <option value="zombie">Zombie (Green)</option>
@@ -90,15 +89,14 @@
 <script>
 // ─── CryptoPunk palette presets ───────────────────────────────────────────────
 const PALETTES = {
-    mlb:   ['#ffffff','#f0f0f0','#c8c8c8','#888888','#444444','#1a1a1a',
-            '#ff3333','#cc0000','#a71930','#6b0f1a','#8b0000','#3d0000',
-            '#002d72','#1a6bb5','#6aaee8',
-            '#003831','#4aad52',
-            '#ff6600','#ffd700','#e8a800',
-            '#fde8c8','#e8b88a','#c68642','#8d5524','#4a2912','#1a0800'],
-    punk:  ['#638596','#1a1a2e','#f5c99a','#e8956d','#c06030','#7a3a15',
+    punk:  ['#638596','#1a1a2e','#f5c99a','#e8956d','#cc0000','#8b0000',
             '#ff79c6','#ff5555','#f1fa8c','#50fa7b','#8be9fd','#6272a4',
-            '#44475a','#282a36','#fffaf0','#a0522d'],
+            '#44475a','#282a36','#fffaf0','#a71930',
+            '#c68642','#8d5524','#4a2912','#1a0800',
+            '#003831','#006400','#50fa7b',
+            '#ffd700','#e8a800','#b8860b',
+            '#ff6600','#e84c00','#ff8c00',
+            '#002d72','#005ec4','#4a90d9'],
     alien: ['#8be9fd','#1a2a3a','#4fc3f7','#0288d1','#01579b','#003566',
             '#f5f5f5','#b0bec5','#607d8b','#455a64','#263238','#00acc1',
             '#006064','#80deea','#26c6da','#e0f7fa'],
