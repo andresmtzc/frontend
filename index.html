@@ -421,7 +421,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const playerCell = i === 0
         ? `<td class="px-3 py-2 text-gray-300 align-middle whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors select-none" rowspan="${rs}"
              data-player-exp="${normPlayer}_${entry?.matchId ?? 0}"
-             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${punkImg(playerName)}${abbrName(playerName)}${careerStr}</td>`
+             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${punkImg(playerName)}<span class="inline-flex flex-col leading-tight"><span>${abbrName(playerName)}</span>${careerStr ? `<span class="flex gap-1">${careerStr.trim()}</span>` : ''}</span></td>`
         : ''
       const statsCell = i === 0
         ? `<td class="stats-col px-3 py-2 align-top text-center" rowspan="${rs}">${rateLinesHtml}</td>`
