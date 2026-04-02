@@ -106,16 +106,8 @@
       style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none"
       onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
       onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">−200</button>
-    <div class="flex shrink-0 gap-1.5" id="ou-toggle">
-      <button onclick="setDirection('over')" data-dir="over"
-        class="mono" style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none;text-transform:uppercase"
-        onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-        onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">OVER</button>
-      <button onclick="setDirection('under')" data-dir="under"
-        class="mono" style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none;text-transform:uppercase"
-        onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-        onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">UNDR</button>
-    </div>
+    <button id="ou-toggle" onclick="cycleDirection()" class="mono shrink-0"
+      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase">OVER</button>
   </div>
   <span class="filter-status-global mono mt-1 block" style="font-size:10px;color:var(--muted)"></span>
 </div>
@@ -320,7 +312,7 @@ function parseLine(selnName) {
 
 function isOver(selnName) {
   const low = (selnName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  return low.includes('mas') || low.includes('over')
+  return /\bmas\b/.test(low) || /\bover\b/.test(low)
 }
 
 function buildPlayerMap(rows) {
@@ -635,21 +627,19 @@ function updateHeavyBtn() {
 
 
 function updateOUToggle() {
-  const hasFilter = activeFilters.size > 0
-  document.querySelectorAll('#ou-toggle [data-dir]').forEach(btn => {
-    const active = btn.dataset.dir === activeDirection
-    const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;text-transform:uppercase;font-family:'Geist Mono',monospace`
-    btn.style.cssText = active ? `${s};border-color:var(--gold);color:var(--gold)` : `${s};border-color:var(--border);color:var(--muted)`
-    active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
-  })
+  const btn = document.getElementById('ou-toggle')
+  if (!btn) return
+  const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;text-transform:uppercase;font-family:'Geist Mono',monospace`
+  btn.style.cssText = `${s};border-color:var(--gold);color:var(--gold)`
+  btn.textContent = activeDirection === 'under' ? 'UNDR' : 'OVER'
 }
 
-function setDirection(dir) {
-  activeDirection = activeDirection === dir ? null : dir   // toggle off if already active
+function cycleDirection() {
+  activeDirection = activeDirection === 'over' ? 'under' : 'over'
   updateOUToggle()
   refreshMktTbodies([...activeFilters])
   for (const [key, exp] of expansions) {
-    exp.lockedDirection = activeDirection || 'over'
+    exp.lockedDirection = activeDirection
     renderExpansionContent(key)
   }
 }
@@ -669,12 +659,11 @@ function filterBtnInner(f, active, pinned) {
 
 function filterBtnHtml(f) {
   const active = activeFilters.has(f)
-  const pinned = pinnedFilters.has(f)
   return `<button onclick="selectFilter('${f}')" data-filter="${f}" ${active ? 'data-active="1"' : ''}
     class="${filterBtnClass(active)}" style="${filterBtnStyle(active)}"
     onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
     onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">
-    ${filterBtnInner(f, active, pinned)}
+    ${f}
   </button>`
 }
 
@@ -689,11 +678,11 @@ function updateGlobalFilterButtons() {
   document.querySelectorAll('#global-filter-bar [data-filter]').forEach(btn => {
     const f      = btn.dataset.filter
     const active = activeFilters.has(f)
-    const pinned = pinnedFilters.has(f)
-    btn.className = filterBtnClass(active)
+    btn.className    = filterBtnClass(active)
     btn.style.cssText = filterBtnStyle(active)
-    btn.innerHTML = filterBtnInner(f, active, pinned)
+    btn.textContent  = f
     active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
+    btn.removeAttribute('data-pinned')
   })
 }
 
@@ -753,43 +742,14 @@ async function applyFilters() {
 }
 
 async function selectFilter(f) {
-  // Main area click: single-select replacing any non-pinned transient,
-  // but deselect if f is already the sole non-pinned active filter
-  const wasVS = activeFilters.has('VS')
-  const isTransientOnly = activeFilters.has(f) && !pinnedFilters.has(f) &&
-    activeFilters.size === pinnedFilters.size + 1
-  activeFilters = isTransientOnly
-    ? new Set(pinnedFilters)
-    : new Set([...pinnedFilters, f])
-  if (activeFilters.has('VS') && !wasVS) {
-    filterCache = {}
-    expansionCache.clear()
-    for (const [, exp] of expansions) exp.games = undefined
-  }
-  await applyFilters()
-}
-
-async function pinFilter(f) {
   const wasVS = activeFilters.has('VS')
   if (activeFilters.has(f)) {
-    // Already active → remove entirely
-    activeFilters.delete(f)
-    pinnedFilters.delete(f)
+    if (activeFilters.size > 1) activeFilters.delete(f)
+    // sole active filter — do nothing (always keep at least one)
   } else {
-    // Not active → if no pins yet, auto-pin current transient (first grouping)
-    // If pins already exist, just add f — don't drag the transient in
-    if (pinnedFilters.size === 0) {
-      // First pin — auto-lock current transient too
-      for (const k of activeFilters) pinnedFilters.add(k)
-    }
-    // Enforce max 3 pinned — evict least recently pinned (oldest in Set order)
-    while (pinnedFilters.size >= 3) {
-      pinnedFilters.delete(pinnedFilters.values().next().value)
-    }
-    pinnedFilters.add(f)
-    // activeFilters = only pinned set (drop any transient)
-    activeFilters = new Set([...pinnedFilters])
+    activeFilters.add(f)
   }
+  pinnedFilters = new Set(activeFilters)
   if (activeFilters.has('VS') && !wasVS) {
     filterCache = {}
     expansionCache.clear()
