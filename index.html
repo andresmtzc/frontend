@@ -360,7 +360,8 @@ function mktSubtitle(name, playerCount) {
 // ── Render market tbody (passing players first, filtered grouped at bottom) ──
 
 function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
-  const statKey   = mktToStatKey(mktName)
+  const hasPlayerNames = Object.values(playerMap).flat().some(r => r.seln_hcap)
+  const statKey   = hasPlayerNames ? mktToStatKey(mktName) : null
   const hasFilter = filterKeys.length > 0
   const passing   = [], failing = []
 
@@ -846,15 +847,22 @@ async function fetchFilterStats(matchId, seasonId) {
   const allMatchIds = [...new Set(playerMatchLinks.map(r => r.match_id))]
 
   // Stage 2: get dates for those matches, filter to completed before this match
-  const matchDateRows = await fetchAll((from, to) =>
-    db.from('sr_matches')
-      .select('id, match_date, home_team_uid, away_team_uid')
-      .in('id', allMatchIds)
-      .not('home_score', 'is', null)
-      .lt('match_date', matchDate)
-      .order('id')
-      .range(from, to)
-  )
+  // Batch in chunks of 200 to avoid URL-too-long (400) errors
+  const BATCH = 200
+  const matchDateRows = []
+  for (let i = 0; i < allMatchIds.length; i += BATCH) {
+    const chunk = allMatchIds.slice(i, i + BATCH)
+    const rows = await fetchAll((from, to) =>
+      db.from('sr_matches')
+        .select('id, match_date, home_team_uid, away_team_uid')
+        .in('id', chunk)
+        .not('home_score', 'is', null)
+        .lt('match_date', matchDate)
+        .order('id')
+        .range(from, to)
+    )
+    matchDateRows.push(...rows)
+  }
   if (!matchDateRows.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
 
   const validMatchIds  = new Set(matchDateRows.map(m => m.id))
@@ -925,16 +933,21 @@ async function fetchFilterStats(matchId, seasonId) {
   }
 
   // Stage 3: fetch stats JSONB only for the (player_id × match_id) pairs we need
-  // Must paginate — VS mode can produce 3000+ rows which exceeds Supabase's 1000-row default
-  const stats = await fetchAll((from, to) =>
-    db.from('sr_player_match_stats')
-      .select('player_id, match_id, stats, team_uid')
-      .in('player_id', playerIds)
-      .in('match_id', [...neededMatchIds])
-      .order('player_id').order('match_id')
-      .range(from, to)
+  // Batch match_id in chunks of 200 to avoid URL-too-long in VS mode
+  const neededMatchArr = [...neededMatchIds]
+  const statsChunks = await Promise.all(
+    Array.from({ length: Math.ceil(neededMatchArr.length / 200) }, (_, i) =>
+      fetchAll((from, to) =>
+        db.from('sr_player_match_stats')
+          .select('player_id, match_id, stats, team_uid')
+          .in('player_id', playerIds)
+          .in('match_id', neededMatchArr.slice(i * 200, (i + 1) * 200))
+          .order('player_id').order('match_id')
+          .range(from, to)
+      )
+    )
   )
-
+  const stats = statsChunks.flat()
   const idToGames = {}
   for (const s of stats ?? []) {
     if (!neededByPlayer.get(s.player_id)?.has(s.match_id)) continue
@@ -942,7 +955,6 @@ async function fetchFilterStats(matchId, seasonId) {
     idToGames[s.player_id].push({ stats: s.stats, match_date: dateByMid[s.match_id], match_id: s.match_id, team_uid: s.team_uid })
   }
   for (const g of Object.values(idToGames)) g.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
-
   const normNameToGames = {}
   for (const name of playerNames) {
     const norm = normName(name)
@@ -1366,9 +1378,12 @@ async function fetchExpansionData(key, prefetchOnly = false) {
   const propMatchDate  = propMatchEntry?.match?.match_date ?? new Date().toISOString()
 
   // Stage 1: get all match IDs this player has stats for (lightweight — no JSONB)
-  const { data: matchLinks } = await db.from('sr_player_match_stats')
-    .select('match_id')
-    .eq('player_id', playerId)
+  const matchLinks = await fetchAll((from, to) =>
+    db.from('sr_player_match_stats')
+      .select('match_id')
+      .eq('player_id', playerId)
+      .range(from, to)
+  )
 
   if (!matchLinks?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
@@ -1379,15 +1394,24 @@ async function fetchExpansionData(key, prefetchOnly = false) {
   const allMatchIds = matchLinks.map(r => r.match_id)
 
   // Stage 2: filter those to completed matches up to and including the prop date
-  // When VS filter is active fetch full history; otherwise cap at 12
-  let expQ = db.from('sr_matches')
-    .select('id, match_date, home_team_uid, away_team_uid, season_id')
-    .in('id', allMatchIds)
-    .not('home_score', 'is', null)
-    .lte('match_date', propMatchDate)
-    .order('match_date', { ascending: false })
-  if (!activeFilters.has('VS')) expQ = expQ.limit(12)
-  const { data: matchRows } = await expQ
+  // Batch in chunks of 200 to avoid URL-too-long errors; cap at 12 for non-VS mode
+  const allMatchRowsRaw = []
+  for (let i = 0; i < allMatchIds.length; i += 200) {
+    const chunk = allMatchIds.slice(i, i + 200)
+    const rows = await fetchAll((from, to) =>
+      db.from('sr_matches')
+        .select('id, match_date, home_team_uid, away_team_uid, season_id')
+        .in('id', chunk)
+        .not('home_score', 'is', null)
+        .lte('match_date', propMatchDate)
+        .order('match_date', { ascending: false })
+        .range(from, to)
+    )
+    allMatchRowsRaw.push(...rows)
+  }
+  const matchRows = activeFilters.has('VS')
+    ? allMatchRowsRaw.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
+    : allMatchRowsRaw.sort((a, b) => new Date(b.match_date) - new Date(a.match_date)).slice(0, 12)
 
   if (!matchRows?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
