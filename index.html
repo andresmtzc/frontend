@@ -216,6 +216,15 @@ function oddsStyle(us) {
 
 // ── Filter helpers ──────────────────────────────────────────────────────────
 
+const TWO_WORD_CITIES = ['Kansas City','San Francisco','New York','Los Angeles','St. Louis','Tampa Bay','New Orleans','Golden State','Oklahoma City','San Antonio','San Diego','Green Bay','Las Vegas','San Jose','New Jersey']
+function teamNick(name) {
+  if (!name) return '?'
+  for (const c of TWO_WORD_CITIES) {
+    if (name.startsWith(c + ' ')) return name.slice(c.length + 1)
+  }
+  return name.split(' ').slice(1).join(' ') || name
+}
+
 function abbrName(name) {
   const parts    = name.trim().split(/\s+/)
   if (parts.length <= 1) return name
@@ -509,7 +518,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
         : ''
       const rowStyle = shouldFilter ? 'display:none' : ''
       return `<tr class="${shouldFilter ? 'filtered-row' : ''}" style="border-top:1px solid #222;${rowStyle}"
-        onmouseover="this.style.background=this.classList.contains('row-expanded')?'var(--border)':'var(--surface-2)'" onmouseout="this.classList.contains('row-expanded')?(this.style.background='var(--surface-2)'):this.style.background=''">
+        onmouseover="this.style.background=this.classList.contains('row-expanded')?'#3d3d3d':'#222'" onmouseout="this.classList.contains('row-expanded')?(this.style.background='var(--border)'):this.style.background=''">
         ${playerCell}
         ${statsCell}
         <td style="padding:7px 10px;color:var(--muted);font-size:11px;font-family:'Geist Mono',monospace">${line}</td>
@@ -1195,6 +1204,8 @@ function renderMatch(entry) {
   const { matchId, match, home, away, league, markets } = entry
   const homeFull = home?.name ?? '?'
   const awayFull = away?.name ?? '?'
+  const homeNick = teamNick(homeFull)
+  const awayNick = teamNick(awayFull)
   const dateStr  = match?.match_date
     ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
     : '—'
@@ -1241,7 +1252,7 @@ function renderMatch(entry) {
       </div>`
   }).join('')
 
-  const matchLabel = `${awayFull} @ ${homeFull}`
+  const matchLabel = `${awayNick} @ ${homeNick}`
   const dateLabel  = match?.match_date
     ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
     : '—'
@@ -1427,10 +1438,10 @@ function insertExpansionRow(td, key) {
     lastRow = lastRow.nextElementSibling
     expandedRows.push(lastRow)
   }
-  expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = 'var(--surface-2)' })
+  expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = 'var(--border)' })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:1px solid var(--border)">
-      <td colspan="10" class="px-4 py-4" style="background:var(--surface-2)" data-expansion-cell="${key}"></td>
+      <td colspan="10" class="px-4 py-4" style="background:var(--border)" data-expansion-cell="${key}"></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
