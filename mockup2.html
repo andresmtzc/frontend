@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>palo.mx — as-is vs refined</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+/* ── layout ── */
+body { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; overflow: hidden; }
+.pane { overflow-y: auto; height: 100vh; }
+.label {
+  position: sticky; top: 0; z-index: 20;
+  padding: 6px 14px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+
+/* ══════════════════════════════════════
+   LEFT — AS IS
+══════════════════════════════════════ */
+.asis { background: #0f1117; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.asis .label { background: #1f2937; color: #6b7280; border-bottom: 1px solid #374151; }
+
+.asis-header {
+  position: sticky; top: 33px; z-index: 10;
+  background: rgba(15,17,23,0.95); backdrop-filter: blur(8px);
+  border-bottom: 1px solid #1f2937;
+}
+.asis-header-inner { max-width: 960px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; }
+.asis-logo { font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.asis-bet-wrap { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); }
+.asis-bet-sym { font-size: 12px; color: #4b5563; }
+.asis-bet input {
+  width: 60px; background: #1f2937; border: 1px solid #374151; color: #d1d5db;
+  font-size: 12px; padding: 4px 8px; text-align: center; outline: none; border-radius: 6px;
+}
+.asis-bet input:focus { border-color: #6366f1; }
+.asis-ml-auto { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.asis-mode { font-size: 12px; padding: 4px 10px; background: #1f2937; border: 1px solid #374151; color: #d1d5db; border-radius: 8px; cursor: pointer; }
+.asis-mode:hover { border-color: #6366f1; }
+.asis-refresh { background: none; border: none; color: #4b5563; cursor: pointer; font-size: 14px; }
+
+.asis-tabs { border-bottom: 1px solid #1f2937; }
+.asis-tabs-inner { max-width: 960px; margin: 0 auto; padding: 0 16px; display: flex; }
+.asis-tab { padding: 8px 14px; font-size: 12px; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+.asis-tab.active { color: #fff; border-bottom-color: #6366f1; }
+.asis-tab:not(.active) { color: #6b7280; }
+.asis-tab:not(.active):hover { color: #d1d5db; }
+
+.asis-pills { max-width: 960px; margin: 0 auto; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+.asis-pill { font-size: 10px; padding: 3px 10px; border-radius: 9999px; cursor: pointer; border: 1px solid; }
+.asis-pill.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+.asis-pill:not(.active) { background: transparent; color: #6b7280; border-color: #374151; }
+.asis-pill:not(.active):hover { border-color: #6366f1; color: #d1d5db; }
+
+.asis-filters { max-width: 960px; margin: 0 auto; padding: 10px 16px 4px; display: flex; align-items: stretch; gap: 6px; }
+.asis-fbtn { font-size: 10px; padding: 4px 10px; border-radius: 8px; border: 1px solid #374151; background: #1f2937; color: #6b7280; cursor: pointer; font-family: ui-monospace, monospace; }
+.asis-fbtn:hover, .asis-fbtn.act { border-color: #6366f1; color: #6366f1; }
+.asis-fdiv { width: 1px; background: #374151; flex-shrink: 0; }
+.asis-ou { display: flex; flex-direction: column; border: 1px solid #374151; border-radius: 8px; overflow: hidden; }
+.asis-ou button { font-size: 10px; padding: 3px 10px; background: #1f2937; color: #6b7280; border: none; cursor: pointer; font-family: ui-monospace, monospace; }
+
+.asis-main { max-width: 960px; margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
+.asis-card { background: #111827; border: 1px solid #1f2937; border-radius: 8px; overflow: hidden; }
+.asis-card-hdr { padding: 8px 12px; border-bottom: 1px solid #1f2937; }
+.asis-card-title { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; }
+table.asis-t { width: 100%; border-collapse: collapse; font-size: 11px; }
+table.asis-t thead th { padding: 6px 10px; text-align: left; font-size: 9px; color: #4b5563; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #1f2937; font-weight: 400; }
+table.asis-t tbody tr { border-bottom: 1px solid #111827; }
+table.asis-t tbody tr:hover { background: #1a2030; }
+table.asis-t td { padding: 7px 10px; }
+.asis-player { display: flex; align-items: center; gap: 6px; }
+.asis-av { width: 28px; height: 28px; background: #1f2937; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.asis-pname { font-size: 11px; color: #f3f4f6; font-weight: 500; }
+.asis-team { font-size: 9px; color: #4b5563; }
+.asis-odds { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 600; }
+.asis-odds.pos { color: #34d399; }
+.asis-odds.neg { color: #f87171; }
+.asis-odds.nt  { color: #9ca3af; }
+.asis-line { font-family: ui-monospace, monospace; font-size: 11px; color: #e5e7eb; }
+.asis-stat { font-size: 10px; color: #4b5563; }
+.asis-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+.asis-badge.edge { background: #065f46; color: #34d399; }
+.asis-badge.hot  { background: #78350f; color: #fbbf24; }
+.asis-badge.none { background: #1f2937; color: #4b5563; }
+
+
+/* ══════════════════════════════════════
+   RIGHT — REFINED
+══════════════════════════════════════ */
+.refined { background: #0a0509; color: #f0e6ea; font-family: 'DM Sans', sans-serif; }
+.refined .label { background: #1a0912; color: #f5146e; border-bottom: 1px solid #3a1525; font-family: 'Press Start 2P', monospace; font-size: 7px; letter-spacing: 0.05em; }
+
+.ref-header {
+  position: sticky; top: 33px; z-index: 10;
+  background: rgba(10,5,9,0.97); backdrop-filter: blur(8px);
+  border-bottom: 1px solid #2a1520;
+}
+.ref-header-inner { max-width: 960px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; }
+
+/* THE LOGO — this is the moment */
+.ref-logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #f5146e;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  text-shadow:
+    2px 0 0 #8b0030,
+    0 2px 0 #8b0030,
+    2px 2px 0 #8b0030;
+}
+.ref-logo .dot { color: #f5c518; text-shadow: 2px 0 0 #8b6000, 0 2px 0 #8b6000, 2px 2px 0 #8b6000; }
+.ref-logo .mx  { color: #fff;    text-shadow: 2px 0 0 #444,    0 2px 0 #444,    2px 2px 0 #444;    }
+
+.ref-insert {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #f5c518;
+  margin-left: 10px;
+  animation: blink 1.1s step-end infinite;
+  align-self: flex-end;
+  padding-bottom: 1px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.ref-bet-wrap { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); }
+.ref-bet-sym { font-family: 'Press Start 2P', monospace; font-size: 7px; color: #6b4f58; }
+.ref-bet input {
+  width: 60px; background: #1a0d12; border: 1px solid #3a1525; color: #f5c518;
+  font-family: 'Geist Mono', monospace; font-size: 13px; padding: 4px 8px;
+  text-align: center; outline: none; border-radius: 2px; font-weight: 600;
+}
+.ref-bet input:focus { border-color: #f5146e; box-shadow: 0 0 0 1px #f5146e40; }
+.ref-ml-auto { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.ref-mode {
+  font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 8px;
+  background: #1a0d12; border: 1px solid #3a1525; color: #f0e6ea; cursor: pointer; border-radius: 2px;
+}
+.ref-mode:hover { border-color: #f5146e; color: #f5146e; }
+.ref-refresh { background: none; border: none; color: #6b4f58; cursor: pointer; font-size: 14px; }
+.ref-refresh:hover { color: #f0e6ea; }
+
+/* pixel scanline on header only */
+.ref-header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, #f5146e44 20%, #f5146e 50%, #f5146e44 80%, transparent 100%);
+}
+
+.ref-tabs { border-bottom: 1px solid #1f0d14; }
+.ref-tabs-inner { max-width: 960px; margin: 0 auto; padding: 0 16px; display: flex; }
+.ref-tab {
+  padding: 8px 14px; font-family: 'Press Start 2P', monospace; font-size: 7px;
+  border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.ref-tab.active { color: #f5146e; border-bottom-color: #f5146e; }
+.ref-tab:not(.active) { color: #6b4f58; }
+.ref-tab:not(.active):hover { color: #f0e6ea; }
+
+.ref-pills { max-width: 960px; margin: 0 auto; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+.ref-pill { font-size: 10px; padding: 3px 10px; border-radius: 2px; cursor: pointer; border: 1px solid; }
+.ref-pill.active { background: #f5146e; color: #fff; border-color: #f5146e; }
+.ref-pill:not(.active) { background: transparent; color: #6b4f58; border-color: #3a1525; }
+.ref-pill:not(.active):hover { border-color: #f5146e; color: #f0e6ea; }
+
+.ref-filters { max-width: 960px; margin: 0 auto; padding: 10px 16px 4px; display: flex; align-items: stretch; gap: 6px; }
+.ref-fbtn { font-size: 10px; padding: 4px 10px; border-radius: 2px; border: 1px solid #3a1525; background: #1a0d12; color: #6b4f58; cursor: pointer; font-family: 'Geist Mono', monospace; }
+.ref-fbtn:hover, .ref-fbtn.act { border-color: #f5146e; color: #f5146e; }
+.ref-fdiv { width: 1px; background: #3a1525; flex-shrink: 0; margin: 0 2px; }
+.ref-ou { display: flex; flex-direction: column; border: 1px solid #3a1525; border-radius: 2px; overflow: hidden; }
+.ref-ou button { font-size: 9px; padding: 3px 10px; background: #1a0d12; color: #6b4f58; border: none; cursor: pointer; font-family: 'Geist Mono', monospace; }
+.ref-ou button:hover { color: #f5146e; }
+.ref-ou-div { height: 1px; background: #3a1525; }
+
+.ref-main { max-width: 960px; margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+/* card with pixel border */
+.ref-card {
+  background: #150d10; border-radius: 2px; overflow: hidden;
+  border: 1px solid #2a1520;
+  /* pixel corner effect */
+  outline: 1px solid #3a1525;
+  outline-offset: 2px;
+}
+.ref-card-hdr { padding: 8px 12px; border-bottom: 1px solid #2a1520; display: flex; align-items: center; justify-content: space-between; background: #1a0d12; }
+.ref-card-title { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; color: #f0e6ea; text-transform: uppercase; letter-spacing: 0.1em; }
+.ref-card-sub { font-family: 'Geist Mono', monospace; font-size: 9px; color: #6b4f58; }
+
+table.ref-t { width: 100%; border-collapse: collapse; font-size: 11px; }
+table.ref-t thead th { padding: 6px 10px; text-align: left; font-family: 'Geist Mono', monospace; font-size: 9px; color: #6b4f58; text-transform: uppercase; border-bottom: 1px solid #2a1520; font-weight: 400; }
+table.ref-t tbody tr { border-bottom: 1px solid #1a0d12; }
+table.ref-t tbody tr:hover { background: #1f0d14; }
+table.ref-t td { padding: 7px 10px; }
+.ref-player { display: flex; align-items: center; gap: 6px; }
+.ref-av { width: 32px; height: 32px; background: #2a1520; border-radius: 1px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; image-rendering: pixelated; border: 1px solid #3a1525; }
+.ref-pname { font-size: 11px; color: #f0e6ea; font-weight: 600; }
+.ref-team { font-family: 'Geist Mono', monospace; font-size: 9px; color: #6b4f58; text-transform: uppercase; }
+.ref-odds { font-family: 'Geist Mono', monospace; font-size: 13px; font-weight: 600; }
+.ref-odds.pos { color: #1ed760; }
+.ref-odds.neg { color: #f5146e; }
+.ref-odds.nt  { color: #f0e6ea; }
+.ref-line { font-family: 'Geist Mono', monospace; font-size: 12px; color: #f0e6ea; }
+.ref-stat { font-size: 10px; color: #6b4f58; font-family: 'Geist Mono', monospace; }
+.ref-badge { display: inline-block; padding: 1px 5px; border-radius: 1px; font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.ref-badge.edge { background: #1ed760; color: #0a0509; }
+.ref-badge.hot  { background: #f5c518; color: #0a0509; }
+.ref-badge.none { background: #2a1520; color: #6b4f58; }
+
+/* DALE DALE DALE footer */
+.ref-footer {
+  max-width: 960px; margin: 0 auto; padding: 16px 16px 24px;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: #3a1525; text-align: center; letter-spacing: 3px;
+  line-height: 2;
+}
+.ref-footer .star { color: #f5146e; }
+.ref-footer .coin { color: #f5c518; }
+
+/* divider between panes */
+body::after {
+  content: '';
+  position: fixed; top: 0; left: 50%; width: 2px; height: 100%;
+  background: linear-gradient(180deg, #f5146e 0%, #f5c518 50%, #f5146e 100%);
+  z-index: 100;
+}
+</style>
+</head>
+<body>
+
+<!-- LEFT: AS IS -->
+<div class="pane asis">
+  <div class="label">AS IS — current (AI slop)</div>
+  <div class="asis-header">
+    <div class="asis-header-inner">
+      <div class="asis-logo">palo.mx</div>
+      <div class="asis-bet-wrap">
+        <span class="asis-bet-sym">$</span>
+        <div class="asis-bet"><input type="number" value="100"/></div>
+      </div>
+      <div class="asis-ml-auto">
+        <button class="asis-mode">US</button>
+        <button class="asis-refresh">↺</button>
+      </div>
+    </div>
+  </div>
+  <div class="asis-tabs">
+    <div class="asis-tabs-inner">
+      <button class="asis-tab active">MLB</button>
+      <button class="asis-tab">NFL</button>
+      <button class="asis-tab">NBA</button>
+      <button class="asis-tab">Soccer</button>
+    </div>
+  </div>
+  <div class="asis-pills">
+    <div class="asis-pill active">ALL</div>
+    <div class="asis-pill">NYY @ BOS</div>
+    <div class="asis-pill">LAD @ SF</div>
+    <div class="asis-pill">HOU @ TEX</div>
+  </div>
+  <div class="asis-filters">
+    <div style="display:flex;gap:6px;flex:1">
+      <button class="asis-fbtn act">L3</button>
+      <button class="asis-fbtn">L6</button>
+      <button class="asis-fbtn">L9</button>
+      <button class="asis-fbtn">L12</button>
+      <button class="asis-fbtn">CS</button>
+    </div>
+    <div class="asis-fdiv"></div>
+    <button class="asis-fbtn">−200</button>
+    <div class="asis-ou">
+      <button>over</button>
+      <div style="height:1px;background:#374151"></div>
+      <button>under</button>
+    </div>
+  </div>
+  <div class="asis-main">
+    <div class="asis-card">
+      <div class="asis-card-hdr"><span class="asis-card-title">Hits</span></div>
+      <table class="asis-t">
+        <thead><tr><th>Player</th><th>Line</th><th>Over</th><th>Under</th><th>L3</th><th>L6</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">A. Judge</div><div class="asis-team">NYY · RF</div></div></div></td>
+            <td><span class="asis-line">0.5</span></td>
+            <td><span class="asis-odds pos">−175</span></td>
+            <td><span class="asis-odds neg">+145</span></td>
+            <td><span class="asis-stat">3/3</span></td>
+            <td><span class="asis-stat">5/6</span></td>
+            <td><span class="asis-badge edge">Edge</span></td>
+          </tr>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">F. Freeman</div><div class="asis-team">LAD · 1B</div></div></div></td>
+            <td><span class="asis-line">1.5</span></td>
+            <td><span class="asis-odds nt">−110</span></td>
+            <td><span class="asis-odds nt">−110</span></td>
+            <td><span class="asis-stat">2/3</span></td>
+            <td><span class="asis-stat">3/6</span></td>
+            <td><span class="asis-badge none">—</span></td>
+          </tr>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">R. Devers</div><div class="asis-team">BOS · 3B</div></div></div></td>
+            <td><span class="asis-line">0.5</span></td>
+            <td><span class="asis-odds pos">+115</span></td>
+            <td><span class="asis-odds neg">−140</span></td>
+            <td><span class="asis-stat">1/3</span></td>
+            <td><span class="asis-stat">2/6</span></td>
+            <td><span class="asis-badge none">—</span></td>
+          </tr>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">M. Betts</div><div class="asis-team">LAD · CF</div></div></div></td>
+            <td><span class="asis-line">1.5</span></td>
+            <td><span class="asis-odds pos">+130</span></td>
+            <td><span class="asis-odds neg">−155</span></td>
+            <td><span class="asis-stat">2/3</span></td>
+            <td><span class="asis-stat">4/6</span></td>
+            <td><span class="asis-badge edge">Edge</span></td>
+          </tr>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">J. Rodríguez</div><div class="asis-team">SEA · CF</div></div></div></td>
+            <td><span class="asis-line">0.5</span></td>
+            <td><span class="asis-odds pos">−160</span></td>
+            <td><span class="asis-odds neg">+135</span></td>
+            <td><span class="asis-stat">3/3</span></td>
+            <td><span class="asis-stat">5/6</span></td>
+            <td><span class="asis-badge hot">Hot</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="asis-card">
+      <div class="asis-card-hdr"><span class="asis-card-title">Strikeouts</span></div>
+      <table class="asis-t">
+        <thead><tr><th>Pitcher</th><th>Line</th><th>Over</th><th>Under</th><th>L3</th><th>L6</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">P. Skenes</div><div class="asis-team">PIT · SP</div></div></div></td>
+            <td><span class="asis-line">7.5</span></td>
+            <td><span class="asis-odds pos">+105</span></td>
+            <td><span class="asis-odds neg">−125</span></td>
+            <td><span class="asis-stat">2/3</span></td>
+            <td><span class="asis-stat">4/6</span></td>
+            <td><span class="asis-badge edge">Edge</span></td>
+          </tr>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">T. Skubal</div><div class="asis-team">DET · SP</div></div></div></td>
+            <td><span class="asis-line">8.5</span></td>
+            <td><span class="asis-odds nt">−115</span></td>
+            <td><span class="asis-odds nt">−105</span></td>
+            <td><span class="asis-stat">3/3</span></td>
+            <td><span class="asis-stat">6/6</span></td>
+            <td><span class="asis-badge hot">Hot</span></td>
+          </tr>
+          <tr>
+            <td><div class="asis-player"><div class="asis-av">🧑</div><div><div class="asis-pname">C. Sale</div><div class="asis-team">ATL · SP</div></div></div></td>
+            <td><span class="asis-line">6.5</span></td>
+            <td><span class="asis-odds pos">+120</span></td>
+            <td><span class="asis-odds neg">−145</span></td>
+            <td><span class="asis-stat">1/3</span></td>
+            <td><span class="asis-stat">3/6</span></td>
+            <td><span class="asis-badge none">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: REFINED -->
+<div class="pane refined">
+  <div class="label">REFINED — arcade fiesta</div>
+  <div class="ref-header" style="position:sticky;top:33px">
+    <div class="ref-header-inner">
+      <div class="ref-logo">palo<span class="dot">.</span><span class="mx">mx</span></div>
+      <span class="ref-insert">INSERT COIN</span>
+      <div class="ref-bet-wrap">
+        <span class="ref-bet-sym">$</span>
+        <div><input type="number" value="100"/></div>
+      </div>
+      <div class="ref-ml-auto">
+        <button class="ref-mode">US</button>
+        <button class="ref-refresh">↺</button>
+      </div>
+    </div>
+  </div>
+  <div class="ref-tabs">
+    <div class="ref-tabs-inner">
+      <button class="ref-tab active">MLB</button>
+      <button class="ref-tab">NFL</button>
+      <button class="ref-tab">NBA</button>
+      <button class="ref-tab">MX</button>
+    </div>
+  </div>
+  <div class="ref-pills">
+    <div class="ref-pill active">ALL</div>
+    <div class="ref-pill">NYY @ BOS</div>
+    <div class="ref-pill">LAD @ SF</div>
+    <div class="ref-pill">HOU @ TEX</div>
+  </div>
+  <div class="ref-filters">
+    <div style="display:flex;gap:6px;flex:1">
+      <button class="ref-fbtn act">L3</button>
+      <button class="ref-fbtn">L6</button>
+      <button class="ref-fbtn">L9</button>
+      <button class="ref-fbtn">L12</button>
+      <button class="ref-fbtn">CS</button>
+    </div>
+    <div class="ref-fdiv"></div>
+    <button class="ref-fbtn">−200</button>
+    <div class="ref-ou">
+      <button>over</button>
+      <div class="ref-ou-div"></div>
+      <button>under</button>
+    </div>
+  </div>
+  <div class="ref-main">
+    <div class="ref-card">
+      <div class="ref-card-hdr">
+        <span class="ref-card-title">Hits</span>
+        <span class="ref-card-sub">12 lines</span>
+      </div>
+      <table class="ref-t">
+        <thead><tr><th>Player</th><th>Line</th><th>Over</th><th>Under</th><th>L3</th><th>L6</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">A. Judge</div><div class="ref-team">NYY · RF</div></div></div></td>
+            <td><span class="ref-line">0.5</span></td>
+            <td><span class="ref-odds pos">−175</span></td>
+            <td><span class="ref-odds neg">+145</span></td>
+            <td><span class="ref-stat">3/3</span></td>
+            <td><span class="ref-stat">5/6</span></td>
+            <td><span class="ref-badge edge">EDGE</span></td>
+          </tr>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">F. Freeman</div><div class="ref-team">LAD · 1B</div></div></div></td>
+            <td><span class="ref-line">1.5</span></td>
+            <td><span class="ref-odds nt">−110</span></td>
+            <td><span class="ref-odds nt">−110</span></td>
+            <td><span class="ref-stat">2/3</span></td>
+            <td><span class="ref-stat">3/6</span></td>
+            <td><span class="ref-badge none">—</span></td>
+          </tr>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">R. Devers</div><div class="ref-team">BOS · 3B</div></div></div></td>
+            <td><span class="ref-line">0.5</span></td>
+            <td><span class="ref-odds pos">+115</span></td>
+            <td><span class="ref-odds neg">−140</span></td>
+            <td><span class="ref-stat">1/3</span></td>
+            <td><span class="ref-stat">2/6</span></td>
+            <td><span class="ref-badge none">—</span></td>
+          </tr>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">M. Betts</div><div class="ref-team">LAD · CF</div></div></div></td>
+            <td><span class="ref-line">1.5</span></td>
+            <td><span class="ref-odds pos">+130</span></td>
+            <td><span class="ref-odds neg">−155</span></td>
+            <td><span class="ref-stat">2/3</span></td>
+            <td><span class="ref-stat">4/6</span></td>
+            <td><span class="ref-badge edge">EDGE</span></td>
+          </tr>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">J. Rodríguez</div><div class="ref-team">SEA · CF</div></div></div></td>
+            <td><span class="ref-line">0.5</span></td>
+            <td><span class="ref-odds pos">−160</span></td>
+            <td><span class="ref-odds neg">+135</span></td>
+            <td><span class="ref-stat">3/3</span></td>
+            <td><span class="ref-stat">5/6</span></td>
+            <td><span class="ref-badge hot">HOT</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="ref-card">
+      <div class="ref-card-hdr">
+        <span class="ref-card-title">Strikeouts</span>
+        <span class="ref-card-sub">8 lines</span>
+      </div>
+      <table class="ref-t">
+        <thead><tr><th>Pitcher</th><th>Line</th><th>Over</th><th>Under</th><th>L3</th><th>L6</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">P. Skenes</div><div class="ref-team">PIT · SP</div></div></div></td>
+            <td><span class="ref-line">7.5</span></td>
+            <td><span class="ref-odds pos">+105</span></td>
+            <td><span class="ref-odds neg">−125</span></td>
+            <td><span class="ref-stat">2/3</span></td>
+            <td><span class="ref-stat">4/6</span></td>
+            <td><span class="ref-badge edge">EDGE</span></td>
+          </tr>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">T. Skubal</div><div class="ref-team">DET · SP</div></div></div></td>
+            <td><span class="ref-line">8.5</span></td>
+            <td><span class="ref-odds nt">−115</span></td>
+            <td><span class="ref-odds nt">−105</span></td>
+            <td><span class="ref-stat">3/3</span></td>
+            <td><span class="ref-stat">6/6</span></td>
+            <td><span class="ref-badge hot">HOT</span></td>
+          </tr>
+          <tr>
+            <td><div class="ref-player"><div class="ref-av">⚾</div><div><div class="ref-pname">C. Sale</div><div class="ref-team">ATL · SP</div></div></div></td>
+            <td><span class="ref-line">6.5</span></td>
+            <td><span class="ref-odds pos">+120</span></td>
+            <td><span class="ref-odds neg">−145</span></td>
+            <td><span class="ref-stat">1/3</span></td>
+            <td><span class="ref-stat">3/6</span></td>
+            <td><span class="ref-badge none">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="ref-footer">
+    <span class="star">★</span> <span class="coin">dale dale dale</span> <span class="star">★</span><br>
+    no pierdas el tino · palo.mx
+  </div>
+</div>
+
+</body>
+</html>

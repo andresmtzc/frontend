@@ -6,22 +6,22 @@
   <title>palo.mx</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Clash+Grotesk:wght@600;700&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
-    /* ── design system: lucha libre ── */
+    /* ── design system: pixel arcade fiesta ── */
     :root {
-      --bg:        #111111;
-      --surface:   #1c1c1c;
-      --surface-2: #161616;
-      --border:    #333333;
-      --border-2:  #2a2a2a;
-      --magenta:   #e63946;
-      --gold:      #ffd60a;
-      --green:     #4ade80;
-      --muted:     #555555;
-      --text:      #ffffff;
+      --bg:        #0d0d0f;
+      --surface:   #161618;
+      --surface-2: #1c1c20;
+      --border:    #252528;
+      --border-2:  #2e2e34;
+      --magenta:   #f5146e;
+      --gold:      #f5c518;
+      --green:     #1ed760;
+      --muted:     #6b6878;
+      --text:      #f0eef4;
     }
     * { box-sizing: border-box; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
@@ -29,17 +29,17 @@
     .mono  { font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
 
     /* tabs */
-    .tab-active   { border-bottom-color: var(--magenta) !important; color: var(--text) !important; border-bottom-width: 3px !important; }
+    .tab-active   { border-bottom-color: var(--magenta) !important; color: var(--text) !important; }
     .tab-inactive { border-bottom-color: transparent; color: var(--muted); }
     .tab-inactive:hover { color: var(--text); }
 
     /* match pills */
     .match-pill-active   { background: var(--magenta); color: #fff; border-color: var(--magenta); }
-    .match-pill-inactive { background: transparent; color: var(--muted); border-color: var(--border); border-radius: 0 !important; }
+    .match-pill-inactive { background: transparent; color: var(--muted); border-color: var(--border-2); border-radius: 2px !important; }
     .match-pill-inactive:hover { border-color: var(--magenta); color: var(--text); }
 
     /* filter buttons */
-    .filter-btn-active   { border-color: var(--gold) !important; color: var(--gold) !important; }
+    .filter-btn-active   { border-color: var(--magenta) !important; color: var(--magenta) !important; }
 
     /* odds coloring */
     .odds-pos { color: var(--green); }
@@ -55,21 +55,21 @@
 </head>
 <body class="min-h-screen" style="background:var(--bg);color:var(--text)">
 
-<header class="sticky top-0 z-10 backdrop-blur" style="background:rgba(17,17,17,0.97);border-bottom:3px solid var(--magenta)">
-  <div style="height:4px;background:linear-gradient(90deg,#e63946 0%,#ffd60a 50%,#e63946 100%)"></div>
-  <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center relative">
+<header class="sticky top-0 z-10 backdrop-blur" style="background:rgba(13,13,15,0.97);border-bottom:1px solid var(--border)">
+  <div class="max-w-[960px] mx-auto px-4 py-3 flex items-center relative">
     <!-- logo -->
     <div class="flex items-center gap-2 shrink-0">
       <img src="logo12.png" alt="palo.mx piñata" style="width:28px;height:28px;image-rendering:pixelated">
-      <div class="flex flex-col">
-        <h1 style="font-family:'Clash Grotesk','DM Sans',sans-serif;font-size:16px;font-weight:700;letter-spacing:-0.02em;text-transform:uppercase;line-height:1;color:var(--text)">
-          PALO<span style="color:var(--magenta)">.</span><span style="color:var(--gold)">MX</span>
+      <div class="flex flex-col gap-0.5">
+        <h1 class="pixel leading-none" style="font-size:11px;color:var(--magenta);text-shadow:2px 0 0 #8b0030,0 2px 0 #8b0030,2px 2px 0 #8b0030">
+          palo<span style="color:var(--gold);text-shadow:2px 0 0 #8b6000,0 2px 0 #8b6000,2px 2px 0 #8b6000">.</span><span style="color:var(--text);text-shadow:2px 0 0 #444,0 2px 0 #444,2px 2px 0 #444">mx</span>
         </h1>
+        <span class="pixel insert-coin" style="font-size:6px;color:var(--gold)">INSERT COIN</span>
       </div>
     </div>
     <!-- bet amount -->
     <div class="flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
-      <span class="mono" style="font-size:13px;font-weight:700;color:var(--muted)">$</span>
+      <span class="pixel" style="font-size:7px;color:var(--muted)">$</span>
       <input type="number" id="bet-amt" value="100" min="1" step="10"
         class="mono text-center w-16 px-2 py-1"
         style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--gold);font-size:13px;font-weight:600;border-radius:2px;outline:none"
@@ -78,13 +78,13 @@
     </div>
     <div class="flex items-center gap-2 ml-auto">
       <button id="mode-btn" onclick="cycleMode()"
-        class="mono shrink-0"
-        style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--border);color:var(--text);cursor:pointer;transition:border-color .1s,color .1s"
+        class="pixel shrink-0"
+        style="font-size:7px;padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);border-radius:2px;cursor:pointer;transition:border-color .1s,color .1s"
         onmouseover="this.style.borderColor='var(--magenta)';this.style.color='var(--magenta)'"
         onmouseout="this.style.borderColor='var(--border-2)';this.style.color='var(--text)'">
         US
       </button>
-      <button onclick="load(true)" id="refresh-btn"
+      <button onclick="load()" id="refresh-btn"
         class="shrink-0" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;transition:color .1s"
         onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">↺</button>
     </div>
@@ -99,33 +99,27 @@
 </div>
 <div id="filter-section" class="max-w-[960px] mx-auto px-4 pt-3 pb-1">
   <div class="flex items-stretch gap-1.5">
-    <div class="flex gap-1.5" id="global-filter-bar"></div>
-    <div class="shrink-0" style="width:1px;background:var(--border)"></div>
+    <div class="flex gap-1.5 flex-1" id="global-filter-bar"></div>
+    <div class="shrink-0 mx-0.5" style="width:1px;background:var(--border-2)"></div>
     <button onclick="toggleHeavyLine()" id="heavy-btn"
       class="mono shrink-0"
-      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none"
-      onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-      onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">−200</button>
-    <div class="flex shrink-0 gap-1.5" id="ou-toggle">
+      style="font-size:10px;padding:4px 10px;border-radius:2px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--muted);cursor:pointer;transition:border-color .1s,color .1s;outline:none">−200</button>
+    <div class="flex flex-col shrink-0" style="border:1px solid var(--border-2);border-radius:2px;overflow:hidden" id="ou-toggle">
       <button onclick="setDirection('over')" data-dir="over"
-        class="mono" style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none;text-transform:uppercase"
-        onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-        onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">OVER</button>
+        class="mono" style="font-size:9px;padding:3px 10px;background:var(--surface-2);color:var(--muted);border:none;cursor:pointer;line-height:1;transition:color .1s;outline:none">over</button>
+      <div style="height:1px;background:var(--border-2)"></div>
       <button onclick="setDirection('under')" data-dir="under"
-        class="mono" style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none;text-transform:uppercase"
-        onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-        onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">UNDR</button>
+        class="mono" style="font-size:9px;padding:3px 10px;background:var(--surface-2);color:var(--muted);border:none;cursor:pointer;line-height:1;transition:color .1s;outline:none">under</button>
     </div>
   </div>
   <span class="filter-status-global mono mt-1 block" style="font-size:10px;color:var(--muted)"></span>
 </div>
 
-<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" style="margin-top:16px" id="content">
+<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content">
   <p class="mono" style="font-size:10px;color:var(--muted)">Loading…</p>
 </main>
 
-<div style="height:3px;background:linear-gradient(90deg,#e63946 0%,#ffd60a 50%,#e63946 100%)"></div>
-<footer class="max-w-[960px] mx-auto px-4 pb-6 text-center mono" style="font-size:10px;font-weight:700;letter-spacing:3px;line-height:2.5;text-transform:uppercase">
+<footer class="max-w-[960px] mx-auto px-4 pb-6 text-center pixel" style="font-size:7px;letter-spacing:3px;line-height:2.5">
   <span style="color:var(--magenta)">★</span> <span style="color:var(--gold)">dale dale dale</span> <span style="color:var(--magenta)">★</span><br>
   <span style="color:var(--muted)">no pierdas el tino · palo.mx</span>
 </footer>
@@ -134,7 +128,7 @@
 <script>
 function punkImg(name) {
   const file = (name || '').replace(/[^a-z0-9]/gi, '_') + '.png'
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#2a2a2a;border:1px solid #3a3a3a;flex-shrink:0;margin-right:6px;vertical-align:middle"><img src="mlb-punks/${file}" style="height:32px;width:32px;object-fit:contain;image-rendering:pixelated;display:block;" onerror="this.onerror=null;this.src='mlb-punks/fallback.png'"></span>`
+  return `<img src="mlb-punks/${file}" style="height:32px;width:auto;display:inline;vertical-align:middle;margin-right:4px;border-radius:2px;" onerror="this.onerror=null;this.src='mlb-punks/fallback.png'">`
 }
 
 const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
@@ -335,19 +329,6 @@ function cleanMktName(name) {
     .trim()
 }
 
-function mktSubtitle(name, playerCount) {
-  const m = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  let desc = 'Player props'
-  if (m.includes('pitcher') && m.includes('strikeout')) desc = 'Pitcher strikeout props'
-  else if (m.includes('strikeout'))  desc = 'Batter strikeout props'
-  else if (m.includes('hit'))        desc = 'Player hit props'
-  else if (m.includes('base'))       desc = 'Total bases props'
-  else if (m.includes('run'))        desc = 'Runs scored props'
-  else if (m.includes('rbi'))        desc = 'RBI props'
-  else if (m.includes('home run'))   desc = 'Home run props'
-  return `${desc} · ${playerCount} lines`
-}
-
 // ── Render market tbody (passing players first, filtered grouped at bottom) ──
 
 function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
@@ -508,7 +489,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
         ? `<td class="stats-col align-top text-center" style="padding:7px 10px" rowspan="${rs}">${rateLinesHtml}</td>`
         : ''
       const rowStyle = shouldFilter ? 'display:none' : ''
-      return `<tr class="${shouldFilter ? 'filtered-row' : ''}" style="border-top:1px solid #222;${rowStyle}"
+      return `<tr class="${shouldFilter ? 'filtered-row' : ''}" style="border-top:1px solid var(--border);${rowStyle}"
         onmouseover="this.style.background=this.classList.contains('row-expanded')?'var(--border)':'var(--surface-2)'" onmouseout="this.classList.contains('row-expanded')?(this.style.background='var(--surface-2)'):this.style.background=''">
         ${playerCell}
         ${statsCell}
@@ -547,14 +528,14 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
     const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
     if (teamLabel) {
-      html += `<tr style="border-top:1px solid #222">
+      html += `<tr style="border-top:1px solid var(--border)">
         <td colspan="4" style="padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
       </tr>`
     }
     html += entries.map(e => e.trows).join('')
   }
   if (failing.length) {
-    html += `<tr class="filter-summary-row cursor-pointer select-none" style="border-top:1px solid #222" onclick="toggleFilteredRows(this)">
+    html += `<tr class="filter-summary-row cursor-pointer select-none" style="border-top:1px solid var(--border)" onclick="toggleFilteredRows(this)">
       <td colspan="4" style="padding:6px 10px">
         <span class="filter-chev" style="font-size:10px;color:var(--muted)">▷ </span>
         <span style="font-size:11px;color:var(--muted)">${failing.length} filtered</span>
@@ -569,7 +550,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
       const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
       if (teamLabel) {
-        html += `<tr class="filtered-row" style="display:none;border-top:1px solid #222">
+        html += `<tr class="filtered-row" style="display:none;border-top:1px solid var(--border)">
           <td colspan="4" style="padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
         </tr>`
       }
@@ -597,13 +578,13 @@ let filterCache      = {}
 let filterLoading    = {}
 
 function filterBtnClass(isActive) {
-  return `mono outline-none focus:outline-none cursor-pointer`
+  return `relative flex-1 border mono text-center py-1.5 outline-none focus:outline-none`
+    + ` transition-colors` // style applied via data-active attr + CSS vars
 }
 function filterBtnStyle(isActive) {
-  const base = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer`
   return isActive
-    ? `${base};border-color:var(--gold);color:var(--gold)`
-    : `${base};border-color:var(--border);color:var(--muted)`
+    ? `border-radius:2px;background:var(--magenta);border-color:var(--magenta);color:#fff;font-size:10px`
+    : `border-radius:2px;background:var(--surface-2);border-color:var(--border-2);color:var(--muted);font-size:10px`
 }
 
 let filterHeavyLines = false             // hide lines worse than -200
@@ -618,19 +599,19 @@ function updateHeavyBtn() {
   const btn = document.getElementById('heavy-btn')
   if (!btn) return
   const active = hasFilter && filterHeavyLines
-  const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;font-family:'Geist Mono',monospace`
-  btn.style.cssText = active ? `${s};border-color:var(--gold);color:var(--gold)` : `${s};border-color:var(--border);color:var(--muted)`
-  active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
+  btn.style.cssText = active
+    ? `font-size:10px;padding:4px 10px;border-radius:2px;border:1px solid var(--magenta);background:var(--magenta);color:#fff;cursor:pointer;outline:none;font-family:'Geist Mono',monospace`
+    : `font-size:10px;padding:4px 10px;border-radius:2px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--muted);cursor:pointer;outline:none;font-family:'Geist Mono',monospace`
 }
 
 
 function updateOUToggle() {
   const hasFilter = activeFilters.size > 0
   document.querySelectorAll('#ou-toggle [data-dir]').forEach(btn => {
-    const active = btn.dataset.dir === activeDirection
-    const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;text-transform:uppercase;font-family:'Geist Mono',monospace`
-    btn.style.cssText = active ? `${s};border-color:var(--gold);color:var(--gold)` : `${s};border-color:var(--border);color:var(--muted)`
-    active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
+    const active = hasFilter && btn.dataset.dir === activeDirection
+    btn.style.cssText = active
+      ? `font-size:9px;padding:3px 10px;background:var(--magenta);color:#fff;border:none;cursor:pointer;line-height:1;outline:none;font-family:'Geist Mono',monospace`
+      : `font-size:9px;padding:3px 10px;background:var(--surface-2);color:var(--muted);border:none;cursor:pointer;line-height:1;outline:none;font-family:'Geist Mono',monospace`
   })
 }
 
@@ -654,25 +635,29 @@ const FILTER_LABELS = {
 }
 
 function filterBtnInner(f, active, pinned) {
-  return f
+  const [line1, line2] = FILTER_LABELS[f]
+  const col   = active ? '#fff' : 'var(--muted)'
+  const circleStyle = pinned
+    ? `background:var(--gold);border-color:var(--gold)`
+    : active ? `border-color:rgba(255,255,255,0.3)` : `border-color:var(--border-2)`
+  return `<div style="font-size:9px;line-height:1.3;color:${col}">${line1}</div>
+          <div style="font-size:9px;line-height:1.3;color:${col}">${line2}</div>
+          <span onclick="pinFilter('${f}');event.stopPropagation()"
+            style="position:absolute;bottom:3px;right:3px;width:8px;height:8px;border-radius:50%;border:1px solid;transition:all .1s;${circleStyle}"></span>`
 }
 
 function filterBtnHtml(f) {
   const active = activeFilters.has(f)
   const pinned = pinnedFilters.has(f)
-  return `<button onclick="selectFilter('${f}')" data-filter="${f}" ${active ? 'data-active="1"' : ''}
-    class="${filterBtnClass(active)}" style="${filterBtnStyle(active)}"
-    onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-    onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">
+  return `<button onclick="selectFilter('${f}')" data-filter="${f}"
+    class="${filterBtnClass(active)}" style="${filterBtnStyle(active)}">
     ${filterBtnInner(f, active, pinned)}
   </button>`
 }
 
 function renderGlobalFilterBar() {
   document.getElementById('global-filter-bar').innerHTML =
-    ['L3','L6','L9','L12'].map(f => filterBtnHtml(f)).join('') +
-    `<div style="width:1px;background:var(--border);flex-shrink:0"></div>` +
-    ['CS','VS'].map(f => filterBtnHtml(f)).join('')
+    ['L3','L6','L9','L12','CS','VS'].map(f => filterBtnHtml(f)).join('')
 }
 
 function updateGlobalFilterButtons() {
@@ -683,7 +668,6 @@ function updateGlobalFilterButtons() {
     btn.className = filterBtnClass(active)
     btn.style.cssText = filterBtnStyle(active)
     btn.innerHTML = filterBtnInner(f, active, pinned)
-    active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
   })
 }
 
@@ -985,65 +969,21 @@ function dateLabel(dateStr) {
   const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1)
   const fmt      = dt => dt.toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric' })
   const sameDay  = (a, b) => a.toLocaleDateString('en-US', { timeZone: TZ }) === b.toLocaleDateString('en-US', { timeZone: TZ })
-  if (sameDay(d, today))    return 'TODAY'
-  if (sameDay(d, tomorrow)) return 'TOMORROW'
-  return fmt(d).toUpperCase()
+  if (sameDay(d, today))    return 'Today'
+  if (sameDay(d, tomorrow)) return 'Tomorrow'
+  return fmt(d)
 }
 
-const ODDS_CACHE_KEY    = 'palo_odds_v1'
-const PLAYER_CACHE_KEY  = 'palo_players_v1'
-const ODDS_TTL          = 3 * 60 * 1000   // 3 min
-const PLAYER_TTL        = 15 * 60 * 1000  // 15 min
-
-function cacheGet(key, ttl) {
-  try { const c = JSON.parse(localStorage.getItem(key)); return c && Date.now() - c.ts < ttl ? c.data : null } catch { return null }
-}
-function cacheSet(key, data) {
-  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })) } catch {}
-}
-
-async function load(force = false) {
+async function load() {
   document.getElementById('content').innerHTML = '<p class="text-xs" style="color:var(--muted)">Loading…</p>'
 
-  let odds, matchRows, teamRows
-
-  const cached = !force && cacheGet(ODDS_CACHE_KEY, ODDS_TTL)
-  if (cached) {
-    ;({ odds, matchRows, teamRows } = cached)
-  } else {
-    odds = await fetchAll((f, t) =>
-      db.from('sr_match_odds')
-        .select('match_id, mkt_name, seln_name, seln_hcap, us_prc')
-        .eq('published', true)
-        .order('match_id').order('mkt_name').order('seln_hcap').order('seln_name')
-        .range(f, t)
-    )
-
-    if (!odds.length) {
-      document.getElementById('sport-tabs').innerHTML = ''
-      document.getElementById('match-pills').innerHTML = ''
-      document.getElementById('content').innerHTML = '<p class="text-xs mt-12 text-center" style="color:var(--muted)">No published props yet.</p>'
-      return
-    }
-
-    const matchIds = [...new Set(odds.map(r => r.match_id))]
-    matchRows = []
-    for (let i = 0; i < matchIds.length; i += 200) {
-      const { data } = await db.from('sr_matches')
-        .select('id, match_date, home_team_uid, away_team_uid, season_id')
-        .in('id', matchIds.slice(i, i + 200))
-      if (data) matchRows.push(...data)
-    }
-
-    const teamUids = [...new Set(matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid]).filter(Boolean))]
-    teamRows = []
-    for (let i = 0; i < teamUids.length; i += 200) {
-      const { data } = await db.from('sr_teams').select('uid, name, abbr').in('uid', teamUids.slice(i, i + 200))
-      if (data) teamRows.push(...data)
-    }
-
-    cacheSet(ODDS_CACHE_KEY, { odds, matchRows, teamRows })
-  }
+  const odds = await fetchAll((f, t) =>
+    db.from('sr_match_odds')
+      .select('match_id, mkt_name, seln_name, seln_hcap, us_prc')
+      .eq('published', true)
+      .order('match_id').order('mkt_name').order('seln_hcap').order('seln_name')
+      .range(f, t)
+  )
 
   if (!odds.length) {
     document.getElementById('sport-tabs').innerHTML = ''
@@ -1052,8 +992,23 @@ async function load(force = false) {
     return
   }
 
+  const matchIds = [...new Set(odds.map(r => r.match_id))]
+  const matchRows = []
+  for (let i = 0; i < matchIds.length; i += 200) {
+    const { data } = await db.from('sr_matches')
+      .select('id, match_date, home_team_uid, away_team_uid, season_id')
+      .in('id', matchIds.slice(i, i + 200))
+    if (data) matchRows.push(...data)
+  }
   const matchMap = Object.fromEntries(matchRows.map(m => [m.id, m]))
-  const teamMap  = Object.fromEntries(teamRows.map(t => [t.uid, t]))
+
+  const teamUids = [...new Set(matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid]).filter(Boolean))]
+  const teamRows = []
+  for (let i = 0; i < teamUids.length; i += 200) {
+    const { data } = await db.from('sr_teams').select('uid, name, abbr').in('uid', teamUids.slice(i, i + 200))
+    if (data) teamRows.push(...data)
+  }
+  const teamMap = Object.fromEntries(teamRows.map(t => [t.uid, t]))
 
   const byMatch = {}
   for (const row of odds) {
@@ -1070,7 +1025,7 @@ async function load(force = false) {
     const away = teamMap[m?.away_team_uid]
     return {
       matchId: Number(mid), match: m, home, away,
-      abbr: `${away?.abbr ?? '?'} @ ${home?.abbr ?? '?'}`,
+      abbr: `${home?.abbr ?? '?'} v ${away?.abbr ?? '?'}`,
       sport: info.sport, league: info.league, markets,
     }
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
@@ -1078,26 +1033,26 @@ async function load(force = false) {
   filterCache = {}; filterLoading = {}
   window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null; window._careerBACache = null
 
-  // Load all players before rendering so name resolution is always ready
-  const cachedPlayers = force ? null : cacheGet(PLAYER_CACHE_KEY, PLAYER_TTL)
-  const allPlayers = cachedPlayers ?? await fetchAll((from, to) =>
-    db.from('sr_players').select('id, name, team_uid').range(from, to)
-  )
-  if (!cachedPlayers) cacheSet(PLAYER_CACHE_KEY, allPlayers)
-  window._playerNameCache    = {}
-  window._playerTeamUidCache = {}
-  window._teamCache          = teamMap
-  for (const p of allPlayers) {
-    window._playerNameCache[normName(p.name)] = p.id
-    window._playerTeamUidCache[p.id]          = p.team_uid
-  }
+  // Eagerly load all players so name resolution works for any match
+  ;(async () => {
+    const allPlayers = await fetchAll((from, to) =>
+      db.from('sr_players').select('id, name, team_uid').range(from, to)
+    )
+    window._playerNameCache    = {}
+    window._playerTeamUidCache = {}
+    window._teamCache          = teamMap
+    for (const p of allPlayers) {
+      window._playerNameCache[normName(p.name)] = p.id
+      window._playerTeamUidCache[p.id]          = p.team_uid
+    }
+  })()
 
-  const sports = [...new Set(allMatches.map(e => e.sport))]
-  if (!sports.includes(activeTab)) activeTab = sports[0] ?? 'All'
+  const sports = ['All', ...new Set(allMatches.map(e => e.sport))]
+  if (!sports.includes(activeTab)) activeTab = 'All'
   document.getElementById('sport-tabs').innerHTML = sports.map(s => `
     <button onclick="setTab('${s}')" id="tab-${s}"
-      class="tab-btn whitespace-nowrap border-b-2 transition-colors ${s === activeTab ? 'tab-active' : 'tab-inactive'}"
-      style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.08em;padding:9px 16px;background:none;border-left:none;border-right:none;border-top:none;cursor:pointer">
+      class="tab-btn pixel whitespace-nowrap border-b-2 transition-colors ${s === activeTab ? 'tab-active' : 'tab-inactive'}"
+      style="font-size:7px;padding:10px 12px;background:none;border-left:none;border-right:none;border-top:none;cursor:pointer">
       ${s}
     </button>`).join('')
 
@@ -1105,7 +1060,6 @@ async function load(force = false) {
 
   renderPills()
   render()
-  applyFilters()
 }
 
 function renderPills() {
@@ -1116,51 +1070,49 @@ function renderPills() {
   const pillsEl    = document.getElementById('match-pills')
   const wrapper    = document.getElementById('match-pills-wrapper')
 
-  // auto-select first match if none selected
-  if (activeMatch === null && visible.length > 0) activeMatch = visible[0].matchId
-
   if (visible.length <= 1 && past.length === 0) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
-  wrapper.className = ''
+  wrapper.className = 'border-b border-[var(--border)]'
 
   let lastLabel = null
   const parts = []
   for (const e of visible) {
     const lbl = dateLabel(e.match?.match_date)
     if (lbl !== lastLabel) {
-      parts.push(`<span class="shrink-0 ${lastLabel !== null ? 'ml-2' : ''}" style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;color:var(--muted)">${lbl}</span>`)
+      parts.push(`<span class="text-[10px] shrink-0 ${lastLabel !== null ? 'ml-2' : ''}" style="color:var(--muted)">${lbl}</span>`)
       lastLabel = lbl
     }
     const active = activeMatch === e.matchId
     parts.push(`
       <button onclick="setMatch(${e.matchId})"
-        class="match-pill whitespace-nowrap shrink-0 transition-colors
-               ${active ? 'match-pill-active' : 'match-pill-inactive'}"
-        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+        class="match-pill text-[11px] px-2.5 py-1 border transition-colors whitespace-nowrap shrink-0 font-mono
+               ${active ? 'match-pill-active' : 'match-pill-inactive'}" style="border-radius:2px">
         ${e.abbr}
       </button>`)
   }
 
   if (past.length > 0) {
+    parts.push(`<span class="text-[10px] shrink-0 ml-2" style="color:var(--muted)">·</span>`)
     parts.push(`
       <button onclick="pastExpanded=!pastExpanded;renderPills()"
-        class="match-pill-inactive whitespace-nowrap shrink-0 transition-colors"
-        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
-        ${pastExpanded ? '▾' : '▸'} 48H AGO
+        class="text-[11px] px-2.5 py-1 border transition-colors whitespace-nowrap shrink-0 font-mono"
+        style="border-radius:2px;border-color:var(--border);color:var(--muted)"
+        onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--border-2)'"
+        onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
+        ${pastExpanded ? '▾' : '▸'} Past 48h (${past.length})
       </button>`)
     if (pastExpanded) {
       let pastLabel = null
       for (const e of past) {
         const lbl = dateLabel(e.match?.match_date)
         if (lbl !== pastLabel) {
-          parts.push(`<span class="shrink-0 ml-2" style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;color:var(--muted)">${lbl}</span>`)
+          parts.push(`<span class="text-[10px] shrink-0 ml-2" style="color:var(--muted)">${lbl}</span>`)
           pastLabel = lbl
         }
         const active = activeMatch === e.matchId
         parts.push(`
           <button onclick="setMatch(${e.matchId})"
-            class="match-pill whitespace-nowrap shrink-0 transition-colors opacity-60
-                   ${active ? 'match-pill-active' : 'match-pill-inactive'}"
-            style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+            class="match-pill text-[11px] px-2.5 py-1 border transition-colors whitespace-nowrap shrink-0 font-mono opacity-60
+                   ${active ? 'match-pill-active' : 'match-pill-inactive'}" style="border-radius:2px">
             ${e.abbr}
           </button>`)
       }
@@ -1181,7 +1133,7 @@ function setTab(tab) {
 }
 
 function setMatch(matchId) {
-  activeMatch = matchId
+  activeMatch = activeMatch === matchId ? null : matchId
   renderPills(); render(); applyFilters()
 }
 
@@ -1210,29 +1162,21 @@ function renderMatch(entry) {
     const tbodyHtml = renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry)
 
     return `
-      <div style="background:var(--surface);border:2px solid var(--border)">
+      <div style="margin-top:12px">
         <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.chev').textContent=open?'▶':'▼';"
-          style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border-bottom:2px solid var(--border)"
+          style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;cursor:pointer;select:none;background:var(--surface-2);border-top:1px solid var(--border)"
           onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
-          ${(m => {
-            const sub = m.match(/\s+(OVER\/UNDER|OVER|UNDER)$/i)
-            const title = sub ? m.slice(0, m.length - sub[0].length) : m
-            const subtitle = mktSubtitle(mktName, Object.keys(playerMap).length)
-            return `<span style="display:flex;align-items:baseline;gap:8px">
-              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${title}</span>
-              <span style="font-size:10px;color:var(--muted)">${subtitle}</span>
-            </span>`
-          })(cleanMktName(mktName))}
-          <span class="chev" style="color:var(--muted);font-size:9px">▼</span>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text)">${cleanMktName(mktName)}</p>
+          <span class="chev" style="color:var(--muted);font-size:9px;margin-left:8px">▶</span>
         </div>
-        <div class="mkt-body">
+        <div class="mkt-body" style="display:none">
           <table class="w-full ${hasFilter ? 'has-filter' : ''}" style="font-size:11px;border-collapse:collapse">
             <thead>
-              <tr style="border-bottom:1px solid var(--border-2)">
-                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Player</th>
-                <th class="stats-col" style="text-align:center;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Hit</th>
-                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Line</th>
-                <th style="text-align:right;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em" data-col-label>${colLabel}</th>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:400;font-family:'Geist Mono',monospace;font-size:9px">Player</th>
+                <th class="stats-col" style="text-align:center;padding:6px 10px;color:var(--muted);font-weight:400;font-family:'Geist Mono',monospace;font-size:9px">Hit</th>
+                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:400;font-family:'Geist Mono',monospace;font-size:9px">Line</th>
+                <th style="text-align:right;padding:6px 10px;color:var(--muted);font-weight:400;font-family:'Geist Mono',monospace;font-size:9px" data-col-label>${colLabel}</th>
               </tr>
             </thead>
             <tbody class="mkt-tbody" data-mkt="${normMkt}">${tbodyHtml}</tbody>
@@ -1241,36 +1185,36 @@ function renderMatch(entry) {
       </div>`
   }).join('')
 
-  const matchLabel = `${awayFull} @ ${homeFull}`
-  const dateLabel  = match?.match_date
-    ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
-    : '—'
-
   return `
-    <div data-match-id="${matchId}">
-      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
-        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text)">${matchLabel}</span>
-        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${dateLabel}</span>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:2px;overflow:hidden;outline:1px solid var(--border-2);outline-offset:2px" data-match-id="${matchId}">
+      <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.mchev').textContent=open?'▶':'▼';b.querySelectorAll('.mkt-body').forEach(function(el){el.style.display='none'});b.querySelectorAll('.chev').forEach(function(el){el.textContent='▶'})"
+        style="padding:10px 16px;display:flex;align-items:flex-start;justify-content:space-between;background:var(--surface-2);cursor:pointer;user-select:none;border-bottom:1px solid var(--border)"
+        onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
+        <div>
+          <p style="font-size:12px;font-weight:600;color:var(--text)">${homeFull} vs ${awayFull}</p>
+          <p style="font-size:10px;color:var(--muted);margin-top:2px;font-family:'Geist Mono',monospace">${dateStr}</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+          <span style="font-size:9px;padding:2px 6px;border-radius:2px;background:var(--border);color:var(--muted);font-family:'Geist Mono',monospace;flex-shrink:0">${league}</span>
+          <span class="mchev" style="color:var(--muted);font-size:9px;flex-shrink:0">▼</span>
+        </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">${mktsHtml}</div>
+      <div style="padding-bottom:12px">${mktsHtml}</div>
     </div>`
 }
 
 function render() {
   renderGlobalFilterBar()
-  updateOUToggle()
   let entries = (activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab))
     .filter(e => !isMatchOld(e.match?.match_date) || e.matchId === activeMatch)
   if (activeMatch !== null) entries = entries.filter(e => e.matchId === activeMatch)
   if (!entries.length) {
-    document.getElementById('content').innerHTML = '<p class="mono text-center" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-top:48px">NO PROPS</p>'
+    document.getElementById('content').innerHTML = '<p class="pixel text-center" style="font-size:8px;color:var(--muted);margin-top:48px">no props · insert coin to continue</p>'
     return
   }
   document.getElementById('content').innerHTML = entries.map(renderMatch).join('')
 }
 
-renderGlobalFilterBar()
-updateOUToggle()
 load()
 
 // ── Player Row Expansion ─────────────────────────────────────────────────────

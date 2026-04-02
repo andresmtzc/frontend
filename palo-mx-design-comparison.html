@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>palo.mx — All Design Directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; color: #d0d0d0; font-family: 'DM Sans', sans-serif; padding: 32px 20px 80px; }
+
+    .page-header { text-align: center; margin-bottom: 40px; }
+    .page-header h1 { font-family: 'Press Start 2P', monospace; font-size: 11px; color: #f5c518; margin-bottom: 10px; letter-spacing: 3px; }
+    .page-header p { color: #444; font-size: 13px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+    .row-label {
+      grid-column: 1 / -1;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      letter-spacing: 3px;
+      color: #333;
+      padding: 8px 0 4px;
+      border-top: 1px solid #1a1a1a;
+      margin-top: 8px;
+    }
+    .row-label:first-child { border-top: none; margin-top: 0; }
+
+    .card { display: flex; flex-direction: column; gap: 10px; }
+    .card-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      letter-spacing: 2px;
+      padding: 6px 10px;
+      border-radius: 2px;
+      text-align: center;
+    }
+    .card-desc { font-size: 11px; color: #555; line-height: 1.55; text-align: center; min-height: 42px; }
+    .mockup { border-radius: 3px; overflow: hidden; }
+
+    /* ── shared mockup structure ── */
+    .m-header {
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .m-logo-group { display: flex; align-items: center; gap: 7px; }
+    .m-pinata {
+      width: 24px; height: 24px; flex-shrink: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect x='3' y='0' width='2' height='1' fill='%23f5c518'/%3E%3Crect x='1' y='1' width='6' height='1' fill='%23f5146e'/%3E%3Crect x='1' y='2' width='1' height='2' fill='%23f5146e'/%3E%3Crect x='2' y='2' width='2' height='1' fill='%23fb923c'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%23f5c518'/%3E%3Crect x='5' y='2' width='2' height='2' fill='%2338bdf8'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%234ade80'/%3E%3Crect x='3' y='3' width='2' height='1' fill='%23a855f7'/%3E%3Crect x='1' y='4' width='6' height='1' fill='%23f5146e'/%3E%3Crect x='2' y='5' width='4' height='2' fill='%23a855f7'/%3E%3C/svg%3E");
+      background-size: cover;
+      image-rendering: pixelated;
+    }
+    .m-brand { display: flex; flex-direction: column; gap: 2px; }
+    .m-name { font-family: 'Press Start 2P', monospace; font-size: 9px; line-height: 1; }
+    .m-coin { font-family: 'Press Start 2P', monospace; font-size: 4px; letter-spacing: 1px; }
+    .m-input {
+      font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 600;
+      width: 46px; text-align: center; padding: 3px 5px; border-radius: 2px;
+      margin: 0 auto; border: 1px solid; background: none;
+    }
+    .m-btn {
+      font-family: 'Geist Mono', monospace; font-size: 8px;
+      padding: 3px 7px; border-radius: 2px; border: 1px solid;
+      margin-left: auto; cursor: pointer; background: none;
+    }
+    .m-tabs { display: flex; padding: 0 12px; border-bottom: 1px solid; }
+    .m-tab { font-size: 10px; padding: 6px 10px; border-bottom: 2px solid transparent; cursor: pointer; }
+    .m-pills { padding: 6px 12px; display: flex; gap: 5px; flex-wrap: wrap; border-bottom: 1px solid; }
+    .m-pill { font-size: 9px; font-family: 'Geist Mono', monospace; padding: 2px 7px; border-radius: 2px; border: 1px solid; cursor: pointer; }
+    .m-main { padding: 8px 12px; }
+    .m-match { border: 1px solid; border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+    .m-mhead {
+      padding: 4px 8px; font-size: 8px;
+      font-family: 'Geist Mono', monospace;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .m-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+    .m-tag { padding: 1px 5px; border-radius: 2px; font-size: 6px; letter-spacing: 1px; border: 1px solid; }
+    .m-table { width: 100%; border-collapse: collapse; }
+    .m-table th {
+      font-size: 7px; font-family: 'Geist Mono', monospace; font-weight: 400;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 4px 8px; text-align: left; border-bottom: 1px solid;
+    }
+    .m-table th:not(:first-child) { text-align: right; }
+    .m-table td { padding: 5px 8px; font-size: 10px; border-bottom: 1px solid; }
+    .m-table td:not(:first-child) {
+      text-align: right; font-family: 'Geist Mono', monospace;
+      font-weight: 600; font-size: 10px;
+    }
+    .m-table tr:last-child td { border-bottom: none; }
+    .m-tname { font-size: 10px; font-weight: 500; }
+    .m-tsub { font-size: 7px; font-family: 'Geist Mono', monospace; margin-top: 1px; }
+    .m-footer {
+      padding: 5px 12px; text-align: center;
+      font-family: 'Press Start 2P', monospace; font-size: 4px;
+      letter-spacing: 2px; line-height: 2.2;
+      border-top: 1px solid;
+    }
+    .m-swatches { display: flex; gap: 3px; padding: 5px 12px; }
+    .m-swatch { flex: 1; height: 10px; border-radius: 1px; }
+    .pick-btn {
+      display: block; width: 100%; text-align: center;
+      padding: 7px; font-family: 'Press Start 2P', monospace;
+      font-size: 6px; letter-spacing: 1px; border-radius: 2px;
+      cursor: pointer; border: none; transition: opacity .1s;
+    }
+    .pick-btn:hover { opacity: .75; }
+
+    /* ─── DARK THEMES ─── */
+
+    /* D1 — Dark + 3 Accents */
+    .d1 .mockup { border: 1px solid #252528; }
+    .d1 .m-header { background: #0d0d0f; border-bottom: 1px solid #252528; }
+    .d1 .m-name { color: #f5146e; }
+    .d1 .m-coin { color: #f5c518; }
+    .d1 .m-input { color: #f5c518; border-color: #2e2e34; }
+    .d1 .m-btn { color: #e0dde8; border-color: #2e2e34; }
+    .d1 .m-tabs { background: #0d0d0f; border-color: #252528; }
+    .d1 .m-tab { color: #555; }
+    .d1 .m-tab.on { color: #f0eef4; border-bottom-color: #f5146e; }
+    .d1 .m-pills { background: #0d0d0f; border-color: #252528; }
+    .d1 .m-pill { color: #444; border-color: #252528; background: transparent; }
+    .d1 .m-pill.on { background: #f5146e; border-color: #f5146e; color: #fff; }
+    .d1 .m-main { background: #0d0d0f; }
+    .d1 .m-match { border-color: #252528; }
+    .d1 .m-mhead { background: #161618; border-color: #252528; color: #38bdf8; }
+    .d1 .m-dot { background: #38bdf8; }
+    .d1 .m-table th { color: #3a3a40; border-color: #252528; }
+    .d1 .m-table td { border-color: #1c1c20; }
+    .d1 .m-tname { color: #e8e6f0; }
+    .d1 .m-tsub { color: #444; }
+    .d1 .pos { color: #1ed760; }
+    .d1 .neg { color: #f5146e; }
+    .d1 .muted { color: #444; }
+    .d1 .sky { color: #38bdf8; }
+    .d1 .m-swatches { background: #0d0d0f; }
+    .d1 .m-footer { background: #0d0d0f; border-color: #252528; color: #2a2a2e; }
+    .d1 .m-footer .star { color: #f5146e; }
+    .d1 .m-footer .txt { color: #f5c518; }
+    .d1 .card-label { background: #161618; color: #f5146e; border: 1px solid #f5146e33; }
+    .d1 .pick-btn { background: #f5146e; color: #fff; }
+
+    /* D2 — Dark + Monochrome */
+    .d2 .mockup { border: 1px solid #252528; }
+    .d2 .m-header { background: #0d0d0f; border-bottom: 1px solid #252528; }
+    .d2 .m-name { color: #f0eef4; }
+    .d2 .m-coin { color: #555; }
+    .d2 .m-input { color: #f0eef4; border-color: #2e2e34; }
+    .d2 .m-btn { color: #e0dde8; border-color: #2e2e34; }
+    .d2 .m-tabs { background: #0d0d0f; border-color: #252528; }
+    .d2 .m-tab { color: #555; }
+    .d2 .m-tab.on { color: #f0eef4; border-bottom-color: #f0eef4; }
+    .d2 .m-pills { background: #0d0d0f; border-color: #252528; }
+    .d2 .m-pill { color: #444; border-color: #252528; background: transparent; }
+    .d2 .m-pill.on { background: #f0eef4; border-color: #f0eef4; color: #0d0d0f; }
+    .d2 .m-main { background: #0d0d0f; }
+    .d2 .m-match { border-color: #252528; }
+    .d2 .m-mhead { background: #161618; border-color: #252528; color: #555; }
+    .d2 .m-dot { background: #555; }
+    .d2 .m-table th { color: #333; border-color: #252528; }
+    .d2 .m-table td { border-color: #1c1c20; }
+    .d2 .m-tname { color: #e8e6f0; }
+    .d2 .m-tsub { color: #444; }
+    .d2 .pos { color: #c8c4d4; font-weight: 700; }
+    .d2 .neg { color: #f0eef4; font-weight: 700; }
+    .d2 .muted { color: #444; }
+    .d2 .m-swatches { background: #0d0d0f; }
+    .d2 .m-footer { background: #0d0d0f; border-color: #252528; }
+    .d2 .m-footer .star { color: #555; }
+    .d2 .m-footer .txt { color: #f0eef4; }
+    .d2 .card-label { background: #161618; color: #f0eef4; border: 1px solid #ffffff22; }
+    .d2 .pick-btn { background: #f0eef4; color: #0d0d0f; }
+
+    /* D3 — Dark + Rainbow */
+    .d3 .mockup { border: 1px solid #1e1a28; }
+    .d3 .m-header { background: #0c0a10; border-bottom: 1px solid #1e1a28; }
+    .d3 .m-name { color: #f5c518; }
+    .d3 .m-coin { color: #333; }
+    .d3 .m-input { color: #f5c518; border-color: #28223a; }
+    .d3 .m-btn { color: #e0dcee; border-color: #28223a; }
+    .d3 .m-tabs { background: #0c0a10; border-color: #1e1a28; }
+    .d3 .m-tab { color: #444; }
+    .d3 .m-tab.on.soc { color: #4ade80; border-bottom-color: #4ade80; }
+    .d3 .m-tab.on.mlb { color: #f5c518; border-bottom-color: #f5c518; }
+    .d3 .m-tab.on.nba { color: #fb923c; border-bottom-color: #fb923c; }
+    .d3 .m-tab.on.nfl { color: #38bdf8; border-bottom-color: #38bdf8; }
+    .d3 .m-pills { background: #0c0a10; border-color: #1e1a28; }
+    .d3 .m-pill { color: #333; border-color: #1e1a28; background: transparent; }
+    .d3 .m-pill.on { background: #4ade80; border-color: #4ade80; color: #0c0a10; font-weight: 600; }
+    .d3 .m-main { background: #0c0a10; }
+    .d3 .m-match { border-color: #1e1a28; }
+    .d3 .m-mhead { background: #131020; border-color: #1e1a28; color: #4ade80; }
+    .d3 .m-tag { background: #4ade8018; border-color: #4ade8040; color: #4ade80; }
+    .d3 .m-table th { color: #2a2a36; border-color: #1e1a28; }
+    .d3 .m-table td { border-color: #14121e; }
+    .d3 .m-tname { color: #e8e4f0; }
+    .d3 .m-tsub { color: #333; }
+    .d3 .pos { color: #4ade80; }
+    .d3 .neg { color: #f87171; }
+    .d3 .muted { color: #333; }
+    .d3 .sky { color: #4ade8066; }
+    .d3 .m-swatches { background: #0c0a10; }
+    .d3 .m-footer { background: #0c0a10; border-color: #1e1a28; }
+    .d3 .m-footer .star { color: #4ade80; }
+    .d3 .m-footer .txt { color: #f5c518; }
+    .d3 .card-label { background: #100d14; color: #4ade80; border: 1px solid #4ade8033; }
+    .d3 .pick-btn { background: #4ade80; color: #0c0a10; }
+
+    /* ─── LIGHT THEMES ─── */
+
+    /* L1 — Light + 3 Accents */
+    .l1 .mockup { border: 1px solid #ddd8d0; }
+    .l1 .m-header { background: #f7f4ef; border-bottom: 1px solid #ddd8d0; }
+    .l1 .m-name { color: #f5146e; }
+    .l1 .m-coin { color: #c8a000; }
+    .l1 .m-input { color: #1a1410; border-color: #cdc8c0; }
+    .l1 .m-btn { color: #1a1410; border-color: #cdc8c0; }
+    .l1 .m-tabs { background: #f7f4ef; border-color: #ddd8d0; }
+    .l1 .m-tab { color: #9a9088; }
+    .l1 .m-tab.on { color: #1a1410; border-bottom-color: #f5146e; }
+    .l1 .m-pills { background: #f7f4ef; border-color: #ddd8d0; }
+    .l1 .m-pill { color: #9a9088; border-color: #cdc8c0; background: transparent; }
+    .l1 .m-pill.on { background: #f5146e; border-color: #f5146e; color: #fff; }
+    .l1 .m-main { background: #f7f4ef; }
+    .l1 .m-match { border-color: #ddd8d0; }
+    .l1 .m-mhead { background: #efeae3; border-color: #ddd8d0; color: #1478c8; }
+    .l1 .m-dot { background: #1478c8; }
+    .l1 .m-table th { color: #b0a89f; border-color: #ddd8d0; }
+    .l1 .m-table td { border-color: #eae5de; }
+    .l1 .m-tname { color: #1a1410; }
+    .l1 .m-tsub { color: #9a9088; }
+    .l1 .pos { color: #1a7a3a; }
+    .l1 .neg { color: #f5146e; }
+    .l1 .muted { color: #b0a89f; }
+    .l1 .sky { color: #1478c8; }
+    .l1 .m-swatches { background: #f7f4ef; }
+    .l1 .m-footer { background: #f7f4ef; border-color: #ddd8d0; }
+    .l1 .m-footer .star { color: #f5146e; }
+    .l1 .m-footer .txt { color: #c8a000; }
+    .l1 .card-label { background: #f7f4ef; color: #f5146e; border: 1px solid #f5146e44; }
+    .l1 .pick-btn { background: #f5146e; color: #fff; }
+
+    /* L2 — Light + Monochrome */
+    .l2 .mockup { border: 1px solid #ddd8d0; }
+    .l2 .m-header { background: #f7f4ef; border-bottom: 1px solid #ddd8d0; }
+    .l2 .m-name { color: #1a1410; }
+    .l2 .m-coin { color: #e6175c; }
+    .l2 .m-input { color: #1a1410; border-color: #cdc8c0; }
+    .l2 .m-btn { color: #1a1410; border-color: #cdc8c0; }
+    .l2 .m-tabs { background: #f7f4ef; border-color: #ddd8d0; }
+    .l2 .m-tab { color: #9a9088; }
+    .l2 .m-tab.on { color: #1a1410; border-bottom-color: #e6175c; }
+    .l2 .m-pills { background: #f7f4ef; border-color: #ddd8d0; }
+    .l2 .m-pill { color: #9a9088; border-color: #cdc8c0; background: transparent; }
+    .l2 .m-pill.on { background: #e6175c; border-color: #e6175c; color: #fff; }
+    .l2 .m-main { background: #f7f4ef; }
+    .l2 .m-match { border-color: #ddd8d0; }
+    .l2 .m-mhead { background: #efeae3; border-color: #ddd8d0; color: #9a9088; }
+    .l2 .m-dot { background: #9a9088; }
+    .l2 .m-table th { color: #b0a89f; border-color: #ddd8d0; }
+    .l2 .m-table td { border-color: #eae5de; }
+    .l2 .m-tname { color: #1a1410; }
+    .l2 .m-tsub { color: #9a9088; }
+    .l2 .pos { color: #1a1410; font-weight: 700; }
+    .l2 .neg { color: #e6175c; font-weight: 700; }
+    .l2 .muted { color: #b0a89f; }
+    .l2 .m-swatches { background: #f7f4ef; }
+    .l2 .m-footer { background: #f7f4ef; border-color: #ddd8d0; }
+    .l2 .m-footer .star { color: #e6175c; }
+    .l2 .m-footer .txt { color: #1a1410; }
+    .l2 .card-label { background: #f7f4ef; color: #e6175c; border: 1px solid #e6175c44; }
+    .l2 .pick-btn { background: #e6175c; color: #fff; }
+
+    /* L3 — Light + Rainbow */
+    .l3 .mockup { border: 1px solid #ddd8d0; }
+    .l3 .m-header { background: #f7f4ef; border-bottom: 1px solid #ddd8d0; }
+    .l3 .m-name { color: #1a1410; }
+    .l3 .m-coin { color: #c8a000; }
+    .l3 .m-input { color: #1a1410; border-color: #cdc8c0; }
+    .l3 .m-btn { color: #1a1410; border-color: #cdc8c0; }
+    .l3 .m-tabs { background: #f7f4ef; border-color: #ddd8d0; }
+    .l3 .m-tab { color: #9a9088; }
+    .l3 .m-tab.on.soc { color: #167a30; border-bottom-color: #167a30; }
+    .l3 .m-tab.on.mlb { color: #c8a000; border-bottom-color: #c8a000; }
+    .l3 .m-tab.on.nba { color: #d05800; border-bottom-color: #d05800; }
+    .l3 .m-tab.on.nfl { color: #0068b0; border-bottom-color: #0068b0; }
+    .l3 .m-pills { background: #f7f4ef; border-color: #ddd8d0; }
+    .l3 .m-pill { color: #9a9088; border-color: #cdc8c0; background: transparent; }
+    .l3 .m-pill.on { background: #167a30; border-color: #167a30; color: #fff; }
+    .l3 .m-main { background: #f7f4ef; }
+    .l3 .m-match { border-color: #ddd8d0; }
+    .l3 .m-mhead { background: #efeae3; border-color: #ddd8d0; color: #167a30; }
+    .l3 .m-tag { background: #167a3018; border-color: #167a3060; color: #167a30; }
+    .l3 .m-table th { color: #b0a89f; border-color: #ddd8d0; }
+    .l3 .m-table td { border-color: #eae5de; }
+    .l3 .m-tname { color: #1a1410; }
+    .l3 .m-tsub { color: #9a9088; }
+    .l3 .pos { color: #167a30; }
+    .l3 .neg { color: #b01020; }
+    .l3 .muted { color: #b0a89f; }
+    .l3 .sky { color: #167a3066; }
+    .l3 .m-swatches { background: #f7f4ef; }
+    .l3 .m-footer { background: #f7f4ef; border-color: #ddd8d0; }
+    .l3 .m-footer .star { color: #167a30; }
+    .l3 .m-footer .txt { color: #c8a000; }
+    .l3 .card-label { background: #f7f4ef; color: #167a30; border: 1px solid #167a3044; }
+    .l3 .pick-btn { background: #167a30; color: #fff; }
+
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>PALO.MX — 6 DIRECTIONS</h1>
+  <p>2 themes × 3 accent strategies. All built around the new logo.</p>
+</div>
+
+<div class="grid">
+
+  <div class="row-label">◆ DARK BACKGROUND</div>
+
+  <!-- D1: Dark + 3 Accents -->
+  <div class="card d1">
+    <div class="card-label">D1 — DARK · 3 ACCENTS</div>
+    <div class="card-desc">Neutral dark bg. Magenta + gold + sky blue — all pulled from the piñata.</div>
+    <div class="mockup">
+      <div class="m-header">
+        <div class="m-logo-group">
+          <div class="m-pinata"></div>
+          <div class="m-brand">
+            <div class="m-name">palo<span style="color:#f5c518">.</span>mx</div>
+            <div class="m-coin" style="color:#f5c518">INSERT COIN</div>
+          </div>
+        </div>
+        <input class="m-input" value="100" readonly>
+        <div class="m-btn">US</div>
+      </div>
+      <div class="m-tabs">
+        <div class="m-tab on">Soccer</div>
+        <div class="m-tab">MLB</div>
+        <div class="m-tab">NBA</div>
+        <div class="m-tab">NFL</div>
+      </div>
+      <div class="m-pills">
+        <div class="m-pill on">América vs Chivas</div>
+        <div class="m-pill">Cruz Azul</div>
+        <div class="m-pill">Tigres</div>
+      </div>
+      <div class="m-main">
+        <div class="m-match">
+          <div class="m-mhead"><div class="m-dot"></div> LIGA MX · 20:00</div>
+          <table class="m-table">
+            <thead><tr><th>EQUIPO</th><th>ML</th><th>SPRD</th><th>%</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="m-tname">Club América</div><div class="m-tsub">LOCAL</div></td>
+                <td class="pos">+140</td><td class="neg">−125</td><td class="sky">52%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname">Chivas GDL</div><div class="m-tsub">VISIT</div></td>
+                <td class="neg">−165</td><td class="pos">+105</td><td class="sky">48%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname" style="color:#444">Empate</div></td>
+                <td class="muted">+280</td><td class="muted">—</td><td class="muted">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="m-swatches">
+        <div class="m-swatch" style="background:#0d0d0f"></div>
+        <div class="m-swatch" style="background:#161618"></div>
+        <div class="m-swatch" style="background:#252528"></div>
+        <div class="m-swatch" style="background:#f5146e"></div>
+        <div class="m-swatch" style="background:#f5c518"></div>
+        <div class="m-swatch" style="background:#38bdf8"></div>
+        <div class="m-swatch" style="background:#1ed760"></div>
+      </div>
+      <div class="m-footer"><span class="star">★</span> <span class="txt">dale dale dale</span> <span class="star">★</span></div>
+    </div>
+    <button class="pick-btn">CHOOSE D1</button>
+  </div>
+
+  <!-- D2: Dark + Monochrome -->
+  <div class="card d2">
+    <div class="card-label">D2 — DARK · MONOCHROME</div>
+    <div class="card-desc">Pure black and white. No color accent. Bold numbers in white, the data speaks for itself.</div>
+    <div class="mockup">
+      <div class="m-header">
+        <div class="m-logo-group">
+          <div class="m-pinata"></div>
+          <div class="m-brand">
+            <div class="m-name">palo<span style="color:#555">.</span>mx</div>
+            <div class="m-coin">INSERT COIN</div>
+          </div>
+        </div>
+        <input class="m-input" value="100" readonly>
+        <div class="m-btn">US</div>
+      </div>
+      <div class="m-tabs">
+        <div class="m-tab on">Soccer</div>
+        <div class="m-tab">MLB</div>
+        <div class="m-tab">NBA</div>
+        <div class="m-tab">NFL</div>
+      </div>
+      <div class="m-pills">
+        <div class="m-pill on">América vs Chivas</div>
+        <div class="m-pill">Cruz Azul</div>
+        <div class="m-pill">Tigres</div>
+      </div>
+      <div class="m-main">
+        <div class="m-match">
+          <div class="m-mhead"><div class="m-dot"></div> LIGA MX · 20:00</div>
+          <table class="m-table">
+            <thead><tr><th>EQUIPO</th><th>ML</th><th>SPRD</th><th>%</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="m-tname">Club América</div><div class="m-tsub">LOCAL</div></td>
+                <td class="pos">+140</td><td class="neg">−125</td><td style="color:#666;font-family:'Geist Mono',monospace;font-size:10px;text-align:right">52%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname">Chivas GDL</div><div class="m-tsub">VISIT</div></td>
+                <td class="neg">−165</td><td class="pos">+105</td><td style="color:#666;font-family:'Geist Mono',monospace;font-size:10px;text-align:right">48%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname" style="color:#444">Empate</div></td>
+                <td class="muted">+280</td><td class="muted">—</td><td class="muted">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="m-swatches">
+        <div class="m-swatch" style="background:#0d0d0f"></div>
+        <div class="m-swatch" style="background:#161618"></div>
+        <div class="m-swatch" style="background:#252528"></div>
+        <div class="m-swatch" style="background:#f0eef4"></div>
+        <div class="m-swatch" style="background:#888"></div>
+        <div class="m-swatch" style="background:#333"></div>
+      </div>
+      <div class="m-footer"><span class="star">★</span> <span class="txt">dale dale dale</span> <span class="star">★</span></div>
+    </div>
+    <button class="pick-btn">CHOOSE D2</button>
+  </div>
+
+  <!-- D3: Dark + Rainbow -->
+  <div class="card d3">
+    <div class="card-label">D3 — DARK · RAINBOW</div>
+    <div class="card-desc">Purple-black bg. Each sport gets its own color: Soccer=green, MLB=gold, NBA=orange, NFL=blue.</div>
+    <div class="mockup">
+      <div class="m-header">
+        <div class="m-logo-group">
+          <div class="m-pinata"></div>
+          <div class="m-brand">
+            <div class="m-name">palo<span style="color:#fff">.</span>mx</div>
+            <div class="m-coin">INSERT COIN</div>
+          </div>
+        </div>
+        <input class="m-input" value="100" readonly>
+        <div class="m-btn">US</div>
+      </div>
+      <div class="m-tabs">
+        <div class="m-tab on soc">Soccer</div>
+        <div class="m-tab mlb" style="color:#444">MLB</div>
+        <div class="m-tab nba" style="color:#444">NBA</div>
+        <div class="m-tab nfl" style="color:#444">NFL</div>
+      </div>
+      <div class="m-pills">
+        <div class="m-pill on">América vs Chivas</div>
+        <div class="m-pill">Cruz Azul</div>
+        <div class="m-pill">Tigres</div>
+      </div>
+      <div class="m-main">
+        <div class="m-match">
+          <div class="m-mhead"><span class="m-tag">LIGA MX</span> 20:00</div>
+          <table class="m-table">
+            <thead><tr><th>EQUIPO</th><th>ML</th><th>SPRD</th><th>%</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="m-tname">Club América</div><div class="m-tsub">LOCAL</div></td>
+                <td class="pos">+140</td><td class="neg">−125</td><td class="sky">52%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname">Chivas GDL</div><div class="m-tsub">VISIT</div></td>
+                <td class="neg">−165</td><td class="pos">+105</td><td class="sky">48%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname" style="color:#2a2a36">Empate</div></td>
+                <td class="muted">+280</td><td class="muted">—</td><td class="muted">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:5px;padding:4px 0 2px;align-items:center">
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#2a2036">SPORT:</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#4ade80">●SOC</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#f5c518">●MLB</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#fb923c">●NBA</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#38bdf8">●NFL</span>
+        </div>
+      </div>
+      <div class="m-swatches">
+        <div class="m-swatch" style="background:#0c0a10"></div>
+        <div class="m-swatch" style="background:#131020"></div>
+        <div class="m-swatch" style="background:#4ade80"></div>
+        <div class="m-swatch" style="background:#f5c518"></div>
+        <div class="m-swatch" style="background:#fb923c"></div>
+        <div class="m-swatch" style="background:#38bdf8"></div>
+        <div class="m-swatch" style="background:#a855f7"></div>
+      </div>
+      <div class="m-footer"><span class="star">★</span> <span class="txt">dale dale dale</span> <span class="star">★</span></div>
+    </div>
+    <button class="pick-btn">CHOOSE D3</button>
+  </div>
+
+  <div class="row-label">◆ LIGHT BACKGROUND</div>
+
+  <!-- L1: Light + 3 Accents -->
+  <div class="card l1">
+    <div class="card-label">L1 — LIGHT · 3 ACCENTS</div>
+    <div class="card-desc">Warm paper bg. Magenta + gold + navy blue from the piñata. The logo pops hard against warm white.</div>
+    <div class="mockup">
+      <div class="m-header">
+        <div class="m-logo-group">
+          <div class="m-pinata"></div>
+          <div class="m-brand">
+            <div class="m-name">palo<span style="color:#c8a000">.</span>mx</div>
+            <div class="m-coin" style="color:#c8a000">INSERT COIN</div>
+          </div>
+        </div>
+        <input class="m-input" value="100" readonly>
+        <div class="m-btn">US</div>
+      </div>
+      <div class="m-tabs">
+        <div class="m-tab on">Soccer</div>
+        <div class="m-tab">MLB</div>
+        <div class="m-tab">NBA</div>
+        <div class="m-tab">NFL</div>
+      </div>
+      <div class="m-pills">
+        <div class="m-pill on">América vs Chivas</div>
+        <div class="m-pill">Cruz Azul</div>
+        <div class="m-pill">Tigres</div>
+      </div>
+      <div class="m-main">
+        <div class="m-match">
+          <div class="m-mhead"><div class="m-dot"></div> LIGA MX · 20:00</div>
+          <table class="m-table">
+            <thead><tr><th>EQUIPO</th><th>ML</th><th>SPRD</th><th>%</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="m-tname">Club América</div><div class="m-tsub">LOCAL</div></td>
+                <td class="pos">+140</td><td class="neg">−125</td><td class="sky">52%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname">Chivas GDL</div><div class="m-tsub">VISIT</div></td>
+                <td class="neg">−165</td><td class="pos">+105</td><td class="sky">48%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname" style="color:#b0a89f">Empate</div></td>
+                <td class="muted">+280</td><td class="muted">—</td><td class="muted">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="m-swatches">
+        <div class="m-swatch" style="background:#f7f4ef;border:1px solid #ddd8d0"></div>
+        <div class="m-swatch" style="background:#efeae3"></div>
+        <div class="m-swatch" style="background:#ddd8d0"></div>
+        <div class="m-swatch" style="background:#f5146e"></div>
+        <div class="m-swatch" style="background:#c8a000"></div>
+        <div class="m-swatch" style="background:#1478c8"></div>
+        <div class="m-swatch" style="background:#1a7a3a"></div>
+      </div>
+      <div class="m-footer"><span class="star">★</span> <span class="txt">dale dale dale</span> <span class="star">★</span></div>
+    </div>
+    <button class="pick-btn">CHOOSE L1</button>
+  </div>
+
+  <!-- L2: Light + Monochrome -->
+  <div class="card l2">
+    <div class="card-label">L2 — LIGHT · MONOCHROME</div>
+    <div class="card-desc">Warm off-white. One single hot pink accent does everything. Nobody does this in betting — instant differentiation.</div>
+    <div class="mockup">
+      <div class="m-header">
+        <div class="m-logo-group">
+          <div class="m-pinata"></div>
+          <div class="m-brand">
+            <div class="m-name">palo<span style="color:#e6175c">.</span>mx</div>
+            <div class="m-coin">INSERT COIN</div>
+          </div>
+        </div>
+        <input class="m-input" value="100" readonly>
+        <div class="m-btn">US</div>
+      </div>
+      <div class="m-tabs">
+        <div class="m-tab on">Soccer</div>
+        <div class="m-tab">MLB</div>
+        <div class="m-tab">NBA</div>
+        <div class="m-tab">NFL</div>
+      </div>
+      <div class="m-pills">
+        <div class="m-pill on">América vs Chivas</div>
+        <div class="m-pill">Cruz Azul</div>
+        <div class="m-pill">Tigres</div>
+      </div>
+      <div class="m-main">
+        <div class="m-match">
+          <div class="m-mhead"><div class="m-dot"></div> LIGA MX · 20:00</div>
+          <table class="m-table">
+            <thead><tr><th>EQUIPO</th><th>ML</th><th>SPRD</th><th>%</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="m-tname">Club América</div><div class="m-tsub">LOCAL</div></td>
+                <td class="pos">+140</td><td class="neg">−125</td><td style="color:#9a9088;font-family:'Geist Mono',monospace;font-size:10px;text-align:right">52%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname">Chivas GDL</div><div class="m-tsub">VISIT</div></td>
+                <td class="neg">−165</td><td class="pos">+105</td><td style="color:#9a9088;font-family:'Geist Mono',monospace;font-size:10px;text-align:right">48%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname" style="color:#b0a89f">Empate</div></td>
+                <td class="muted">+280</td><td class="muted">—</td><td class="muted">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="m-swatches">
+        <div class="m-swatch" style="background:#f7f4ef;border:1px solid #ddd8d0"></div>
+        <div class="m-swatch" style="background:#efeae3"></div>
+        <div class="m-swatch" style="background:#1a1410"></div>
+        <div class="m-swatch" style="background:#e6175c"></div>
+        <div class="m-swatch" style="background:#9a9088"></div>
+      </div>
+      <div class="m-footer"><span class="star">★</span> <span class="txt">dale dale dale</span> <span class="star">★</span></div>
+    </div>
+    <button class="pick-btn">CHOOSE L2</button>
+  </div>
+
+  <!-- L3: Light + Rainbow -->
+  <div class="card l3">
+    <div class="card-label">L3 — LIGHT · RAINBOW</div>
+    <div class="card-desc">Warm paper bg, sport-coded colors. Soccer=forest green, MLB=amber, NBA=burnt orange, NFL=navy. Colorful but not loud.</div>
+    <div class="mockup">
+      <div class="m-header">
+        <div class="m-logo-group">
+          <div class="m-pinata"></div>
+          <div class="m-brand">
+            <div class="m-name">palo<span style="color:#c8a000">.</span>mx</div>
+            <div class="m-coin" style="color:#c8a000">INSERT COIN</div>
+          </div>
+        </div>
+        <input class="m-input" value="100" readonly>
+        <div class="m-btn">US</div>
+      </div>
+      <div class="m-tabs">
+        <div class="m-tab on soc">Soccer</div>
+        <div class="m-tab mlb" style="color:#9a9088">MLB</div>
+        <div class="m-tab nba" style="color:#9a9088">NBA</div>
+        <div class="m-tab nfl" style="color:#9a9088">NFL</div>
+      </div>
+      <div class="m-pills">
+        <div class="m-pill on">América vs Chivas</div>
+        <div class="m-pill">Cruz Azul</div>
+        <div class="m-pill">Tigres</div>
+      </div>
+      <div class="m-main">
+        <div class="m-match">
+          <div class="m-mhead"><span class="m-tag">LIGA MX</span> 20:00</div>
+          <table class="m-table">
+            <thead><tr><th>EQUIPO</th><th>ML</th><th>SPRD</th><th>%</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="m-tname">Club América</div><div class="m-tsub">LOCAL</div></td>
+                <td class="pos">+140</td><td class="neg">−125</td><td class="sky">52%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname">Chivas GDL</div><div class="m-tsub">VISIT</div></td>
+                <td class="neg">−165</td><td class="pos">+105</td><td class="sky">48%</td>
+              </tr>
+              <tr>
+                <td><div class="m-tname" style="color:#b0a89f">Empate</div></td>
+                <td class="muted">+280</td><td class="muted">—</td><td class="muted">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:5px;padding:4px 0 2px;align-items:center">
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#b0a89f">SPORT:</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#167a30">●SOC</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#c8a000">●MLB</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#d05800">●NBA</span>
+          <span style="font-size:7px;font-family:'Geist Mono',monospace;color:#0068b0">●NFL</span>
+        </div>
+      </div>
+      <div class="m-swatches">
+        <div class="m-swatch" style="background:#f7f4ef;border:1px solid #ddd8d0"></div>
+        <div class="m-swatch" style="background:#efeae3"></div>
+        <div class="m-swatch" style="background:#167a30"></div>
+        <div class="m-swatch" style="background:#c8a000"></div>
+        <div class="m-swatch" style="background:#d05800"></div>
+        <div class="m-swatch" style="background:#0068b0"></div>
+      </div>
+      <div class="m-footer"><span class="star">★</span> <span class="txt">dale dale dale</span> <span class="star">★</span></div>
+    </div>
+    <button class="pick-btn">CHOOSE L3</button>
+  </div>
+
+</div>
+
+<div style="max-width:1500px;margin:36px auto 0;padding-top:24px;border-top:1px solid #1a1a1a;text-align:center">
+  <p style="font-family:'Press Start 2P',monospace;font-size:6px;color:#2a2a2a;letter-spacing:2px">
+    ALL DIRECTIONS · Press Start 2P (brand) · Geist Mono (odds/data) · DM Sans (labels/ui)
+  </p>
+</div>
+
+</body>
+</html>

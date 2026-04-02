@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>palo.mx — Design Variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=VT323&family=Clash+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0a0509; font-family: 'DM Sans', sans-serif; color: #f0e6ea; }
+
+/* ============ PAGE NAV ============ */
+.nav { position: sticky; top: 0; z-index: 100; background: #0a0509; border-bottom: 1px solid #2a1520; display: flex; gap: 0; }
+.nav button {
+  flex: 1; padding: 12px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  transition: all 0.1s; background: #0a0509; color: #6b4f58;
+}
+.nav button.active { color: #f5146e; border-bottom: 2px solid #f5146e; }
+.nav button:hover:not(.active) { color: #f0e6ea; }
+
+/* =========== VARIANT C: LUCHA LIBRE ============ */
+.vc-wrap { background: #111111; min-height: 100vh; font-family: 'DM Sans', sans-serif; }
+.vc-header {
+  position: sticky; background: #111111; border-bottom: 3px solid #e63946; z-index: 10;
+}
+.vc-header-inner { max-width: 960px; margin: 0 auto; padding: 8px 16px; display: flex; align-items: center; }
+.vc-logo { font-family: 'Clash Grotesk', 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; color: #ffffff; flex-shrink: 0; letter-spacing: -0.02em; text-transform: uppercase; }
+.vc-logo span { color: #e63946; }
+.vc-logo-dot { color: #ffd60a; }
+.vc-bet { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); }
+.vc-bet-sym { font-size: 14px; color: #555; font-weight: 700; }
+.vc-bet input {
+  width: 64px; background: #1c1c1c; border: 2px solid #333; color: #ffd60a;
+  font-family: 'Geist Mono', monospace; font-size: 13px; padding: 3px 8px;
+  text-align: center; outline: none; font-weight: 600;
+}
+.vc-bet input:focus { border-color: #e63946; }
+.vc-ml-auto { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.vc-mode-btn {
+  font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 700; padding: 4px 10px;
+  background: #1c1c1c; border: 2px solid #333; color: #fff; cursor: pointer; text-transform: uppercase;
+}
+.vc-mode-btn:hover { border-color: #e63946; color: #e63946; }
+.vc-refresh { background: none; border: none; cursor: pointer; color: #555; font-size: 14px; font-weight: 700; }
+.vc-refresh:hover { color: #ffd60a; }
+
+.vc-sport-tabs { border-bottom: 2px solid #222; }
+.vc-sport-tabs-inner { max-width: 960px; margin: 0 auto; padding: 0 16px; display: flex; }
+.vc-tab {
+  padding: 9px 16px; font-weight: 700; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; cursor: pointer; border: none; background: none;
+  border-bottom: 3px solid transparent; white-space: nowrap; margin-bottom: -2px;
+}
+.vc-tab.active { color: #ffffff; border-bottom-color: #e63946; }
+.vc-tab:not(.active) { color: #555; }
+.vc-tab:not(.active):hover { color: #aaa; }
+
+.vc-pills-wrap { max-width: 960px; margin: 0 auto; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+.vc-pill {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 3px 10px; cursor: pointer; border: 2px solid; white-space: nowrap;
+}
+.vc-pill.active { background: #e63946; color: #fff; border-color: #e63946; }
+.vc-pill:not(.active) { background: transparent; color: #555; border-color: #333; }
+.vc-pill:not(.active):hover { border-color: #e63946; color: #fff; }
+
+.vc-filter-row { max-width: 960px; margin: 0 auto; padding: 10px 16px 4px; display: flex; gap: 6px; }
+.vc-filter-btn {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 4px 10px;
+  border: 2px solid #333; background: #1c1c1c; color: #555; cursor: pointer; font-family: 'Geist Mono', monospace;
+}
+.vc-filter-btn:hover, .vc-filter-btn.active { border-color: #ffd60a; color: #ffd60a; }
+.vc-divider { width: 2px; background: #333; flex-shrink: 0; }
+
+.vc-main { max-width: 960px; margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
+.vc-card { background: #1c1c1c; border: 2px solid #333; }
+.vc-card-header { padding: 8px 12px; border-bottom: 2px solid #333; display: flex; align-items: center; gap: 8px; background: #161616; }
+.vc-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #ffd60a; }
+.vc-card-sub { font-size: 10px; color: #555; }
+table.vc-table { width: 100%; border-collapse: collapse; }
+table.vc-table thead th { padding: 6px 10px; text-align: left; color: #555; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #2a2a2a; }
+table.vc-table tbody tr { border-bottom: 1px solid #222; }
+table.vc-table tbody tr:hover { background: #212121; }
+table.vc-table td { padding: 7px 10px; }
+.vc-player { display: flex; align-items: center; gap: 6px; }
+.vc-avatar { width: 28px; height: 28px; background: #2a2a2a; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; image-rendering: pixelated; border: 1px solid #333; }
+.vc-pname { font-size: 11px; color: #ffffff; font-weight: 600; }
+.vc-team { font-size: 9px; color: #555; font-family: 'Geist Mono', monospace; text-transform: uppercase; }
+.vc-odds { font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 700; }
+.vc-odds.pos { color: #4ade80; }
+.vc-odds.neg { color: #e63946; }
+.vc-odds.hot { color: #ffd60a; }
+.vc-line { font-family: 'Geist Mono', monospace; font-size: 12px; color: #fff; font-weight: 500; }
+.vc-stat { font-size: 10px; color: #555; }
+.vc-badge { display: inline-block; padding: 1px 6px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.vc-badge.edge { background: #4ade80; color: #111; }
+.vc-badge.hot { background: #ffd60a; color: #111; }
+.vc-badge.fade { background: #333; color: #555; }
+.vc-stripe { height: 4px; background: linear-gradient(90deg, #e63946 0%, #ffd60a 50%, #e63946 100%); }
+</style>
+</head>
+<body>
+
+
+<!-- ============ VARIANT C ============ -->
+<div id="sec-c" class="section">
+<div class="vc-wrap">
+  <div class="vc-stripe"></div>
+  <div class="vc-header">
+    <div class="vc-header-inner">
+      <div class="vc-logo">PALO<span>.</span><span class="vc-logo-dot">MX</span></div>
+      <div class="vc-bet">
+        <span class="vc-bet-sym">$</span>
+        <input type="number" value="100"/>
+      </div>
+      <div class="vc-ml-auto">
+        <button class="vc-mode-btn">US</button>
+        <button class="vc-refresh">↺</button>
+      </div>
+    </div>
+  </div>
+  <div class="vc-sport-tabs">
+    <div class="vc-sport-tabs-inner">
+      <button class="vc-tab active">MLB</button>
+      <button class="vc-tab">NFL</button>
+      <button class="vc-tab">NBA</button>
+      <button class="vc-tab">NHL</button>
+    </div>
+  </div>
+  <div class="vc-pills-wrap">
+    <div class="vc-pill active">ALL</div>
+    <div class="vc-pill">NYY @ BOS</div>
+    <div class="vc-pill">LAD @ SF</div>
+    <div class="vc-pill">HOU @ TEX</div>
+    <div class="vc-pill">CHI @ MIL</div>
+  </div>
+  <div class="vc-filter-row">
+    <button class="vc-filter-btn active">L3</button>
+    <button class="vc-filter-btn">L6</button>
+    <button class="vc-filter-btn">L9</button>
+    <button class="vc-filter-btn">L12</button>
+    <button class="vc-filter-btn">CS</button>
+    <div class="vc-divider"></div>
+    <button class="vc-filter-btn">−200</button>
+  </div>
+  <div class="vc-main">
+    <div class="vc-card">
+      <div class="vc-card-header">
+        <span class="vc-card-title">HITS</span>
+        <span class="vc-card-sub">Player hit props · 12 lines</span>
+      </div>
+      <table class="vc-table">
+        <thead>
+          <tr><th>PLAYER</th><th>LINE</th><th>OVER</th><th>UNDER</th><th>L3</th><th>L6</th><th>EDGE</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="vc-player"><div class="vc-avatar">⚾</div><div><div class="vc-pname">A. Judge</div><div class="vc-team">NYY · RF</div></div></div></td>
+            <td><span class="vc-line">0.5</span></td>
+            <td><span class="vc-odds pos">−175</span></td>
+            <td><span class="vc-odds hot">+145</span></td>
+            <td><span class="vc-stat">3/3</span></td>
+            <td><span class="vc-stat">5/6</span></td>
+            <td><span class="vc-badge edge">EDGE</span></td>
+          </tr>
+          <tr>
+            <td><div class="vc-player"><div class="vc-avatar">⚾</div><div><div class="vc-pname">F. Freeman</div><div class="vc-team">LAD · 1B</div></div></div></td>
+            <td><span class="vc-line">1.5</span></td>
+            <td><span class="vc-odds hot">−110</span></td>
+            <td><span class="vc-odds hot">−110</span></td>
+            <td><span class="vc-stat">2/3</span></td>
+            <td><span class="vc-stat">3/6</span></td>
+            <td><span class="vc-badge fade">—</span></td>
+          </tr>
+          <tr>
+            <td><div class="vc-player"><div class="vc-avatar">⚾</div><div><div class="vc-pname">M. Betts</div><div class="vc-team">LAD · CF</div></div></div></td>
+            <td><span class="vc-line">1.5</span></td>
+            <td><span class="vc-odds pos">+130</span></td>
+            <td><span class="vc-odds neg">−155</span></td>
+            <td><span class="vc-stat">2/3</span></td>
+            <td><span class="vc-stat">4/6</span></td>
+            <td><span class="vc-badge edge">EDGE</span></td>
+          </tr>
+          <tr>
+            <td><div class="vc-player"><div class="vc-avatar">⚾</div><div><div class="vc-pname">J. Rodriguez</div><div class="vc-team">SEA · CF</div></div></div></td>
+            <td><span class="vc-line">0.5</span></td>
+            <td><span class="vc-odds pos">−160</span></td>
+            <td><span class="vc-odds hot">+135</span></td>
+            <td><span class="vc-stat">3/3</span></td>
+            <td><span class="vc-stat">5/6</span></td>
+            <td><span class="vc-badge edge">EDGE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="vc-card">
+      <div class="vc-card-header">
+        <span class="vc-card-title">STRIKEOUTS</span>
+        <span class="vc-card-sub">Pitcher K props · 8 lines</span>
+      </div>
+      <table class="vc-table">
+        <thead>
+          <tr><th>PITCHER</th><th>LINE</th><th>OVER</th><th>UNDER</th><th>L3</th><th>L6</th><th>EDGE</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="vc-player"><div class="vc-avatar">⚾</div><div><div class="vc-pname">P. Skenes</div><div class="vc-team">PIT · SP</div></div></div></td>
+            <td><span class="vc-line">7.5</span></td>
+            <td><span class="vc-odds pos">+105</span></td>
+            <td><span class="vc-odds neg">−125</span></td>
+            <td><span class="vc-stat">2/3</span></td>
+            <td><span class="vc-stat">4/6</span></td>
+            <td><span class="vc-badge edge">EDGE</span></td>
+          </tr>
+          <tr>
+            <td><div class="vc-player"><div class="vc-avatar">⚾</div><div><div class="vc-pname">T. Skubal</div><div class="vc-team">DET · SP</div></div></div></td>
+            <td><span class="vc-line">8.5</span></td>
+            <td><span class="vc-odds pos">−115</span></td>
+            <td><span class="vc-odds hot">−105</span></td>
+            <td><span class="vc-stat">3/3</span></td>
+            <td><span class="vc-stat">6/6</span></td>
+            <td><span class="vc-badge hot">HOT</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="vc-stripe"></div>
+</div>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
