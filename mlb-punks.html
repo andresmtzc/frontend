@@ -91,6 +91,7 @@
 
 <div class="status" id="status"></div>
 
+<input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="handleUpload(this)">
 <div id="gallery" class="gallery">
     <div class="loading">Loading roster...</div>
 </div>
@@ -260,6 +261,7 @@ function punkifyImage(img, palette) {
 // ─── App state ────────────────────────────────────────────────────────────────
 let players = [];
 let punkMode = false;
+let punkCancelled = false;
 const gallery = document.getElementById('gallery');
 const teamSelect = document.getElementById('teamFilter');
 const statusEl = document.getElementById('status');
@@ -297,8 +299,62 @@ function getVisible() {
     });
 }
 
+function addUploadCard() {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'upload-card';
+    card.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:120px;border:2px dashed #555;cursor:pointer;';
+    card.innerHTML = `<div style="text-align:center;color:#666;pointer-events:none;">
+        <div style="font-size:32px;line-height:1;">+</div>
+        <div style="font-size:10px;margin-top:4px;font-family:monospace;">upload</div>
+    </div>`;
+    card.onclick = () => document.getElementById('file-input').click();
+    gallery.appendChild(card);
+}
+
+const uploadedCards = [];
+
+function handleUpload(input) {
+    for (const file of Array.from(input.files).reverse()) {
+        const url = URL.createObjectURL(file);
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = file.name.replace(/\.[^.]+$/, '');
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.playerName = img.alt;
+        card._originalImg = img; // store original for reset
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'name';
+        nameEl.textContent = img.alt;
+
+        card.appendChild(img);
+        card.appendChild(nameEl);
+        uploadedCards.unshift(card);
+    }
+    input.value = '';
+    reinsertUploadedCards();
+}
+
+function reinsertUploadedCards(reset = false) {
+    const uploadCard = document.getElementById('upload-card');
+    uploadedCards.forEach(card => {
+        if (reset) {
+            const existing = card.querySelector('canvas') || card.querySelector('img');
+            if (existing && existing !== card._originalImg) {
+                existing.replaceWith(card._originalImg);
+            }
+        }
+        gallery.insertBefore(card, uploadCard.nextSibling);
+    });
+}
+
 function render(list) {
     gallery.innerHTML = '';
+    addUploadCard();
+    reinsertUploadedCards();
     list.forEach(p => {
         const card = document.createElement('div');
         card.className = 'card';
@@ -413,6 +469,7 @@ async function removeBgAll() {
 
 // ─── Punk-ify all visible cards ───────────────────────────────────────────────
 async function punkifyAll() {
+    punkCancelled = false;
     const palette = PALETTES[document.getElementById('paletteSelect').value];
     const cards = gallery.querySelectorAll('.card');
     let done = 0;
@@ -420,6 +477,7 @@ async function punkifyAll() {
     statusEl.textContent = `Processing 0 / ${cards.length}...`;
 
     for (const card of cards) {
+        if (punkCancelled) break;
         const img = card.querySelector('img') || card.querySelector('canvas');
         if (!img) continue;
 
@@ -444,11 +502,17 @@ async function punkifyAll() {
         if (done % 10 === 0) await new Promise(r => setTimeout(r, 0));
     }
 
+    if (punkCancelled) return;
     statusEl.textContent = `Done! ${done} punks generated.`;
     punkMode = true;
 }
 
 function resetAll() {
+    punkCancelled = true;
+    uploadedCards.forEach(card => {
+        const existing = card.querySelector('canvas') || card.querySelector('img');
+        if (existing && existing !== card._originalImg) existing.replaceWith(card._originalImg);
+    });
     const visible = getVisible();
     render(visible);
     statusEl.textContent = 'Reset to photos.';
