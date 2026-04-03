@@ -53,9 +53,9 @@
     /* Retro loader */
     #retro-loader {
       display: none;
-      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 49px; left: 50%; transform: translateX(-50%);
       z-index: 999;
-      background: var(--surface-2); border: 2px solid var(--border);
+      background: var(--surface-2); border: 3px solid var(--border);
       padding: 10px 18px; flex-direction: column; align-items: center; gap: 8px;
     }
     #retro-loader.visible { display: flex; }
@@ -579,7 +579,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
     tbodys += `<tbody>`
     if (teamLabel) {
-      tbodys += `<tr style="border-top:1px solid #222">
+      tbodys += `<tr>
         <td colspan="4" class="team-hdr" style="position:sticky;z-index:10;background:var(--bg);padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
       </tr>`
     }
@@ -1283,7 +1283,7 @@ function renderMatch(entry) {
     const playerMap  = buildPlayerMap(rows)
     const tbodyHtml  = renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry)
     const isLastMkt  = mi === mktCount - 1
-    const thBase     = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -20px 0 20px var(--bg)`
+    const thBase     = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -60px 0 0 var(--bg),0 2px 0 0 var(--surface-2)`
 
     return `
       <div class="mkt-title" id="mkt-title-${matchId}-${mi}"
@@ -1302,7 +1302,7 @@ function renderMatch(entry) {
         <span class="chev" style="color:var(--muted);font-size:9px">${mi === 0 ? '▼' : '▶'}</span>
       </div>
       <div class="mkt-body" id="mkt-body-${matchId}-${mi}" style="display:${mi === 0 ? 'block' : 'none'};border:2px solid var(--border);border-top:2px solid transparent;background:var(--surface);margin-bottom:10px">
-        <table class="w-full ${hasFilter ? 'has-filter' : ''}" data-mkt="${normMkt}" style="font-size:11px;border-collapse:collapse">
+        <table class="w-full ${hasFilter ? 'has-filter' : ''}" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0">
           <thead>
             <tr>
               <th style="${thBase};text-align:left">Player</th>
@@ -1338,9 +1338,9 @@ function updateStickyOffsets() {
   const pillsWrapper = document.getElementById('match-pills-wrapper')
   const filterSection= document.getElementById('filter-section')
   let offset = 0
-  if (header)        { offset += header.offsetHeight }
-  if (pillsWrapper)  { pillsWrapper.style.top   = offset + 'px'; offset += pillsWrapper.offsetHeight }
-  if (filterSection) { filterSection.style.top  = offset + 'px'; offset += filterSection.offsetHeight }
+  if (header)        { offset += header.offsetHeight - 1 }
+  if (pillsWrapper)  { pillsWrapper.style.top   = offset + 'px'; offset += pillsWrapper.offsetHeight - 1 }
+  if (filterSection) { filterSection.style.top  = offset + 'px'; offset += filterSection.offsetHeight - 1 }
   const matchTitle = document.querySelector('[data-match-title]')
   if (matchTitle) {
     matchTitle.style.top = offset + 'px'
