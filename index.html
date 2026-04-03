@@ -53,7 +53,7 @@
     /* Retro loader */
     #retro-loader {
       display: none;
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
       z-index: 999;
       background: var(--surface-2); border: 2px solid var(--border);
       padding: 10px 18px; flex-direction: column; align-items: center; gap: 8px;
@@ -82,13 +82,14 @@
   <div style="height:4px;background:#222222"></div>
   <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center relative">
     <!-- logo -->
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex items-center gap-3 shrink-0">
       <img src="logo12.png" alt="palo.mx piñata" style="width:28px;height:28px;image-rendering:pixelated">
       <div class="flex flex-col">
         <h1 style="font-family:'Press Start 2P',monospace;font-size:13px;line-height:1;letter-spacing:-2px;color:var(--text)">
           PALO<span style="color:var(--gold)">.</span><span style="color:var(--gold);margin-left:-2px">MX</span>
         </h1>
       </div>
+      <div id="sport-switcher" class="flex items-center gap-1.5"></div>
     </div>
     <div class="flex items-center gap-2 ml-auto">
       <div id="bet-wrapper" class="flex items-center gap-1" style="display:none!important">
@@ -111,10 +112,7 @@
   </div>
 </header>
 
-<div id="sport-tabs-bar" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border)">
-  <div class="max-w-[960px] mx-auto px-4 flex overflow-x-auto" id="sport-tabs"></div>
-</div>
-<div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg)">
+<div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:45;background:var(--bg)">
   <div class="max-w-[960px] mx-auto px-4 py-2 flex flex-wrap items-center gap-1.5" id="match-pills"></div>
 </div>
 <div id="filter-section" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-2)">
@@ -139,9 +137,7 @@
   <div class="rl-line2">DO NOT TURN OFF THE POWER</div>
 </div>
 
-<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content">
-  <p class="mono" style="font-size:10px;color:var(--muted)">Loading…</p>
-</main>
+<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content"></main>
 
 <div style="height:3px;background:#222222"></div>
 <footer class="max-w-[960px] mx-auto px-4 pb-6 text-center mono" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase">
@@ -975,6 +971,28 @@ let activeTab      = 'All'
 let activeMatch    = null
 let allMatches     = []
 let pastExpanded   = false
+let sportExpanded  = false
+
+function togglePastExpanded() {
+  pastExpanded = !pastExpanded
+  if (pastExpanded) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 2); cutoff.setHours(0,0,0,0)
+    const pastDates = [...new Set(
+      allMatches
+        .filter(e => isMatchOld(e.match?.match_date) && e.match?.match_date && new Date(e.match.match_date) >= cutoff)
+        .map(e => `past:${dateLabel(e.match?.match_date)}`)
+    )]
+    pastDates.forEach(k => collapsedDates.add(k))
+  }
+  renderPills()
+}
+let collapsedDates = new Set()
+
+function toggleDateGroup(lbl) {
+  if (collapsedDates.has(lbl)) collapsedDates.delete(lbl)
+  else collapsedDates.add(lbl)
+  renderPills()
+}
 
 async function fetchAll(queryFn) {
   const PAGE = 1000
@@ -1041,7 +1059,7 @@ async function load(force = false) {
     )
 
     if (!odds.length) {
-      document.getElementById('sport-tabs').innerHTML = ''
+      document.getElementById('sport-switcher').innerHTML = ''
       document.getElementById('match-pills').innerHTML = ''
       document.getElementById('content').innerHTML = '<p class="text-xs mt-12 text-center" style="color:var(--muted)">No published props yet.</p>'
       return
@@ -1115,12 +1133,7 @@ async function load(force = false) {
 
   const sports = [...new Set(allMatches.map(e => e.sport))]
   if (!sports.includes(activeTab)) activeTab = sports[0] ?? 'All'
-  document.getElementById('sport-tabs').innerHTML = sports.map(s => `
-    <button onclick="setTab('${s}')" id="tab-${s}"
-      class="tab-btn whitespace-nowrap border-b-2 transition-colors ${s === activeTab ? 'tab-active' : 'tab-inactive'}"
-      style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.08em;padding:9px 16px;background:none;border-left:none;border-right:none;border-top:none;cursor:pointer">
-      ${s}
-    </button>`).join('')
+  renderSportSwitcher(sports)
 
   if (activeMatch !== null && !allMatches.find(e => e.matchId === activeMatch)) activeMatch = null
 
@@ -1141,50 +1154,65 @@ function renderPills() {
   // auto-select first match if none selected
   if (activeMatch === null && visible.length > 0) activeMatch = visible[0].matchId
 
-  if (visible.length <= 1 && past.length === 0) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
+  if (visible.length === 0 && past.length === 0) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
   wrapper.className = ''
+
+  const lblBtn = (lbl, key, marginLeft) =>
+    `<button onclick="toggleDateGroup('${key}')" class="shrink-0${marginLeft ? ' ml-2' : ''}"
+      style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);background:none;border:none;padding:0;cursor:pointer">
+      ${collapsedDates.has(key) ? '▸' : '▾'} ${lbl}</button>`
 
   let lastLabel = null
   const parts = []
   for (const e of visible) {
     const lbl = dateLabel(e.match?.match_date)
     if (lbl !== lastLabel) {
-      parts.push(`<span class="shrink-0 ${lastLabel !== null ? 'ml-2' : ''}" style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;color:var(--muted)">${lbl}</span>`)
+      parts.push(lblBtn(lbl, lbl, lastLabel !== null))
       lastLabel = lbl
     }
-    const active = activeMatch === e.matchId
-    parts.push(`
-      <button onclick="setMatch(${e.matchId})"
-        class="match-pill whitespace-nowrap shrink-0 transition-colors
-               ${active ? 'match-pill-active' : 'match-pill-inactive'}"
-        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
-        ${e.abbr}
-      </button>`)
+    if (collapsedDates.has(lbl)) {
+      // transparent spacer so the row height doesn't change
+      if (e === visible.filter(x => dateLabel(x.match?.match_date) === lbl)[0]) {
+        parts.push(`<div style="height:24px;width:1px;flex-shrink:0"></div>`)
+      }
+    } else {
+      const active = activeMatch === e.matchId
+      parts.push(`
+        <button onclick="setMatch(${e.matchId})"
+          class="match-pill whitespace-nowrap shrink-0 transition-colors
+                 ${active ? 'match-pill-active' : 'match-pill-inactive'}"
+          style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+          ${e.abbr}
+        </button>`)
+    }
   }
 
   if (past.length > 0) {
     parts.push(`
-      <button onclick="pastExpanded=!pastExpanded;renderPills()"
-        class="match-pill-inactive whitespace-nowrap shrink-0 transition-colors"
-        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+      <button onclick="togglePastExpanded()"
+        class="shrink-0"
+        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);background:none;border:none;padding:0;margin-left:8px;cursor:pointer">
         ${pastExpanded ? '▾' : '▸'} 48H AGO
       </button>`)
     if (pastExpanded) {
       let pastLabel = null
       for (const e of past) {
         const lbl = dateLabel(e.match?.match_date)
+        const key = `past:${lbl}`
         if (lbl !== pastLabel) {
-          parts.push(`<span class="shrink-0 ml-2" style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;color:var(--muted)">${lbl}</span>`)
+          parts.push(lblBtn(lbl, key, true))
           pastLabel = lbl
         }
-        const active = activeMatch === e.matchId
-        parts.push(`
-          <button onclick="setMatch(${e.matchId})"
-            class="match-pill whitespace-nowrap shrink-0 transition-colors opacity-60
-                   ${active ? 'match-pill-active' : 'match-pill-inactive'}"
-            style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
-            ${e.abbr}
-          </button>`)
+        if (!collapsedDates.has(key)) {
+          const active = activeMatch === e.matchId
+          parts.push(`
+            <button onclick="setMatch(${e.matchId})"
+              class="match-pill whitespace-nowrap shrink-0 transition-colors opacity-60
+                     ${active ? 'match-pill-active' : 'match-pill-inactive'}"
+              style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+              ${e.abbr}
+            </button>`)
+        }
       }
     }
   }
@@ -1194,13 +1222,32 @@ function renderPills() {
 }
 
 function setTab(tab) {
-  activeTab = tab; activeMatch = null
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    const a = btn.id === `tab-${tab}`
-    btn.classList.remove('tab-active', 'tab-inactive')
-    btn.classList.add(a ? 'tab-active' : 'tab-inactive')
-  })
+  activeTab = tab; activeMatch = null; sportExpanded = false
+  const sports = [...new Set(allMatches.map(e => e.sport))]
+  renderSportSwitcher(sports)
   renderPills(); render()
+}
+
+function renderSportSwitcher(sports) {
+  const el = document.getElementById('sport-switcher')
+  if (!el) return
+  const labelStyle = `font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);background:none;border:none;padding:0;cursor:pointer`
+  if (sports.length <= 1) {
+    el.innerHTML = sports.length === 1
+      ? `<span style="${labelStyle.replace('cursor:pointer','cursor:default')}">${sports[0]}</span>`
+      : ''
+    return
+  }
+  const others = sports.filter(s => s !== activeTab)
+  let html = `<button onclick="sportExpanded=!sportExpanded;renderSportSwitcher([${sports.map(s=>`'${s}'`).join(',')}])" style="${labelStyle}">${sportExpanded ? '▾' : '▸'} ${activeTab}</button>`
+  if (sportExpanded) {
+    others.forEach(s => {
+      html += `<button onclick="setTab('${s}')"
+        class="match-pill match-pill-inactive whitespace-nowrap shrink-0"
+        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-width:2px;border-style:solid;cursor:pointer">${s}</button>`
+    })
+  }
+  el.innerHTML = html
 }
 
 function setMatch(matchId) {
@@ -1288,12 +1335,10 @@ function renderMatch(entry) {
 
 function updateStickyOffsets() {
   const header       = document.querySelector('header')
-  const tabsBar      = document.getElementById('sport-tabs-bar')
   const pillsWrapper = document.getElementById('match-pills-wrapper')
   const filterSection= document.getElementById('filter-section')
   let offset = 0
   if (header)        { offset += header.offsetHeight }
-  if (tabsBar)       { tabsBar.style.top        = offset + 'px'; offset += tabsBar.offsetHeight }
   if (pillsWrapper)  { pillsWrapper.style.top   = offset + 'px'; offset += pillsWrapper.offsetHeight }
   if (filterSection) { filterSection.style.top  = offset + 'px'; offset += filterSection.offsetHeight }
   const matchTitle = document.querySelector('[data-match-title]')
@@ -1309,6 +1354,9 @@ function updateStickyOffsets() {
 window.addEventListener('resize', updateStickyOffsets)
 
 function toggleMkt(matchId, mi) {
+  for (const [key, exp] of [...expansions]) {
+    if (exp.matchId === matchId) collapseExpansion(key)
+  }
   const titleEl     = document.getElementById('mkt-title-' + matchId + '-' + mi)
   const body        = document.getElementById('mkt-body-'  + matchId + '-' + mi)
   const scrollBefore = window.scrollY
