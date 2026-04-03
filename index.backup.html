@@ -23,7 +23,6 @@
       --muted:     #555555;
       --text:      #ffffff;
     }
-    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; }
     * { box-sizing: border-box; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
     .pixel { font-family: 'Press Start 2P', monospace; }
@@ -56,7 +55,7 @@
 </head>
 <body class="min-h-screen" style="background:var(--bg);color:var(--text)">
 
-<header class="fixed top-0 left-0 right-0 z-50 backdrop-blur" style="background:rgba(17,17,17,0.97);border-bottom:3px solid var(--magenta)">
+<header class="sticky top-0 z-10 backdrop-blur" style="background:rgba(17,17,17,0.97);border-bottom:3px solid var(--magenta)">
   <div style="height:4px;background:linear-gradient(90deg,#e63946 0%,#ffd60a 50%,#e63946 100%)"></div>
   <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center relative">
     <!-- logo -->
@@ -92,14 +91,13 @@
   </div>
 </header>
 
-<div id="sport-tabs-bar" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border)">
+<div style="border-bottom:1px solid var(--border)">
   <div class="max-w-[960px] mx-auto px-4 flex overflow-x-auto" id="sport-tabs"></div>
 </div>
-<div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-2)">
+<div id="match-pills-wrapper">
   <div class="max-w-[960px] mx-auto px-4 py-2 flex flex-wrap items-center gap-1.5" id="match-pills"></div>
 </div>
-<div id="filter-section" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-2)">
-  <div class="max-w-[960px] mx-auto px-4 pt-3 pb-2">
+<div id="filter-section" class="max-w-[960px] mx-auto px-4 pt-3 pb-1">
   <div class="flex items-stretch gap-1.5">
     <div class="flex gap-1.5" id="global-filter-bar"></div>
     <div class="shrink-0" style="width:1px;background:var(--border)"></div>
@@ -112,10 +110,9 @@
       style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase">OVER</button>
   </div>
   <span class="filter-status-global mono mt-1 block" style="font-size:10px;color:var(--muted)"></span>
-  </div>
 </div>
 
-<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content">
+<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" style="margin-top:16px" id="content">
   <p class="mono" style="font-size:10px;color:var(--muted)">Loading…</p>
 </main>
 
@@ -547,22 +544,19 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
   }
   const groups = [...byTeam.entries()]
 
-  let tbodys = ''
+  let html = ''
   for (const [key, entries] of groups) {
     const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
     const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
-    tbodys += `<tbody>`
     if (teamLabel) {
-      tbodys += `<tr style="border-top:1px solid #222">
-        <td colspan="4" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h) + var(--thead-h));z-index:10;background:var(--bg);padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+      html += `<tr style="border-top:1px solid #222">
+        <td colspan="4" style="padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
       </tr>`
     }
-    tbodys += entries.map(e => e.trows).join('')
-    tbodys += `</tbody>`
+    html += entries.map(e => e.trows).join('')
   }
   if (failing.length) {
-    tbodys += `<tbody>`
-    tbodys += `<tr class="filter-summary-row cursor-pointer select-none" style="border-top:1px solid #222" onclick="toggleFilteredRows(this)">
+    html += `<tr class="filter-summary-row cursor-pointer select-none" style="border-top:1px solid #222" onclick="toggleFilteredRows(this)">
       <td colspan="4" style="padding:6px 10px">
         <span class="filter-chev" style="font-size:10px;color:var(--muted)">▷ </span>
         <span style="font-size:11px;color:var(--muted)">${failing.length} filtered</span>
@@ -577,15 +571,14 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
       const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
       const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
       if (teamLabel) {
-        tbodys += `<tr class="filtered-row" style="display:none;border-top:1px solid #222">
+        html += `<tr class="filtered-row" style="display:none;border-top:1px solid #222">
           <td colspan="4" style="padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
         </tr>`
       }
-      tbodys += entries.map(p => p.trows).join('')
+      html += entries.map(p => p.trows).join('')
     }
-    tbodys += `</tbody>`
   }
-  return tbodys
+  return html
 }
 
 function toggleFilteredRows(el) {
@@ -710,14 +703,12 @@ function refreshMktTbodies(filterKeys) {
     const card = document.querySelector(`[data-match-id="${entry.matchId}"]`)
     if (!card) continue
     const cache = hasF ? filterCache[entry.matchId] : null
-    card.querySelectorAll('table[data-mkt]').forEach(table => {
-      const normMkt = table.dataset.mkt
+    card.querySelectorAll('tbody.mkt-tbody').forEach(tbody => {
+      const normMkt = tbody.dataset.mkt
       const mktName = Object.keys(entry.markets).find(k => normName(k) === normMkt)
       if (!mktName) return
-      // replace all tbodys (keep thead)
-      table.querySelectorAll('tbody').forEach(b => b.remove())
-      table.insertAdjacentHTML('beforeend', renderMktTbodyContent(mktName, buildPlayerMap(entry.markets[mktName]), cache, filterKeys, entry))
-      table.classList.toggle('has-filter', hasF)
+      tbody.innerHTML = renderMktTbodyContent(mktName, buildPlayerMap(entry.markets[mktName]), cache, filterKeys, entry)
+      tbody.closest('table').classList.toggle('has-filter', hasF)
     })
   }
   updateOddsInPlace()
@@ -1158,7 +1149,6 @@ function renderPills() {
   }
 
   pillsEl.innerHTML = parts.join('')
-  requestAnimationFrame(updateStickyOffsets)
 }
 
 function setTab(tab) {
@@ -1204,9 +1194,9 @@ function renderMatch(entry) {
 
     return `
       <div style="background:var(--surface);border:2px solid var(--border)">
-        <div data-mkt-title onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.chev').textContent=open?'▶':'▼';"
-          style="position:sticky;top:var(--nav-h);z-index:20;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border-bottom:2px solid var(--border)"
-          onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'"">
+        <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.chev').textContent=open?'▶':'▼';"
+          style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border-bottom:2px solid var(--border)"
+          onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
           ${(m => {
             const sub = m.match(/\s+(OVER\/UNDER|OVER|UNDER)$/i)
             const title = sub ? m.slice(0, m.length - sub[0].length) : m
@@ -1219,16 +1209,16 @@ function renderMatch(entry) {
           <span class="chev" style="color:var(--muted);font-size:9px">▼</span>
         </div>
         <div class="mkt-body">
-          <table class="w-full ${hasFilter ? 'has-filter' : ''}" data-mkt="${normMkt}" style="font-size:11px;border-collapse:collapse">
+          <table class="w-full ${hasFilter ? 'has-filter' : ''}" style="font-size:11px;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border-2)">
-                <th style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Player</th>
-                <th class="stats-col" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:center;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Hit</th>
-                <th style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Line</th>
-                <th style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:right;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em" data-col-label>${colLabel}</th>
+                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Player</th>
+                <th class="stats-col" style="text-align:center;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Hit</th>
+                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Line</th>
+                <th style="text-align:right;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em" data-col-label>${colLabel}</th>
               </tr>
             </thead>
-            ${tbodyHtml}
+            <tbody class="mkt-tbody" data-mkt="${normMkt}">${tbodyHtml}</tbody>
           </table>
         </div>
       </div>`
@@ -1241,48 +1231,13 @@ function renderMatch(entry) {
 
   return `
     <div data-match-id="${matchId}">
-      <div data-match-title style="position:fixed;left:0;right:0;z-index:35;background:var(--bg);padding-bottom:6px">
-        <div class="max-w-[960px] mx-auto px-4 pt-2 flex items-baseline gap-2">
-          <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text)">${matchLabel}</span>
-          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${dateLabel}</span>
-        </div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text)">${matchLabel}</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${dateLabel}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">${mktsHtml}</div>
     </div>`
 }
-
-function updateStickyOffsets() {
-  const header       = document.querySelector('header')
-  const tabsBar      = document.getElementById('sport-tabs-bar')
-  const pillsWrapper = document.getElementById('match-pills-wrapper')
-  const filterSection= document.getElementById('filter-section')
-  let offset = 0
-  if (header)        { offset += header.offsetHeight }
-  if (tabsBar)       { tabsBar.style.top        = offset + 'px'; offset += tabsBar.offsetHeight }
-  if (pillsWrapper)  { pillsWrapper.style.top   = offset + 'px'; offset += pillsWrapper.offsetHeight }
-  if (filterSection) { filterSection.style.top  = offset + 'px'; offset += filterSection.offsetHeight }
-  const matchTitle = document.querySelector('[data-match-title]')
-  if (matchTitle) {
-    matchTitle.style.top = offset + 'px'
-    offset = matchTitle.getBoundingClientRect().bottom
-  }
-  document.documentElement.style.setProperty('--nav-h', offset + 'px')
-  const content = document.getElementById('content')
-  if (content) content.style.paddingTop = (offset + 16) + 'px'
-  const mktTitle = document.querySelector('[data-mkt-title]')
-  if (mktTitle) document.documentElement.style.setProperty('--mkt-title-h', mktTitle.offsetHeight + 'px')
-  const thead = document.querySelector('table[data-mkt] thead')
-  if (thead) document.documentElement.style.setProperty('--thead-h', thead.offsetHeight + 'px')
-}
-window.addEventListener('resize', updateStickyOffsets)
-window.addEventListener('scroll', () => {
-  if (pastExpanded) { pastExpanded = false; renderPills() }
-  const matchTitle = document.querySelector('[data-match-title]')
-  if (matchTitle) {
-    const bottom = matchTitle.getBoundingClientRect().bottom
-    document.documentElement.style.setProperty('--nav-h', bottom + 'px')
-  }
-}, { passive: true })
 
 function render() {
   renderGlobalFilterBar()
@@ -1295,12 +1250,10 @@ function render() {
     return
   }
   document.getElementById('content').innerHTML = entries.map(renderMatch).join('')
-  requestAnimationFrame(updateStickyOffsets)
 }
 
 renderGlobalFilterBar()
 updateOUToggle()
-updateStickyOffsets()
 load()
 
 // ── Player Row Expansion ─────────────────────────────────────────────────────
@@ -1495,7 +1448,7 @@ function reinstateExpansion() {
     exp.tr = null
     const { normMkt, matchId } = exp
     const td = document.querySelector(
-      `[data-match-id="${matchId}"] table[data-mkt="${normMkt}"] [data-player-exp="${key}"]`)
+      `[data-match-id="${matchId}"] tbody.mkt-tbody[data-mkt="${normMkt}"] [data-player-exp="${key}"]`)
     if (!td) continue
     // Collapse if filtered state changed in either direction
     const nowFiltered = td.closest('tr')?.classList.contains('filtered-row') ?? false
