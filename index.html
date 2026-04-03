@@ -1590,8 +1590,8 @@ function insertExpansionRow(td, key) {
   }
   expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = 'var(--border)' })
   lastRow.insertAdjacentHTML('afterend', `
-    <tr data-expansion-key="${key}" style="border-top:1px solid var(--border)">
-      <td colspan="10" class="px-4 py-4" style="background:#222222" data-expansion-cell="${key}"></td>
+    <tr data-expansion-key="${key}" style="border-top:none">
+      <td colspan="10" class="px-4 py-4" style="background:var(--border)" data-expansion-cell="${key}"></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
