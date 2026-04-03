@@ -65,6 +65,7 @@
       animation: blink 1s step-end infinite;
     }
     #retro-loader .rl-line2 {
+      white-space: nowrap;
       font-family: 'Press Start 2P', monospace;
       font-size: 7px; color: var(--muted); letter-spacing: 1px;
     }
@@ -89,21 +90,18 @@
         </h1>
       </div>
     </div>
-    <!-- bet amount -->
-    <div class="flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
-      <span class="mono" style="font-size:13px;font-weight:700;color:var(--muted)">$</span>
-      <input type="number" id="bet-amt" value="100" min="1" step="10"
-        class="mono text-center w-16 px-2 py-1"
-        style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--gold);font-size:13px;font-weight:600;border-radius:2px;outline:none"
-        onfocus="this.style.borderColor='var(--magenta)'" onblur="this.style.borderColor='var(--border-2)'"
-        oninput="updateOddsInPlace()" />
-    </div>
     <div class="flex items-center gap-2 ml-auto">
+      <div id="bet-wrapper" class="flex items-center gap-1" style="display:none!important">
+        <span class="mono" style="font-size:13px;font-weight:700;color:var(--muted)">$</span>
+        <input type="number" id="bet-amt" value="100" min="1" step="10"
+          class="mono text-center w-16 px-2 py-1"
+          style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--gold);font-size:13px;font-weight:600;border-radius:2px;outline:none"
+          onfocus="this.style.borderColor='var(--magenta)'" onblur="this.style.borderColor='var(--border-2)'"
+          oninput="updateOddsInPlace()" />
+      </div>
       <button id="mode-btn" onclick="cycleMode()"
         class="mono shrink-0"
-        style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--border);color:var(--text);cursor:pointer;transition:border-color .1s,color .1s"
-        onmouseover="this.style.borderColor='var(--magenta)';this.style.color='var(--magenta)'"
-        onmouseout="this.style.borderColor='var(--border-2)';this.style.color='var(--text)'">
+        style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer">
         US
       </button>
       <button onclick="load(true)" id="refresh-btn"
@@ -192,6 +190,7 @@ let modeIdx = 0
 function cycleMode() {
   modeIdx = (modeIdx + 1) % MODES.length
   document.getElementById('mode-btn').textContent = MODES[modeIdx].label
+  document.getElementById('bet-wrapper').style.display = MODES[modeIdx].id === '$' ? 'flex' : 'none'
   updateOddsInPlace()
 }
 
