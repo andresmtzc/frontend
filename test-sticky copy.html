@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sticky test</title>
+  <style>
+    :root { --bg: #111; --surface: #1c1c1c; --surface-2: #161616; --border: #333; --gold: #ffd60a; --muted: #555; --text: #fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: monospace; }
+
+    #nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: var(--bg);
+      border-bottom: 2px solid var(--gold);
+      padding: 10px 16px;
+      font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold);
+    }
+
+    main { max-width: 600px; margin: 0 auto; padding: 16px; }
+
+    /* title and body are flat siblings inside main — no wrapper div */
+    .prop-title {
+      position: sticky;
+      /* top set via JS */
+      background: var(--surface-2);
+      border: 2px solid var(--border);
+      border-bottom: none;
+      padding: 8px 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold);
+      margin-top: 10px;
+    }
+    .prop-title:first-child { margin-top: 0; }
+
+    .prop-body {
+      display: none;
+      border: 2px solid var(--border);
+      border-top: none;
+      background: var(--surface);
+    }
+    .prop-body.open { display: block; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    td { padding: 8px 10px; border-bottom: 1px solid #222; color: var(--text); }
+    th { padding: 6px 10px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #333; background: var(--surface-2); text-align: left; }
+  </style>
+</head>
+<body>
+
+<div id="nav">LAD @ SF · Tue Apr 2</div>
+<main id="content"></main>
+
+<script>
+  const props = [
+    { title: 'Player Strikeouts', players: ['C. Yamamoto','T. Glasnow','L. Webb','K. Quantrill','A. Snell'] },
+    { title: 'Hits',              players: ['F. Freeman','M. Betts','W. Ford','L. Heyward','C. Taylor'] },
+    { title: 'Total Bases',       players: ['S. Ohtani','T. Turner','J. Pederson','M. Conforto','B. Zastryzny'] },
+    { title: 'RBI',               players: ['W. Smith','A. Barnes','P. Bailey','C. Dickerson','A. Slater'] },
+    { title: 'Stolen Bases',      players: ['J. Outman','K. Hernandez','T. Wade Jr','E. Longoria','B. Crawford'] },
+  ]
+
+  const n = props.length
+
+  function render() {
+    document.getElementById('content').innerHTML = props.flatMap((p, i) => [`
+      <div class="prop-title" id="title-${i}" onclick="toggle(${i})">
+        <span>${p.title}</span><span class="chev">▶</span>
+      </div>
+      <div class="prop-body" id="body-${i}">
+        <table>
+          <thead><tr><th>Player</th><th>Line</th><th>Edge</th></tr></thead>
+          <tbody>
+            ${Array.from({length:25},(_,j) => `
+              <tr>
+                <td>${p.players[j % p.players.length]}${j >= p.players.length ? ' Jr' : ''}</td>
+                <td>&gt;${(0.5+(j%5)*0.5).toFixed(1)}</td>
+                <td style="color:${j%2===0?'#4ade80':'#e63946'}">${j%2===0?'+':'-'}${(((j*7+3)%15)+2).toFixed(1)}%</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`
+    ]).join('')
+    setTops()
+  }
+
+  function setTops() {
+    const navH   = document.getElementById('nav').offsetHeight
+    const titleH = document.getElementById('title-0').offsetHeight
+    props.forEach((_, i) => {
+      const t = document.getElementById('title-' + i)
+      t.style.top    = (navH + i * titleH) + 'px'
+      t.style.zIndex = 20 + (n - i)   // title 0 on top
+    })
+    document.getElementById('content').style.paddingTop = (navH + 16) + 'px'
+  }
+
+  function toggle(i) {
+    const body = document.getElementById('body-' + i)
+    const open = body.classList.toggle('open')
+    document.querySelector('#title-' + i + ' .chev').textContent = open ? '▼' : '▶'
+  }
+
+  render()
+  window.addEventListener('resize', setTops)
+</script>
+</body>
+</html>

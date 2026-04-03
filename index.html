@@ -6,7 +6,7 @@
   <title>palo.mx</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Clash+Grotesk:wght@600;700&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Clash+Grotesk:wght@600;700&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
@@ -52,19 +52,21 @@
 
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     table:not(.has-filter) .stats-col { display: none; }
+    .mkt-body + .mkt-title { margin-top: 0; }
+    .mkt-body:last-child { margin-bottom: 0; }
   </style>
 </head>
 <body class="min-h-screen" style="background:var(--bg);color:var(--text)">
 
 <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur" style="background:rgba(17,17,17,0.97);border-bottom:3px solid var(--magenta)">
-  <div style="height:4px;background:linear-gradient(90deg,#e63946 0%,#ffd60a 50%,#e63946 100%)"></div>
+  <div style="height:4px;background:#222222"></div>
   <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center relative">
     <!-- logo -->
     <div class="flex items-center gap-2 shrink-0">
       <img src="logo12.png" alt="palo.mx piñata" style="width:28px;height:28px;image-rendering:pixelated">
       <div class="flex flex-col">
-        <h1 style="font-family:'Clash Grotesk','DM Sans',sans-serif;font-size:16px;font-weight:700;letter-spacing:-0.02em;text-transform:uppercase;line-height:1;color:var(--text)">
-          PALO<span style="color:var(--magenta)">.</span><span style="color:var(--gold)">MX</span>
+        <h1 style="font-family:'Press Start 2P',monospace;font-size:13px;line-height:1;letter-spacing:-2px;color:var(--text)">
+          PALO<span style="color:var(--gold)">.</span><span style="color:var(--gold);margin-left:-2px">MX</span>
         </h1>
       </div>
     </div>
@@ -95,14 +97,14 @@
 <div id="sport-tabs-bar" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border)">
   <div class="max-w-[960px] mx-auto px-4 flex overflow-x-auto" id="sport-tabs"></div>
 </div>
-<div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-2)">
+<div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg)">
   <div class="max-w-[960px] mx-auto px-4 py-2 flex flex-wrap items-center gap-1.5" id="match-pills"></div>
 </div>
 <div id="filter-section" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-2)">
   <div class="max-w-[960px] mx-auto px-4 pt-3 pb-2">
   <div class="flex items-stretch gap-1.5">
     <div class="flex gap-1.5" id="global-filter-bar"></div>
-    <div class="shrink-0" style="width:1px;background:var(--border)"></div>
+    <div class="shrink-0" style="width:1px;background:#222222"></div>
     <button onclick="toggleHeavyLine()" id="heavy-btn"
       class="mono shrink-0"
       style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none"
@@ -119,10 +121,9 @@
   <p class="mono" style="font-size:10px;color:var(--muted)">Loading…</p>
 </main>
 
-<div style="height:3px;background:linear-gradient(90deg,#e63946 0%,#ffd60a 50%,#e63946 100%)"></div>
-<footer class="max-w-[960px] mx-auto px-4 pb-6 text-center mono" style="font-size:10px;font-weight:700;letter-spacing:3px;line-height:2.5;text-transform:uppercase">
-  <span style="color:var(--magenta)">★</span> <span style="color:var(--gold)">dale dale dale</span> <span style="color:var(--magenta)">★</span><br>
-  <span style="color:var(--muted)">no pierdas el tino · palo.mx</span>
+<div style="height:3px;background:#222222"></div>
+<footer class="max-w-[960px] mx-auto px-4 pb-6 text-center mono" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase">
+  <span style="color:var(--muted)">¡Dale, dale, dale, no pierdas el tino!</span>
 </footer>
 
 
@@ -554,7 +555,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
     tbodys += `<tbody>`
     if (teamLabel) {
       tbodys += `<tr style="border-top:1px solid #222">
-        <td colspan="4" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h) + var(--thead-h));z-index:10;background:var(--bg);padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+        <td colspan="4" class="team-hdr" style="position:sticky;z-index:10;background:var(--bg);padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
       </tr>`
     }
     tbodys += entries.map(e => e.trows).join('')
@@ -677,7 +678,7 @@ function filterBtnHtml(f) {
 function renderGlobalFilterBar() {
   document.getElementById('global-filter-bar').innerHTML =
     ['L3','L6','L9','L12'].map(f => filterBtnHtml(f)).join('') +
-    `<div style="width:1px;background:var(--border);flex-shrink:0"></div>` +
+    `<div style="width:1px;background:#222222;flex-shrink:0"></div>` +
     ['CS','VS'].map(f => filterBtnHtml(f)).join('')
 }
 
@@ -722,6 +723,7 @@ function refreshMktTbodies(filterKeys) {
   }
   updateOddsInPlace()
   reinstateExpansion()
+  requestAnimationFrame(updateMktTops)
 }
 
 async function applyFilters() {
@@ -1197,40 +1199,43 @@ function renderMatch(entry) {
   const filterKeys = sortFilterKeys([...activeFilters])
   const hasFilter  = filterKeys.length > 0
 
-  const mktsHtml = Object.entries(markets).map(([mktName, rows]) => {
-    const normMkt   = normName(mktName)
-    const playerMap = buildPlayerMap(rows)
-    const tbodyHtml = renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry)
+  const mktsEntries = Object.entries(markets)
+  const mktCount    = mktsEntries.length
+  const mktsHtml = mktsEntries.map(([mktName, rows], mi) => {
+    const normMkt    = normName(mktName)
+    const playerMap  = buildPlayerMap(rows)
+    const tbodyHtml  = renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry)
+    const isLastMkt  = mi === mktCount - 1
+    const thBase     = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -20px 0 20px var(--bg)`
 
     return `
-      <div style="background:var(--surface);border:2px solid var(--border)">
-        <div data-mkt-title onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.querySelector('.chev').textContent=open?'▶':'▼';"
-          style="position:sticky;top:var(--nav-h);z-index:20;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border-bottom:2px solid var(--border)"
-          onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'"">
-          ${(m => {
-            const sub = m.match(/\s+(OVER\/UNDER|OVER|UNDER)$/i)
-            const title = sub ? m.slice(0, m.length - sub[0].length) : m
-            const subtitle = mktSubtitle(mktName, Object.keys(playerMap).length)
-            return `<span style="display:flex;align-items:baseline;gap:8px">
-              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${title}</span>
-              <span style="font-size:10px;color:var(--muted)">${subtitle}</span>
-            </span>`
-          })(cleanMktName(mktName))}
-          <span class="chev" style="color:var(--muted);font-size:9px">▼</span>
-        </div>
-        <div class="mkt-body">
-          <table class="w-full ${hasFilter ? 'has-filter' : ''}" data-mkt="${normMkt}" style="font-size:11px;border-collapse:collapse">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border-2)">
-                <th style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Player</th>
-                <th class="stats-col" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:center;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Hit</th>
-                <th style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:left;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em">Line</th>
-                <th style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);text-align:right;padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em" data-col-label>${colLabel}</th>
-              </tr>
-            </thead>
-            ${tbodyHtml}
-          </table>
-        </div>
+      <div class="mkt-title" id="mkt-title-${matchId}-${mi}"
+        onclick="toggleMkt(${matchId},${mi})"
+        style="position:sticky;z-index:${20 + mktCount - mi};display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border:2px solid var(--border);overflow:hidden;box-shadow:0 -8px 0 0 var(--bg);transform:translateZ(0);${isLastMkt ? 'margin-top:2px;' : ''}"
+        onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
+        ${(m => {
+          const sub = m.match(/\s+(OVER\/UNDER|OVER|UNDER)$/i)
+          const title = sub ? m.slice(0, m.length - sub[0].length) : m
+          const subtitle = mktSubtitle(mktName, Object.keys(playerMap).length)
+          return `<span style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${title}</span>
+            <span style="font-size:10px;color:var(--muted)">${subtitle}</span>
+          </span>`
+        })(cleanMktName(mktName))}
+        <span class="chev" style="color:var(--muted);font-size:9px">▶</span>
+      </div>
+      <div class="mkt-body" id="mkt-body-${matchId}-${mi}" style="display:none;border:2px solid var(--border);border-top:2px solid transparent;background:var(--surface);margin-bottom:10px">
+        <table class="w-full ${hasFilter ? 'has-filter' : ''}" data-mkt="${normMkt}" style="font-size:11px;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="${thBase};text-align:left">Player</th>
+              <th class="stats-col" style="${thBase};text-align:center">Hit</th>
+              <th style="${thBase};text-align:left">Line</th>
+              <th style="${thBase};text-align:right" data-col-label>${colLabel}</th>
+            </tr>
+          </thead>
+          ${tbodyHtml}
+        </table>
       </div>`
   }).join('')
 
@@ -1247,7 +1252,7 @@ function renderMatch(entry) {
           <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${dateLabel}</span>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">${mktsHtml}</div>
+      ${mktsHtml}
     </div>`
 }
 
@@ -1269,12 +1274,49 @@ function updateStickyOffsets() {
   document.documentElement.style.setProperty('--nav-h', offset + 'px')
   const content = document.getElementById('content')
   if (content) content.style.paddingTop = (offset + 16) + 'px'
-  const mktTitle = document.querySelector('[data-mkt-title]')
-  if (mktTitle) document.documentElement.style.setProperty('--mkt-title-h', mktTitle.offsetHeight + 'px')
-  const thead = document.querySelector('table[data-mkt] thead')
-  if (thead) document.documentElement.style.setProperty('--thead-h', thead.offsetHeight + 'px')
+  updateMktTops()
 }
 window.addEventListener('resize', updateStickyOffsets)
+
+function toggleMkt(matchId, mi) {
+  const titleEl     = document.getElementById('mkt-title-' + matchId + '-' + mi)
+  const body        = document.getElementById('mkt-body-'  + matchId + '-' + mi)
+  const scrollBefore = window.scrollY
+  const offsetBefore = titleEl.offsetTop
+  const isOpen = body.style.display !== 'none'
+  const card = document.querySelector('[data-match-id="' + matchId + '"]')
+  card.querySelectorAll('.mkt-body').forEach(b  => { b.style.display = 'none' })
+  card.querySelectorAll('.mkt-title .chev').forEach(c => { c.textContent = '▶' })
+  if (!isOpen) {
+    body.style.display = 'block'
+    titleEl.querySelector('.chev').textContent = '▼'
+  }
+  const offsetAfter = titleEl.offsetTop
+  window.scrollTo(0, scrollBefore + (offsetAfter - offsetBefore))
+  requestAnimationFrame(updateMktTops)
+}
+
+function updateMktTops() {
+  if (activeMatch == null) return
+  const card = document.querySelector('[data-match-id="' + activeMatch + '"]')
+  if (!card) return
+  const titles = card.querySelectorAll('.mkt-title')
+  if (!titles.length) return
+  const navH   = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0
+  const titleH = titles[0].offsetHeight
+  titles.forEach((t, i) => {
+    t.style.top    = (navH + i * titleH) + 'px'
+    t.style.zIndex = 20 + (titles.length - i)
+    const bodyEl = document.getElementById(t.id.replace('mkt-title', 'mkt-body'))
+    if (!bodyEl) return
+    const theadTop = navH + i * titleH + titleH - 2
+    bodyEl.querySelectorAll('th').forEach(th => { th.style.top = theadTop + 'px' })
+    const thead  = bodyEl.querySelector('thead')
+    const theadH = thead ? thead.offsetHeight : 0
+    bodyEl.querySelectorAll('.team-hdr').forEach(td => { td.style.top = (theadTop + theadH) + 'px' })
+  })
+}
+
 window.addEventListener('scroll', () => {
   if (pastExpanded) { pastExpanded = false; renderPills() }
   const matchTitle = document.querySelector('[data-match-title]')
@@ -1472,7 +1514,7 @@ function insertExpansionRow(td, key) {
   expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = 'var(--border)' })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:1px solid var(--border)">
-      <td colspan="10" class="px-4 py-4" style="background:var(--border)" data-expansion-cell="${key}"></td>
+      <td colspan="10" class="px-4 py-4" style="background:#222222" data-expansion-cell="${key}"></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }

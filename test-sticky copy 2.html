@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sticky test</title>
+  <style>
+    :root { --bg: #111; --surface: #1c1c1c; --surface-2: #161616; --border: #333; --gold: #ffd60a; --muted: #555; --text: #fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: monospace; }
+
+    #nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: var(--bg);
+      border-bottom: 2px solid var(--gold);
+      padding: 10px 16px;
+      font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold);
+    }
+
+    main { max-width: 600px; margin: 0 auto; padding: 0 16px 16px; }
+
+    /* title and body are flat siblings inside main — no wrapper div */
+    .prop-title {
+      position: sticky;
+      /* top set via JS */
+      background: var(--surface-2);
+      border: 2px solid var(--border);
+      padding: 8px 12px;
+      overflow: hidden;
+      box-shadow: 0 -8px 0 0 var(--surface-2);
+      transform: translateZ(0);
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold);
+    }
+
+    .prop-body {
+      display: none;
+      border: 2px solid var(--border);
+      border-top: 2px solid transparent;
+      background: var(--surface);
+      margin-bottom: 10px;
+    }
+    .prop-body.open { display: block; }
+    .prop-body:last-child { margin-bottom: 0; }
+
+    .prop-body + .prop-title { margin-top: 0px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    td { padding: 8px 10px; border-bottom: 1px solid #222; color: var(--text); }
+    th { position: sticky; top: 0; /* overridden per-thead via JS */ z-index: 10; padding: 6px 10px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; background: var(--surface-2); text-align: left; box-shadow: 0 -20px 0 20px var(--bg); will-change: transform; }
+  </style>
+</head>
+<body>
+
+<div id="nav">LAD @ SF · Tue Apr 2</div>
+<div id="nav-gap" style="position:fixed;left:0;right:0;z-index:49;background:var(--bg)"></div>
+<main id="content"></main>
+
+<script>
+  const props = [
+    { title: 'Player Strikeouts', players: ['C. Yamamoto','T. Glasnow','L. Webb','K. Quantrill','A. Snell'] },
+    { title: 'Hits',              players: ['F. Freeman','M. Betts','W. Ford','L. Heyward','C. Taylor'] },
+    { title: 'Total Bases',       players: ['S. Ohtani','T. Turner','J. Pederson','M. Conforto','B. Zastryzny'] },
+    { title: 'RBI',               players: ['W. Smith','A. Barnes','P. Bailey','C. Dickerson','A. Slater'] },
+    { title: 'Stolen Bases',      players: ['J. Outman','K. Hernandez','T. Wade Jr','E. Longoria','B. Crawford'] },
+  ]
+
+  const n = props.length
+
+  function render() {
+    document.getElementById('content').innerHTML = props.flatMap((p, i) => [`
+      <div class="prop-title" id="title-${i}" onclick="toggle(${i})" ${i === n - 1 ? 'style="margin-top:2px"' : ''}>
+        <span>${p.title}</span><span class="chev">▶</span>
+      </div>
+      <div class="prop-body" id="body-${i}">
+        <table>
+          <thead><tr><th>Player</th><th>Line</th><th>Edge</th></tr></thead>
+          <tbody>
+            ${Array.from({length:25},(_,j) => `
+              <tr>
+                <td>${p.players[j % p.players.length]}${j >= p.players.length ? ' Jr' : ''}</td>
+                <td>&gt;${(0.5+(j%5)*0.5).toFixed(1)}</td>
+                <td style="color:${j%2===0?'#4ade80':'#e63946'}">${j%2===0?'+':'-'}${(((j*7+3)%15)+2).toFixed(1)}%</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`
+    ]).join('')
+    setTops()
+  }
+
+  function setTops() {
+    const navH   = document.getElementById('nav').offsetHeight
+    const titleH = document.getElementById('title-0').offsetHeight
+    const base   = navH + 10
+    props.forEach((_, i) => {
+      const t = document.getElementById('title-' + i)
+      t.style.top    = (base + i * titleH) + 'px'
+      t.style.zIndex = 20 + (n - i)
+      // thead th sticks just below this prop's title
+      const theadTop = base + i * titleH + titleH - 2
+      document.querySelectorAll(`#body-${i} th`).forEach(th => {
+        th.style.top = theadTop + 'px'
+      })
+    })
+    const gap = document.getElementById('nav-gap')
+    gap.style.top    = navH + 'px'
+    gap.style.height = '10px'
+    document.getElementById('content').style.paddingTop = base + 'px'
+  }
+
+  function toggle(i) {
+    const titleEl   = document.getElementById('title-' + i)
+    const body      = document.getElementById('body-' + i)
+    const scrollBefore = window.scrollY
+    const offsetBefore = titleEl.offsetTop
+    const isOpen = body.classList.contains('open')
+    // close all
+    props.forEach((_, j) => {
+      document.getElementById('body-' + j).classList.remove('open')
+      document.querySelector('#title-' + j + ' .chev').textContent = '▶'
+    })
+    // open this one if it wasn't already open
+    if (!isOpen) {
+      body.classList.add('open')
+      document.querySelector('#title-' + i + ' .chev').textContent = '▼'
+    }
+    const offsetAfter = titleEl.offsetTop
+    window.scrollTo(0, scrollBefore + (offsetAfter - offsetBefore))
+  }
+
+  render()
+  window.addEventListener('resize', setTops)
+</script>
+</body>
+</html>
