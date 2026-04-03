@@ -106,7 +106,7 @@
         style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer">
         US
       </button>
-      <button onclick="load(true)" id="refresh-btn"
+      <button onclick="cacheClear();load(true)" id="refresh-btn"
         class="shrink-0" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;transition:color .1s"
         onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">↺</button>
     </div>
@@ -137,6 +137,8 @@
   <div class="rl-line1">NOW LOADING</div>
   <div class="rl-line2">DO NOT TURN OFF THE POWER</div>
 </div>
+
+<div id="prefetch-indicator" style="display:none;position:fixed;bottom:8px;right:10px;z-index:998;font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted)"></div>
 
 <main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content"></main>
 
@@ -427,7 +429,7 @@ function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
               return opp === upcomingOpponentUid
             })
           : games
-        let slice     = isCS ? vsGames.filter(g => g.inSeason) : isVS ? vsGames : vsGames.slice(0, N)
+        let slice     = isCS ? vsGames.filter(g => g.inSeason) : isVS ? vsGames.slice(0, 12) : vsGames.slice(0, N)
         if (statKey === 'hitting_hits') slice = slice.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
         total = slice.length
         if (total > 0 && lineVal != null) {
@@ -763,14 +765,17 @@ async function applyFilters() {
     .filter(e => activeTab === 'All' || e.sport === activeTab)
     .filter(e => activeMatch === null || e.matchId === activeMatch)
 
-  const pending = visible.filter(e => !filterCache[e.matchId] && !filterLoading[e.matchId])
-  if (pending.length) {
+  // filterLoading stores the Promise itself so any concurrent applyFilters call
+  // for the same match can await the already-in-flight fetch instead of skipping it
+  const needLoad = visible.filter(e => !filterCache[e.matchId])
+  if (needLoad.length) {
     showLoader()
-    await Promise.all(pending.map(e => {
-      filterLoading[e.matchId] = true
-      return fetchFilterStats(e.matchId, e.match.season_id).then(() => {
-        filterLoading[e.matchId] = false
-      })
+    await Promise.all(needLoad.map(e => {
+      if (!filterLoading[e.matchId]) {
+        filterLoading[e.matchId] = fetchFilterStats(e.matchId, e.match.season_id)
+          .finally(() => { filterLoading[e.matchId] = null })
+      }
+      return filterLoading[e.matchId]
     }))
     hideLoader()
   }
@@ -787,12 +792,40 @@ async function selectFilter(f) {
     activeFilters.add(f)
   }
   pinnedFilters = new Set(activeFilters)
-  if (activeFilters.has('VS') && !wasVS) {
+  const nowVS = activeFilters.has('VS')
+  if (wasVS !== nowVS) {
+    // VS mode changed — the cache holds data for the wrong mode.
+    // Clear in-memory cache and reload from the correct localStorage bucket.
     filterCache = {}
-    expansionCache.clear()
-    for (const [, exp] of expansions) exp.games = undefined
+    const today = cacheToday()
+    const pfx   = nowVS ? FILTER_VS_CACHE_PFX : FILTER_CACHE_PFX
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith(pfx)).forEach(k => {
+        try {
+          const c = JSON.parse(localStorage.getItem(k))
+          if (c && c.date === today && c.data)
+            filterCache[Number(k.slice(pfx.length))] = c.data
+        } catch {}
+      })
+    } catch {}
+    if (nowVS) {
+      expansionCache.clear()
+      for (const [, exp] of expansions) exp.games = undefined
+    }
   }
   await applyFilters()
+}
+
+function filterLSPrefix() {
+  return activeFilters.has('VS') ? FILTER_VS_CACHE_PFX : FILTER_CACHE_PFX
+}
+function setFilterCache(matchId, data) {
+  filterCache[matchId] = data
+  try {
+    const str = JSON.stringify({ data, date: cacheToday() })
+    localStorage.setItem(filterLSPrefix() + matchId, str)
+    console.log(`[cache] saved filter${activeFilters.has('VS') ? '(VS)' : ''} ${matchId} — ${(str.length/1024).toFixed(1)}KB`)
+  } catch(e) { console.warn(`[cache] failed to save filter ${matchId}:`, e) }
 }
 
 async function fetchFilterStats(matchId, seasonId) {
@@ -827,7 +860,7 @@ async function fetchFilterStats(matchId, seasonId) {
   const missing = playerNames.filter(n => !findPlayerId(n, normToId))
   if (missing.length) console.warn('[filter] no sr_players match for:', missing.map(n => `"${n}" → "${normName(n)}"`))
 
-  if (!playerIds.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
+  if (!playerIds.length) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid: {} }); return }
 
   const matchDate = entry.match?.match_date ?? new Date().toISOString()
 
@@ -839,7 +872,7 @@ async function fetchFilterStats(matchId, seasonId) {
       .order('player_id').order('match_id')
       .range(from, to)
   )
-  if (!playerMatchLinks.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
+  if (!playerMatchLinks.length) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid: {} }); return }
 
   const allMatchIds = [...new Set(playerMatchLinks.map(r => r.match_id))]
 
@@ -860,7 +893,7 @@ async function fetchFilterStats(matchId, seasonId) {
     )
     matchDateRows.push(...rows)
   }
-  if (!matchDateRows.length) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid: {} }; return }
+  if (!matchDateRows.length) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid: {} }); return }
 
   const validMatchIds  = new Set(matchDateRows.map(m => m.id))
   const dateByMid      = Object.fromEntries(matchDateRows.map(m => [m.id, m.match_date]))
@@ -889,18 +922,41 @@ async function fetchFilterStats(matchId, seasonId) {
     perPlayer[r.player_id].push(r.match_id)
   }
 
+  const homeUid  = entry.match?.home_team_uid
+  const awayUid  = entry.match?.away_team_uid
+  const isVSMode = activeFilters.has('VS')
+
   const neededByPlayer = new Map() // player_id → Set<match_id>
   const neededMatchIds = new Set()
   for (const [pid, mids] of Object.entries(perPlayer)) {
     const sorted = [...mids].sort((a, b) => new Date(dateByMid[b]) - new Date(dateByMid[a]))
-    // VS mode: fetch full history so opponent filter has enough games to work with
-    const l12    = activeFilters.has('VS') ? new Set(sorted) : new Set(sorted.slice(0, 12))
     const cs     = new Set(sorted.filter(mid => csMatchIds.has(mid)))
+    let   l12
+    if (isVSMode) {
+      // Determine the upcoming opponent for this specific player using their current team.
+      // Then pre-filter to only games where that opponent appeared, capped at 12.
+      // This replaces the old "fetch entire career" approach.
+      const playerTeamUid = window._playerTeamUidCache?.[Number(pid)]
+      const opponentUid   = playerTeamUid != null
+        ? (playerTeamUid === homeUid ? awayUid : playerTeamUid === awayUid ? homeUid : null)
+        : null
+      if (opponentUid != null) {
+        const vsGames = sorted.filter(mid => {
+          const ti = teamsInfoByMid[mid]
+          return ti && (ti.homeTeamUid === opponentUid || ti.awayTeamUid === opponentUid)
+        }).slice(0, 12)
+        l12 = new Set(vsGames)
+      } else {
+        l12 = new Set(sorted.slice(0, 12)) // unknown team — fall back to L12
+      }
+    } else {
+      l12 = new Set(sorted.slice(0, 12))
+    }
     const needed = new Set([...l12, ...cs])
     neededByPlayer.set(Number(pid), needed)
     needed.forEach(mid => neededMatchIds.add(mid))
   }
-  if (!neededMatchIds.size) { filterCache[matchId] = { normNameToGames: {}, teamsInfoByMid }; return }
+  if (!neededMatchIds.size) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid }); return }
 
   // Career BA fetch — all games for these players, just hits + AB (no JSONB overhead)
   if (!window._careerBACache) window._careerBACache = {}
@@ -929,14 +985,14 @@ async function fetchFilterStats(matchId, seasonId) {
     }
   }
 
-  // Stage 3: fetch stats JSONB only for the (player_id × match_id) pairs we need
+  // Stage 3: fetch only the stat fields we actually use (not full JSONB — 17x smaller)
   // Batch match_id in chunks of 200 to avoid URL-too-long in VS mode
   const neededMatchArr = [...neededMatchIds]
   const statsChunks = await Promise.all(
     Array.from({ length: Math.ceil(neededMatchArr.length / 200) }, (_, i) =>
       fetchAll((from, to) =>
         db.from('sr_player_match_stats')
-          .select('player_id, match_id, stats, team_uid')
+          .select('player_id, match_id, stats->hitting_hits, stats->hitting_at_bats, stats->hitting_total_strikeouts, stats->hitting_total_bases, stats->hitting_total_runs_scored, stats->pitching_overall_total_strikeouts, team_uid')
           .in('player_id', playerIds)
           .in('match_id', neededMatchArr.slice(i * 200, (i + 1) * 200))
           .order('player_id').order('match_id')
@@ -949,7 +1005,19 @@ async function fetchFilterStats(matchId, seasonId) {
   for (const s of stats ?? []) {
     if (!neededByPlayer.get(s.player_id)?.has(s.match_id)) continue
     if (!idToGames[s.player_id]) idToGames[s.player_id] = []
-    idToGames[s.player_id].push({ stats: s.stats, match_date: dateByMid[s.match_id], match_id: s.match_id, team_uid: s.team_uid })
+    idToGames[s.player_id].push({
+      stats: {
+        hitting_hits:                      s.hitting_hits,
+        hitting_at_bats:                   s.hitting_at_bats,
+        hitting_total_strikeouts:          s.hitting_total_strikeouts,
+        hitting_total_bases:               s.hitting_total_bases,
+        hitting_total_runs_scored:         s.hitting_total_runs_scored,
+        pitching_overall_total_strikeouts: s.pitching_overall_total_strikeouts,
+      },
+      match_date: dateByMid[s.match_id],
+      match_id:   s.match_id,
+      team_uid:   s.team_uid,
+    })
   }
   for (const g of Object.values(idToGames)) g.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
   const normNameToGames = {}
@@ -963,7 +1031,11 @@ async function fetchFilterStats(matchId, seasonId) {
     }
   }
 
-  filterCache[matchId] = { normNameToGames, teamsInfoByMid }
+  // Only store team info for match IDs we actually have stats for — keeps cache lean
+  const neededTeamsInfo = Object.fromEntries(
+    [...neededMatchIds].map(mid => [mid, teamsInfoByMid[mid]]).filter(([, v]) => v)
+  )
+  setFilterCache(matchId, { normNameToGames, teamsInfoByMid: neededTeamsInfo })
 }
 
 // ── Core ────────────────────────────────────────────────────────────────────
@@ -973,6 +1045,51 @@ let activeMatch    = null
 let allMatches     = []
 let pastExpanded   = false
 let sportExpanded  = false
+let bgPrefetchGen  = 0
+
+function bgPrefetchOrder(centerMatchId) {
+  const tab = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Mexico_City' })
+  const todays = tab
+    .filter(e => e.match?.match_date &&
+      new Date(e.match.match_date).toLocaleDateString('en-US', { timeZone: 'America/Mexico_City' }) === todayStr)
+    .sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
+  const centerIdx = todays.findIndex(e => e.matchId === centerMatchId)
+  const idx = centerIdx >= 0 ? centerIdx : todays.findIndex(e => !isMatchOld(e.match?.match_date))
+  if (idx < 0) return todays
+  const result = [todays[idx]]
+  let fwd = idx + 1, bwd = idx - 1
+  while (fwd < todays.length || bwd >= 0) {
+    if (fwd < todays.length) result.push(todays[fwd++])
+    if (bwd >= 0)            result.push(todays[bwd--])
+  }
+  return result
+}
+
+async function startBgPrefetch(centerMatchId) {
+  if (!centerMatchId) return
+  const gen = ++bgPrefetchGen
+  const order = bgPrefetchOrder(centerMatchId)
+  const total = order.length
+  const el = document.getElementById('prefetch-indicator')
+  const alreadyDone = order.filter(e => filterCache[e.matchId] || filterLoading[e.matchId]).length
+  if (alreadyDone === total) {
+    if (el) { el.style.display = 'block'; el.textContent = `${total}/${total}` }
+    return
+  }
+  let done = order.filter(e => filterCache[e.matchId]).length
+  if (el) { el.style.display = 'block'; el.textContent = `${done}/${total}` }
+  for (const entry of order) {
+    if (bgPrefetchGen !== gen) return
+    if (filterCache[entry.matchId] || filterLoading[entry.matchId]) continue
+    filterLoading[entry.matchId] = fetchFilterStats(entry.matchId, entry.match?.season_id)
+      .finally(() => { filterLoading[entry.matchId] = null })
+    await filterLoading[entry.matchId]
+    done++
+    if (bgPrefetchGen !== gen) return
+    if (el) el.textContent = `${done}/${total}`
+  }
+}
 
 function togglePastExpanded() {
   pastExpanded = !pastExpanded
@@ -1032,14 +1149,30 @@ function dateLabel(dateStr) {
 
 const ODDS_CACHE_KEY    = 'palo_odds_v1'
 const PLAYER_CACHE_KEY  = 'palo_players_v1'
-const ODDS_TTL          = 3 * 60 * 1000   // 3 min
-const PLAYER_TTL        = 15 * 60 * 1000  // 15 min
+const FILTER_CACHE_PFX    = 'palo_filter_v1_'
+const FILTER_VS_CACHE_PFX = 'palo_filter_vs_v1_'
+const EXP_CACHE_PFX       = 'palo_exp_v1_'
+const EXP_VS_CACHE_PFX    = 'palo_exp_vs_v1_'
 
-function cacheGet(key, ttl) {
-  try { const c = JSON.parse(localStorage.getItem(key)); return c && Date.now() - c.ts < ttl ? c.data : null } catch { return null }
+function cacheToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' })
+}
+function cacheGet(key) {
+  try {
+    const c = JSON.parse(localStorage.getItem(key))
+    if (!c || c.date !== cacheToday()) return null
+    return c.data
+  } catch { return null }
 }
 function cacheSet(key, data) {
-  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })) } catch {}
+  try { localStorage.setItem(key, JSON.stringify({ data, date: cacheToday() })) } catch {}
+}
+function cacheClear() {
+  try { Object.keys(localStorage).filter(k => k.startsWith('palo_')).forEach(k => localStorage.removeItem(k)) } catch {}
+  const el = document.getElementById('prefetch-indicator'); if (el) el.style.display = 'none'
+}
+function clearFilterCache() {
+  try { Object.keys(localStorage).filter(k => k.startsWith(FILTER_CACHE_PFX) || k.startsWith(FILTER_VS_CACHE_PFX)).forEach(k => localStorage.removeItem(k)) } catch {}
 }
 
 async function load(force = false) {
@@ -1047,7 +1180,7 @@ async function load(force = false) {
 
   let odds, matchRows, teamRows
 
-  const cached = !force && cacheGet(ODDS_CACHE_KEY, ODDS_TTL)
+  const cached = !force && cacheGet(ODDS_CACHE_KEY)
   if (cached) {
     ;({ odds, matchRows, teamRows } = cached)
   } else {
@@ -1115,11 +1248,30 @@ async function load(force = false) {
     }
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
 
-  filterCache = {}; filterLoading = {}
+  filterLoading = {}
+  filterCache = {}
+  // Restore today's non-VS filter cache from localStorage; purge stale entries from both buckets
+  if (!force) {
+    const today = cacheToday()
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(FILTER_CACHE_PFX) || k.startsWith(FILTER_VS_CACHE_PFX))
+        .forEach(k => {
+          try {
+            const c = JSON.parse(localStorage.getItem(k))
+            if (c && c.date === today && c.data && k.startsWith(FILTER_CACHE_PFX)) {
+              filterCache[Number(k.slice(FILTER_CACHE_PFX.length))] = c.data
+            } else if (!c || c.date !== today) {
+              localStorage.removeItem(k) // purge stale entries from both VS and non-VS buckets
+            }
+          } catch {}
+        })
+    } catch {}
+  }
   window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null; window._careerBACache = null
 
   // Load all players before rendering so name resolution is always ready
-  const cachedPlayers = force ? null : cacheGet(PLAYER_CACHE_KEY, PLAYER_TTL)
+  const cachedPlayers = force ? null : cacheGet(PLAYER_CACHE_KEY)
   const allPlayers = cachedPlayers ?? await fetchAll((from, to) =>
     db.from('sr_players').select('id, name, team_uid').range(from, to)
   )
@@ -1142,6 +1294,7 @@ async function load(force = false) {
   render()
   hideLoader()
   applyFilters()
+  startBgPrefetch(activeMatch)
 }
 
 function renderPills() {
@@ -1266,6 +1419,7 @@ function renderSportSwitcher(sports) {
 function setMatch(matchId) {
   activeMatch = matchId
   renderPills(); render(); applyFilters()
+  startBgPrefetch(matchId)
 }
 
 function getLine(seln_name, seln_hcap) {
@@ -1474,11 +1628,21 @@ async function fetchExpansionData(key, prefetchOnly = false) {
 
   const realKey = key.replace(/^__prefetch__/, '')
 
-  // Use cache if available
+  // Use in-memory cache if available
   if (expansionCache.has(realKey)) {
     const cached = expansionCache.get(realKey)
     exp.games = cached.games
     exp.playerTeamUid = cached.playerTeamUid
+    if (!prefetchOnly) renderExpansionContent(key)
+    return
+  }
+  // Fall back to localStorage cache
+  const expPfx = activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX
+  const lsCached = cacheGet(expPfx + realKey)
+  if (lsCached) {
+    expansionCache.set(realKey, lsCached)
+    exp.games = lsCached.games
+    exp.playerTeamUid = lsCached.playerTeamUid
     if (!prefetchOnly) renderExpansionContent(key)
     return
   }
@@ -1526,7 +1690,7 @@ async function fetchExpansionData(key, prefetchOnly = false) {
 
   if (!matchLinks?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
-    expansionCache.set(realKey, { games: [], playerTeamUid })
+    expansionCache.set(realKey, { games: [], playerTeamUid }); cacheSet((activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX) + realKey, { games: [], playerTeamUid })
     if (!prefetchOnly) renderExpansionContent(key); return
   }
 
@@ -1554,20 +1718,33 @@ async function fetchExpansionData(key, prefetchOnly = false) {
 
   if (!matchRows?.length) {
     exp.games = []; exp.playerTeamUid = playerTeamUid
-    expansionCache.set(realKey, { games: [], playerTeamUid })
+    expansionCache.set(realKey, { games: [], playerTeamUid }); cacheSet((activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX) + realKey, { games: [], playerTeamUid })
     if (!prefetchOnly) renderExpansionContent(key); return
   }
 
-  // Stage 3: fetch actual JSONB stats for those 12 matches
+  // Stage 3: fetch only the stat fields used in the expansion chart (not full JSONB)
   const neededIds = matchRows.map(m => m.id)
   const { data: statsRows } = await db.from('sr_player_match_stats')
-    .select('match_id, stats, team_uid')
+    .select('match_id, stats->hitting_hits, stats->hitting_at_bats, stats->hitting_total_strikeouts, stats->hitting_total_bases, stats->hitting_total_runs_scored, stats->pitching_overall_total_strikeouts, stats->minutes, stats->minutes_played, stats->time_played, team_uid')
     .eq('player_id', playerId)
     .in('match_id', neededIds)
 
   const statsByMid = {}
   const teamUidByMid = {}
-  for (const s of statsRows ?? []) { statsByMid[s.match_id] = s.stats; teamUidByMid[s.match_id] = s.team_uid }
+  for (const s of statsRows ?? []) {
+    statsByMid[s.match_id] = {
+      hitting_hits:                      s.hitting_hits,
+      hitting_at_bats:                   s.hitting_at_bats,
+      hitting_total_strikeouts:          s.hitting_total_strikeouts,
+      hitting_total_bases:               s.hitting_total_bases,
+      hitting_total_runs_scored:         s.hitting_total_runs_scored,
+      pitching_overall_total_strikeouts: s.pitching_overall_total_strikeouts,
+      minutes:                           s.minutes,
+      minutes_played:                    s.minutes_played,
+      time_played:                       s.time_played,
+    }
+    teamUidByMid[s.match_id] = s.team_uid
+  }
 
   // Fetch any teams not yet in cache (both home and away for all games)
   const allUids     = matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid])
@@ -1589,7 +1766,7 @@ async function fetchExpansionData(key, prefetchOnly = false) {
   }))
   exp.playerTeamUid = playerTeamUid
 
-  expansionCache.set(realKey, { games: exp.games, playerTeamUid })
+  expansionCache.set(realKey, { games: exp.games, playerTeamUid }); cacheSet((activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX) + realKey, { games: exp.games, playerTeamUid })
   if (!prefetchOnly) renderExpansionContent(key)
 }
 
@@ -1694,7 +1871,7 @@ function renderExpansionContent(key) {
 
   const barsData = (isCS ? vsGames.filter(g => g.season_id === seasonId)
                   : isVS ? vsGames
-                  : vsGames.slice(0, N)).reverse()
+                  : vsGames.slice(0, N)).slice(-12).reverse()
 
   const CHART_H   = 120
   const allVals    = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
