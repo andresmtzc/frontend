@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head> 
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>palo.mx</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Clash+Grotesk:wght@600;700&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    /* ── design system: lucha libre ── */
+    :root {
+      --bg:        #111111;
+      --surface:   #1c1c1c;
+      --surface-2: #161616;
+      --border:    #333333;
+      --border-2:  #2a2a2a;
+      --magenta:   #e63946;
+      --sport:     #8BE9FD;
+      --gold:      #ffd60a;
+      --green:     #4ade80;
+      --muted:     #555555;
+      --text:      #ffffff;
+    }
+    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; }
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+    .pixel { font-family: 'Press Start 2P', monospace; }
+    .mono  { font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
+
+    /* tabs */
+    .tab-active   { border-bottom-color: var(--sport) !important; color: var(--text) !important; border-bottom-width: 3px !important; }
+    .tab-inactive { border-bottom-color: transparent; color: var(--muted); }
+    .tab-inactive:hover { color: var(--text); }
+
+    /* match pills */
+    .match-pill-active   { background: var(--sport); color: #111; border-color: var(--sport); }
+    .match-pill-inactive { background: transparent; color: var(--muted); border-color: var(--border); border-radius: 0 !important; }
+    .match-pill-inactive:hover { border-color: var(--sport); color: var(--text); }
+
+    /* filter buttons */
+    .filter-btn-active   { border-color: var(--gold) !important; color: var(--gold) !important; }
+
+    /* odds coloring */
+    .odds-pos { color: var(--green); }
+    .odds-neg { color: var(--magenta); }
+
+    /* INSERT COIN blink */
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .insert-coin { animation: blink 1.1s step-end infinite; }
+
+    /* Retro loader */
+    #retro-loader {
+      display: none;
+      position: fixed; bottom: 49px; left: 50%; transform: translateX(-50%);
+      z-index: 999;
+      background: var(--surface-2); border: 3px solid var(--border);
+      padding: 10px 18px; flex-direction: column; align-items: center; gap: 8px;
+    }
+    #retro-loader.visible { display: flex; }
+    #retro-loader .rl-line1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; color: #fff; letter-spacing: 1px;
+      animation: blink 1s step-end infinite;
+    }
+    #retro-loader .rl-line2 {
+      white-space: nowrap;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px; color: var(--muted); letter-spacing: 1px;
+    }
+
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    table:not(.has-filter) .stats-col { display: none; }
+    .mkt-body + .mkt-title { margin-top: 0; }
+    .mkt-body:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body class="min-h-screen" style="background:var(--bg);color:var(--text)">
+
+<header class="fixed top-0 left-0 right-0 z-50 backdrop-blur" style="background:rgba(17,17,17,0.97);border-bottom:3px solid var(--sport)">
+  <div style="height:4px;background:#222222"></div>
+  <div class="max-w-[960px] mx-auto px-4 py-2 flex items-center relative">
+    <!-- logo -->
+    <div class="flex items-center gap-3 shrink-0">
+      <img src="logo12.png" alt="palo.mx piñata" style="width:28px;height:28px;image-rendering:pixelated">
+      <div class="flex flex-col">
+        <h1 style="font-family:'Press Start 2P',monospace;font-size:13px;line-height:1;letter-spacing:-2px;color:var(--text)">
+          PALO<span style="color:var(--gold)">.</span><span style="color:var(--gold);margin-left:-2px">MX</span>
+        </h1>
+      </div>
+      <div id="sport-switcher" class="flex items-center gap-1.5"></div>
+    </div>
+    <div class="flex items-center gap-2 ml-auto">
+      <div id="bet-wrapper" class="flex items-center gap-1" style="display:none!important">
+        <span class="mono" style="font-size:13px;font-weight:700;color:var(--muted)">$</span>
+        <input type="number" id="bet-amt" value="100" min="1" step="10"
+          class="mono text-center w-16 px-2 py-1"
+          style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--gold);font-size:13px;font-weight:600;border-radius:2px;outline:none"
+          onfocus="this.style.borderColor='var(--sport)'" onblur="this.style.borderColor='var(--border-2)'"
+          oninput="updateOddsInPlace()" />
+      </div>
+      <button id="mode-btn" onclick="cycleMode()"
+        class="mono shrink-0"
+        style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer">
+        US
+      </button>
+      <button onclick="cacheClear();load(true)" id="refresh-btn"
+        class="shrink-0" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;transition:color .1s"
+        onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">↺</button>
+    </div>
+  </div>
+</header>
+
+<div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:45;background:var(--bg)">
+  <div class="max-w-[960px] mx-auto px-4 py-2 flex flex-wrap items-center gap-1.5" id="match-pills"></div>
+</div>
+<div id="filter-section" style="position:fixed;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-2)">
+  <div class="max-w-[960px] mx-auto px-4 pt-3 pb-2">
+  <div class="flex items-stretch gap-1.5">
+    <div class="flex gap-1.5" id="global-filter-bar"></div>
+    <div class="shrink-0" style="width:1px;background:#222222"></div>
+    <button onclick="toggleHeavyLine()" id="heavy-btn"
+      class="mono shrink-0"
+      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none"
+      onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
+      onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">−200</button>
+    <button id="ou-toggle" onclick="cycleDirection()" class="mono shrink-0"
+      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase">OVER</button>
+  </div>
+  <span class="filter-status-global mono mt-1 block" style="font-size:10px;color:var(--muted)"></span>
+  </div>
+</div>
+
+<div id="retro-loader">
+  <div class="rl-line1">NOW LOADING</div>
+  <div class="rl-line2">DO NOT TURN OFF THE POWER</div>
+</div>
+
+<div id="prefetch-indicator" style="display:none;position:fixed;bottom:8px;right:10px;z-index:998;font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted)"></div>
+
+<main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content"></main>
+
+<div style="height:3px;background:#222222"></div>
+<footer class="max-w-[960px] mx-auto px-4 pb-6 text-center mono" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase">
+  <span style="color:var(--muted)">¡Dale, dale, dale, no pierdas el tino!</span>
+</footer>
+
+
+<script>
+function showLoader() { document.getElementById('retro-loader').classList.add('visible') }
+function hideLoader() { document.getElementById('retro-loader').classList.remove('visible') }
+
+function punkImg(name) {
+  const file = (name || '').replace(/[^a-z0-9]/gi, '_') + '.png'
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#2a2a2a;border:1px solid #3a3a3a;flex-shrink:0;margin-right:6px;vertical-align:middle"><img src="mlb-punks/${file}" style="height:32px;width:32px;object-fit:contain;image-rendering:pixelated;display:block;" onerror="this.onerror=null;this.src='mlb-punks/fallback.png'"></span>`
+}
+
+const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
+const SUPABASE_ANON = 'sb_publishable_mXQB6BSxNpWyL0D3HG0gwA_fwdWoqVh'
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+const SEASON_INFO = {
+  137954: { sport: 'Soccer', league: 'Liga MX' },
+  130979: { sport: 'Soccer', league: 'Liga MX' },
+  127243: { sport: 'Soccer', league: 'Liga MX' },
+  119017: { sport: 'Soccer', league: 'Liga MX' },
+  134469: { sport: 'MLB',    league: 'MLB'     },
+  125735: { sport: 'MLB',    league: 'MLB'     },
+  131631: { sport: 'NBA',    league: 'NBA'     },
+  119257: { sport: 'NBA',    league: 'NBA'     },
+  127985: { sport: 'NFL',    league: 'NFL'     },
+  115087: { sport: 'NFL',    league: 'NFL'     },
+  130805: { sport: 'Soccer', league: 'La Liga' },
+  131129: { sport: 'Soccer', league: 'Champions League' },
+  130281: { sport: 'Soccer', league: 'Premier League'   },
+}
+
+const MODES = [
+  { id: 'US',  label: 'US',   col: 'US'     },
+  { id: 'Dec', label: 'Dec',  col: 'Dec'    },
+  { id: 'Pct', label: '%',    col: 'Impl.'  },
+  { id: '$',   label: '$',    col: 'Profit' },
+]
+let modeIdx = 0
+
+function cycleMode() {
+  modeIdx = (modeIdx + 1) % MODES.length
+  document.getElementById('mode-btn').textContent = MODES[modeIdx].label
+  document.getElementById('bet-wrapper').style.display = MODES[modeIdx].id === '$' ? 'flex' : 'none'
+  updateOddsInPlace()
+}
+
+function updateOddsInPlace() {
+  document.querySelectorAll('[data-us]').forEach(td => {
+    const us      = td.dataset.us      === '' ? null : Number(td.dataset.us)
+    const otherUs = td.dataset.otherUs === '' ? null : (td.dataset.otherUs != null ? Number(td.dataset.otherUs) : null)
+    td.innerHTML  = fmtOdds(us, otherUs)
+    td.style.color = us == null ? 'var(--muted)' : us > 0 ? 'var(--green)' : 'var(--magenta)'
+  })
+  document.querySelectorAll('[data-col-label]').forEach(th => {
+    th.textContent = MODES[modeIdx].col
+  })
+}
+
+function betAmt() {
+  return Math.max(1, Number(document.getElementById('bet-amt').value) || 100)
+}
+
+function fmtOdds(us, otherUs) {
+  if (us == null) return '—'
+  const mode = MODES[modeIdx].id
+  if (mode === 'US')  return us > 0 ? `+${us}` : String(us)
+  if (mode === 'Dec') { const dec = us > 0 ? us/100+1 : 100/Math.abs(us)+1; return `${dec.toFixed(2)}×` }
+  if (mode === 'Pct') {
+    const imp = us > 0 ? 100/(us+100)*100 : Math.abs(us)/(Math.abs(us)+100)*100
+    if (otherUs != null) {
+      const otherImp = otherUs > 0 ? 100/(otherUs+100)*100 : Math.abs(otherUs)/(Math.abs(otherUs)+100)*100
+      const trueProb = imp / (imp + otherImp) * 100
+      return `${imp.toFixed(1)}% <span style="color:var(--muted);font-size:10px">(${trueProb.toFixed(1)}%)</span>`
+    }
+    return `${imp.toFixed(1)}%`
+  }
+  if (mode === '$')   { const p = us > 0 ? betAmt()*us/100 : betAmt()*100/Math.abs(us); return `$${p.toFixed(0)}` }
+}
+
+function oddsClass(us) {
+  return us == null ? 'var(--muted)' : 'var(--text)'
+}
+function oddsStyle(us) {
+  if (us == null) return `color:var(--muted)`
+  if (us > 0)    return `color:var(--green)`
+  return `color:var(--magenta)`
+}
+
+// ── Filter helpers ──────────────────────────────────────────────────────────
+
+const TWO_WORD_CITIES = ['Kansas City','San Francisco','New York','Los Angeles','St. Louis','Tampa Bay','New Orleans','Golden State','Oklahoma City','San Antonio','San Diego','Green Bay','Las Vegas','San Jose','New Jersey']
+function teamNick(name) {
+  if (!name) return '?'
+  const norm = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  for (const c of TWO_WORD_CITIES) {
+    if (norm.startsWith(c + ' ')) return name.slice(c.length + 1)
+  }
+  return name.split(' ').slice(1).join(' ') || name
+}
+
+function abbrName(name) {
+  const parts    = name.trim().split(/\s+/)
+  if (parts.length <= 1) return name
+  const suffixes = new Set(['jr.','sr.','jr','sr','ii','iii','iv'])
+  let end = parts.length
+  while (end > 1 && suffixes.has(parts[end-1].toLowerCase())) end--
+  const suffix = end < parts.length ? ' ' + parts.slice(end).join(' ') : ''
+  return `${parts[0][0]}. ${parts.slice(1, end).join(' ')}${suffix}`
+}
+
+function normName(n) {
+  return (n || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/-/g, ' ')          // "Jung-Hoo" → "Jung Hoo" (separate tokens)
+    .replace(/[^a-z\s]/g, '')    // strip commas, apostrophes, etc.
+    .trim().split(/\s+/).sort().join(' ')
+}
+
+// Two tokens match if equal, one is a single-letter initial of the other, or one is a prefix (min 3 chars)
+function tokenMatch(a, b) {
+  if (a === b) return true
+  if (a.length === 1 && b.startsWith(a)) return true
+  if (b.length === 1 && a.startsWith(b)) return true
+  const m = Math.min(a.length, b.length)
+  return m >= 3 && (a.startsWith(b) || b.startsWith(a))
+}
+
+// Look up player_id from cache, falling back to fuzzy match:
+// allow nickname/prefix differences as long as >50% of both names' tokens match.
+function findPlayerId(name, cache) {
+  const norm = normName(name)
+  if (cache[norm] != null) return cache[norm]
+
+  const tokA = norm.split(' ')
+  let bestId = null, bestScore = -1
+
+  for (const [cn, id] of Object.entries(cache)) {
+    const tokB = cn.split(' ')
+    const usedB = new Set()
+    let hits = 0
+    for (const a of tokA) {
+      for (let i = 0; i < tokB.length; i++) {
+        if (!usedB.has(i) && tokenMatch(a, tokB[i])) { hits++; usedB.add(i); break }
+      }
+    }
+    if (!hits) continue
+    const recA = hits / tokA.length
+    const recB = hits / tokB.length
+    if (recA > 0.5 && recB > 0.5) {
+      const score = recA + recB
+      if (score > bestScore) { bestScore = score; bestId = id }
+    }
+  }
+  return bestId
+}
+
+function mktToStatKey(mktName) {
+  const m = mktName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (m.includes('pitcher') && m.includes('strikeout')) return 'pitching_overall_total_strikeouts'
+  if (m.includes('strikeout'))  return 'hitting_total_strikeouts'
+  if (m.includes('hit'))        return 'hitting_hits'
+  if (m.includes('base'))       return 'hitting_total_bases'
+  if (m.includes('run'))        return 'hitting_total_runs_scored'
+  return null
+}
+
+function impliedProb(us) {
+  if (us == null) return null
+  return us < 0 ? Math.abs(us) / (Math.abs(us) + 100) : 100 / (us + 100)
+}
+
+function binomialProb(ba, avgAB, line) {
+  if (ba == null || avgAB == null || avgAB <= 0) return null
+  const n = Math.round(avgAB)
+  const k = Math.floor(line) // 0 for 0.5 line, 1 for 1.5, etc
+  let pUnder = 0
+  for (let i = 0; i <= k; i++) {
+    let comb = 1
+    for (let j = 0; j < i; j++) comb = comb * (n - j) / (j + 1)
+    pUnder += comb * Math.pow(ba, i) * Math.pow(1 - ba, n - i)
+  }
+  return Math.max(0, Math.min(1, 1 - pUnder))
+}
+
+function trueImplied(overUs, underUs) {
+  if (overUs == null || underUs == null) return null
+  const io = impliedProb(overUs), iu = impliedProb(underUs)
+  return io / (io + iu)
+}
+
+function parseLine(selnName) {
+  const m = (selnName || '').match(/(\d+\.?\d*)\s*$/)
+  return m ? parseFloat(m[1]) : null
+}
+
+function isOver(selnName) {
+  const low = (selnName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return /\bmas\b/.test(low) || /\bover\b/.test(low)
+}
+
+function buildPlayerMap(rows) {
+  const players = {}
+  for (const r of rows) {
+    const k = r.seln_hcap || r.seln_name || '—'
+    if (!players[k]) players[k] = []
+    players[k].push(r)
+  }
+  return players
+}
+
+function cleanMktName(name) {
+  return name
+    .replace(/\s+DEL\s+BATEADOR/gi, '')
+    .replace(/\s*\(INCL\.?\s*EXTRA\s*INNINGS\)/gi, '')
+    .replace(/\s+M[AÁ]S\s+DE\s*[\/]\s*MENOS\s+DE/gi, ' OVER/UNDER')
+    .replace(/\s+M[AÁ]S\s+DE\s+MENOS\s+DE/gi, ' OVER/UNDER')
+    .replace(/\s+M[AÁ]S\s+DE/gi, ' OVER')
+    .replace(/\s+MENOS\s+DE/gi, ' UNDER')
+    .trim()
+}
+
+function mktSubtitle(name, playerCount) {
+  const m = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  let desc = 'Player props'
+  if (m.includes('pitcher') && m.includes('strikeout')) desc = 'Pitcher strikeout props'
+  else if (m.includes('strikeout'))  desc = 'Batter strikeout props'
+  else if (m.includes('hit'))        desc = 'Player hit props'
+  else if (m.includes('base'))       desc = 'Total bases props'
+  else if (m.includes('run'))        desc = 'Runs scored props'
+  else if (m.includes('rbi'))        desc = 'RBI props'
+  else if (m.includes('home run'))   desc = 'Home run props'
+  return `${desc} · ${playerCount} lines`
+}
+
+// ── Render market tbody (passing players first, filtered grouped at bottom) ──
+
+function renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry) {
+  const hasPlayerNames = Object.values(playerMap).flat().some(r => r.seln_hcap)
+  const statKey   = hasPlayerNames ? mktToStatKey(mktName) : null
+  const hasFilter = filterKeys.length > 0
+  const passing   = [], failing = []
+
+  for (const [playerName, prows] of Object.entries(playerMap)) {
+    const normPlayer = normName(playerName)
+    const overRow    = prows.find(r =>  isOver(r.seln_name))
+    const underRow   = prows.find(r => !isOver(r.seln_name))
+    const dirRow     = activeDirection === 'under' ? underRow
+                     : activeDirection === 'over'  ? overRow
+                     : overRow   // fallback for implied prob when no direction set
+
+    // Resolve player id + team uid early (needed for VS filter and team grouping)
+    const homeUid = entry?.match?.home_team_uid
+    const awayUid = entry?.match?.away_team_uid
+    const playerId = window._playerNameCache ? findPlayerId(playerName, window._playerNameCache) : null
+    const playerTeamUid = playerId != null ? window._playerTeamUidCache?.[playerId] : null
+
+    // VS filter key setup (computed once per player, used inside the fk loop)
+    const hasVSFilter = hasFilter && filterKeys.includes('VS')
+    const upcomingOpponentUid = hasVSFilter && playerTeamUid != null
+      ? (playerTeamUid === homeUid ? awayUid : playerTeamUid === awayUid ? homeUid : null)
+      : null
+    const vsUnknown = hasVSFilter && playerTeamUid == null
+
+    // Compute stats per active filter key
+    const filterStats = hasFilter ? filterKeys.map(fk => {
+      const isCS  = fk === 'CS'
+      const isVS  = fk === 'VS'
+      const N     = isCS || isVS ? Infinity : parseInt(fk.slice(1))
+      let hits = 0, total = 0, hitRate = null, ba = null, avgAB = null
+      if (overRow && statKey && cache?.normNameToGames?.[normPlayer]) {
+        const lineVal = parseLine(overRow.seln_name)
+        const games   = cache.normNameToGames[normPlayer]
+        const vsGames = isVS && upcomingOpponentUid != null
+          ? games.filter(g => {
+              const ti = cache?.teamsInfoByMid?.[g.match_id]
+              if (!ti) return false
+              const gameTeamUid = g.team_uid != null ? Number(g.team_uid) : playerTeamUid
+              const opp = gameTeamUid === ti.homeTeamUid ? ti.awayTeamUid
+                        : gameTeamUid === ti.awayTeamUid ? ti.homeTeamUid : null
+              return opp === upcomingOpponentUid
+            })
+          : games
+        let slice     = isCS ? vsGames.filter(g => g.inSeason) : isVS ? vsGames.slice(0, 12) : vsGames.slice(0, N)
+        if (statKey === 'hitting_hits') slice = slice.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
+        total = slice.length
+        if (total > 0 && lineVal != null) {
+          const ov = slice.filter(g => (g.stats?.[statKey] ?? 0) > lineVal).length
+          hits    = activeDirection === 'under' ? (total - ov) : ov
+          hitRate = hits / total
+        }
+        if (statKey === 'hitting_hits' && total > 0) {
+          const tH  = slice.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
+          const tAB = slice.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+          if (tAB > 0) { ba = tH / tAB; avgAB = tAB / slice.length }
+        }
+      }
+      return { fk, hits, total, hitRate, ba, avgAB }
+    }) : []
+
+    const validStats = filterStats.filter(s => s.hitRate !== null)
+
+    // Career BA — from full DB history via _careerBACache
+    let careerBA = null, careerAvgAB = null
+    if (statKey === 'hitting_hits' && window._careerBACache) {
+      if (playerId != null) {
+        const entry = window._careerBACache[playerId]
+        careerBA    = entry?.ba    ?? null
+        careerAvgAB = entry?.avgAB ?? null
+      }
+    }
+
+    const imp    = dirRow ? impliedProb(dirRow.us_prc) : null
+    // noData: not in cache at all, OR (no VS filter) in cache but zero games in every window
+    const noData = hasFilter && statKey && cache != null && (
+      !cache.normNameToGames?.[normPlayer] || (!hasVSFilter && validStats.length === 0)
+    )
+    // Heavy line filter — only applies when a stat filter is also active
+    const isHeavy = hasFilter && filterHeavyLines && dirRow?.us_prc != null && dirRow.us_prc < -200
+    const shouldFilter = hasFilter && (isHeavy || noData)
+
+    // Binomial edge per filter window (hits markets only)
+    const propLine    = overRow ? parseLine(overRow.seln_name) : null
+    const trueOvProb  = (overRow && underRow) ? trueImplied(overRow.us_prc, underRow.us_prc) : null
+    const binomEdges  = statKey === 'hitting_hits' && trueOvProb != null && propLine != null
+      ? filterStats.map(s => {
+          if (s.ba == null || s.avgAB == null) return null
+          const p    = binomialProb(s.ba, s.avgAB, propLine)
+          if (p == null) return null
+          const prob = activeDirection === 'under' ? (1 - p) : p
+          const ref  = activeDirection === 'under' ? (1 - trueOvProb) : trueOvProb
+          return Math.round((prob - ref) * 100)
+        })
+      : filterStats.map(() => null)
+
+    // Grid of stats — each filter gets its own column: label / fraction / pct
+    let rateLinesHtml = ''
+    if (vsUnknown || (hasFilter && noData)) {
+      rateLinesHtml = `<div style="font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;margin-top:2px">?</div>`
+    } else if (hasFilter && filterStats.length) {
+      const cols = filterStats.map((s, idx) => {
+        const frac  = s.total > 0 ? `<div>${s.hits}/${s.total}</div>` : `<div style="color:var(--border-2)">—</div>`
+        const pct   = s.total > 0 ? `<div style="color:var(--muted)">${Math.round(s.hitRate * 100)}%</div>` : ''
+        const ba    = s.ba    != null ? `<div style="color:#5eafc6">.${Math.round(s.ba * 1000).toString().padStart(3,'0')}</div>` : ''
+        const abStr = s.avgAB != null ? `<div style="color:var(--muted)">${s.avgAB.toFixed(1)}ab</div>` : ''
+        const edge  = binomEdges[idx] != null ? `<div style="color:${binomEdges[idx] > 0 ? 'var(--green)' : 'var(--magenta)'};font-weight:700">${binomEdges[idx] > 0 ? '+' : ''}${binomEdges[idx]}%</div>` : ''
+        return `<div style="font-family:'Geist Mono',monospace;line-height:1.4">${frac}${pct}${ba}${abStr}${edge}</div>`
+      })
+      rateLinesHtml = `<div style="display:flex;gap:12px;justify-content:center;font-size:9px;color:var(--text);margin-top:2px">${cols.join('')}</div>`
+    }
+
+    // Show only active-direction row when stat filter + direction both active
+    const visibleRows = (hasFilter && activeDirection)
+      ? prows.filter(r => activeDirection === 'over' ? isOver(r.seln_name) : !isOver(r.seln_name))
+      : prows
+    const displayRows = visibleRows.length ? visibleRows : prows
+
+    // Inline binomial edge from career BA vs vig-stripped implied (player-level, stable across filter changes)
+    let dbInlineEdge = null, dbEdgeStr = ''
+    if (careerBA != null && careerAvgAB != null && propLine != null && trueOvProb != null) {
+      const p = binomialProb(careerBA, careerAvgAB, propLine)
+      if (p != null) {
+        const prob = activeDirection === 'under' ? (1 - p) : p
+        const ref  = activeDirection === 'under' ? (1 - trueOvProb) : trueOvProb
+        dbInlineEdge = Math.round((prob - ref) * 100)
+        const col = dbInlineEdge > 0 ? 'var(--green)' : 'var(--magenta)'
+        dbEdgeStr = ` <span style="color:${col};font-family:'Geist Mono',monospace;font-size:9px">${dbInlineEdge > 0 ? '+' : ''}${dbInlineEdge}%</span>`
+      }
+    }
+    const careerStr = careerBA != null
+      ? ` <span style="font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace">.${Math.round(careerBA * 1000).toString().padStart(3,'0')}</span>${dbEdgeStr}`
+      : ''
+
+    const trows = displayRows.map((r, i) => {
+      const line     = getLine(r.seln_name, r.seln_hcap)
+      const otherRow = isOver(r.seln_name) ? underRow : overRow
+      const val      = fmtOdds(r.us_prc, otherRow?.us_prc)
+      const cls      = oddsClass(r.us_prc)
+      const rs   = displayRows.length
+
+      const clickLine   = overRow ? parseLine(overRow.seln_name) : null
+      const safePlayer  = (playerName || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+      const safeMkt     = (mktName    || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+      const normPlayer  = normName(playerName)
+      const safeMktNorm = normName(mktName).replace(/'/g,"\\'")
+      const playerCell = i === 0
+        ? `<td class="align-middle whitespace-nowrap select-none" rowspan="${rs}"
+             style="padding:7px 10px;color:var(--text);cursor:pointer"
+             onmouseover="this.style.color='var(--sport)'" onmouseout="this.style.color='var(--text)'"
+             data-player-exp="${normPlayer}_${entry?.matchId ?? 0}"
+             onclick="togglePlayerExpansion(this,'${safePlayer}','${safeMkt}','${safeMktNorm}',${clickLine ?? 'null'},${entry?.matchId ?? 0},${entry?.match?.season_id ?? 0})">${punkImg(playerName)}<span style="display:inline-flex;flex-direction:column;line-height:1.3"><span>${abbrName(playerName)}</span>${careerStr ? `<span style="display:flex;gap:4px">${careerStr.trim()}</span>` : ''}</span></td>`
+        : ''
+      const statsCell = i === 0
+        ? `<td class="stats-col align-top text-center" style="padding:7px 10px" rowspan="${rs}">${rateLinesHtml}</td>`
+        : ''
+      const rowStyle = shouldFilter ? 'display:none' : ''
+      return `<tr class="${shouldFilter ? 'filtered-row' : ''}" style="border-top:1px solid #222;${rowStyle}"
+        onmouseover="this.style.background=this.classList.contains('row-expanded')?'#3d3d3d':'#222'" onmouseout="this.classList.contains('row-expanded')?(this.style.background='var(--border)'):this.style.background=''">
+        ${playerCell}
+        ${statsCell}
+        <td style="padding:7px 10px;color:var(--muted);font-size:11px;font-family:'Geist Mono',monospace">${line}</td>
+        <td class="mono" style="padding:7px 10px;text-align:right;font-size:13px;font-weight:600" data-us="${r.us_prc ?? ''}" data-other-us="${otherRow?.us_prc ?? ''}">${val}</td>
+      </tr>`
+    }).join('')
+
+    // Determine which side of this match the player belongs to (uses playerId/playerTeamUid resolved above)
+    const teamKey = playerTeamUid === homeUid ? 'home'
+                  : playerTeamUid === awayUid ? 'away'
+                  : 'unknown'
+
+    if (shouldFilter) failing.push({ trows, teamKey, edge: null })
+    else              passing.push({ trows, teamKey, edge: dbInlineEdge })
+  }
+
+  // Sort passing by inline edge descending (highest positive first), nulls last
+  passing.sort((a, b) => {
+    if (a.edge == null && b.edge == null) return 0
+    if (a.edge == null) return 1
+    if (b.edge == null) return -1
+    return b.edge - a.edge
+  })
+
+  // Group passing by home/away team (always, not just when filtered)
+  const byTeam = new Map()
+  for (const e of passing) {
+    if (!byTeam.has(e.teamKey)) byTeam.set(e.teamKey, [])
+    byTeam.get(e.teamKey).push(e)
+  }
+  const groups = [...byTeam.entries()]
+
+  let tbodys = ''
+  for (const [key, entries] of groups) {
+    const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
+    const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
+    tbodys += `<tbody>`
+    if (teamLabel) {
+      tbodys += `<tr>
+        <td colspan="4" class="team-hdr" style="position:sticky;z-index:10;background:var(--bg);padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+      </tr>`
+    }
+    tbodys += entries.map(e => e.trows).join('')
+    tbodys += `</tbody>`
+  }
+  if (failing.length) {
+    tbodys += `<tbody>`
+    tbodys += `<tr class="filter-summary-row cursor-pointer select-none" style="border-top:1px solid #222" onclick="toggleFilteredRows(this)">
+      <td colspan="4" style="padding:6px 10px">
+        <span class="filter-chev" style="font-size:10px;color:var(--muted)">▷ </span>
+        <span style="font-size:11px;color:var(--muted)">${failing.length} filtered</span>
+      </td>
+    </tr>`
+    const failByTeam = new Map()
+    for (const e of failing) {
+      if (!failByTeam.has(e.teamKey)) failByTeam.set(e.teamKey, [])
+      failByTeam.get(e.teamKey).push(e)
+    }
+    for (const [key, entries] of failByTeam) {
+      const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
+      const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
+      if (teamLabel) {
+        tbodys += `<tr class="filtered-row" style="display:none;border-top:1px solid #222">
+          <td colspan="4" style="padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+        </tr>`
+      }
+      tbodys += entries.map(p => p.trows).join('')
+    }
+    tbodys += `</tbody>`
+  }
+  return tbodys
+}
+
+function toggleFilteredRows(el) {
+  const row    = el.closest('tr')
+  const tbody  = row.closest('tbody')
+  const chevEl = row.querySelector('.filter-chev')
+  const rows   = [...tbody.querySelectorAll('tr.filtered-row')]
+  const hidden = rows[0]?.style.display === 'none'
+  rows.forEach(r => { r.style.display = hidden ? '' : 'none' })
+  if (chevEl) chevEl.textContent = hidden ? '▽ ' : '▷ '
+}
+
+// ── Filter state ────────────────────────────────────────────────────────────
+let activeFilters    = new Set(['L12'])   // all currently active filter keys — default L12
+let pinnedFilters    = new Set()         // subset locked via corner circle (stay on main-click)
+let activeDirection  = 'over'            // null | 'over' | 'under'
+let filterCache      = {}
+let filterLoading    = {}
+
+function filterBtnClass(isActive) {
+  return `mono outline-none focus:outline-none cursor-pointer`
+}
+function filterBtnStyle(isActive) {
+  const base = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer`
+  return isActive
+    ? `${base};border-color:var(--gold);color:var(--gold)`
+    : `${base};border-color:var(--border);color:var(--muted)`
+}
+
+let filterHeavyLines = false             // hide lines worse than -200
+function toggleHeavyLine() {
+  filterHeavyLines = !filterHeavyLines
+  updateHeavyBtn()
+  refreshMktTbodies([...activeFilters])
+}
+
+function updateHeavyBtn() {
+  const hasFilter = activeFilters.size > 0
+  const btn = document.getElementById('heavy-btn')
+  if (!btn) return
+  const active = hasFilter && filterHeavyLines
+  const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;font-family:'Geist Mono',monospace`
+  btn.style.cssText = active ? `${s};border-color:var(--gold);color:var(--gold)` : `${s};border-color:var(--border);color:var(--muted)`
+  active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
+}
+
+
+function updateOUToggle() {
+  const btn = document.getElementById('ou-toggle')
+  if (!btn) return
+  const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;text-transform:uppercase;font-family:'Geist Mono',monospace`
+  btn.style.cssText = `${s};border-color:var(--gold);color:var(--gold)`
+  btn.textContent = activeDirection === 'under' ? 'UNDR' : 'OVER'
+}
+
+function cycleDirection() {
+  activeDirection = activeDirection === 'over' ? 'under' : 'over'
+  updateOUToggle()
+  refreshMktTbodies([...activeFilters])
+  for (const [key, exp] of expansions) {
+    exp.lockedDirection = activeDirection
+    renderExpansionContent(key)
+  }
+}
+
+const FILTER_LABELS = {
+  L3:  ['last', '3'],
+  L6:  ['last', '6'],
+  L9:  ['last', '9'],
+  L12: ['last', '12'],
+  CS:  ['current', 'season'],
+  VS:  ['vs',     'opp'],
+}
+
+function filterBtnInner(f, active, pinned) {
+  return f
+}
+
+function filterBtnHtml(f) {
+  const active = activeFilters.has(f)
+  return `<button onclick="selectFilter('${f}')" data-filter="${f}" ${active ? 'data-active="1"' : ''}
+    class="${filterBtnClass(active)}" style="${filterBtnStyle(active)}"
+    onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
+    onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">
+    ${f}
+  </button>`
+}
+
+function renderGlobalFilterBar() {
+  document.getElementById('global-filter-bar').innerHTML =
+    ['L3','L6','L9','L12'].map(f => filterBtnHtml(f)).join('') +
+    `<div style="width:1px;background:#222222;flex-shrink:0"></div>` +
+    ['CS','VS'].map(f => filterBtnHtml(f)).join('')
+}
+
+function updateGlobalFilterButtons() {
+  document.querySelectorAll('#global-filter-bar [data-filter]').forEach(btn => {
+    const f      = btn.dataset.filter
+    const active = activeFilters.has(f)
+    btn.className    = filterBtnClass(active)
+    btn.style.cssText = filterBtnStyle(active)
+    btn.textContent  = f
+    active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
+    btn.removeAttribute('data-pinned')
+  })
+}
+
+function setGlobalFilterStatus(msg) {
+  const el = document.querySelector('.filter-status-global')
+  if (el) el.textContent = msg
+}
+
+const FILTER_ORDER = ['L3','L6','L9','L12','CS','VS']
+function sortFilterKeys(keys) {
+  return [...keys].sort((a, b) => FILTER_ORDER.indexOf(a) - FILTER_ORDER.indexOf(b))
+}
+
+function refreshMktTbodies(filterKeys) {
+  filterKeys = sortFilterKeys(filterKeys)
+  const hasF = filterKeys.length > 0
+  for (const entry of allMatches) {
+    const card = document.querySelector(`[data-match-id="${entry.matchId}"]`)
+    if (!card) continue
+    const cache = hasF ? filterCache[entry.matchId] : null
+    card.querySelectorAll('table[data-mkt]').forEach(table => {
+      const normMkt = table.dataset.mkt
+      const mktName = Object.keys(entry.markets).find(k => normName(k) === normMkt)
+      if (!mktName) return
+      // replace all tbodys (keep thead)
+      table.querySelectorAll('tbody').forEach(b => b.remove())
+      table.insertAdjacentHTML('beforeend', renderMktTbodyContent(mktName, buildPlayerMap(entry.markets[mktName]), cache, filterKeys, entry))
+      table.classList.toggle('has-filter', hasF)
+    })
+  }
+  updateOddsInPlace()
+  reinstateExpansion()
+  requestAnimationFrame(updateMktTops)
+}
+
+async function applyFilters() {
+  updateGlobalFilterButtons()
+  updateOUToggle()
+  updateHeavyBtn()
+  if (!activeFilters.size) { refreshMktTbodies([]); return }
+  const filters = [...activeFilters]
+
+  const visible = allMatches
+    .filter(e => activeTab === 'All' || e.sport === activeTab)
+    .filter(e => activeMatch === null || e.matchId === activeMatch)
+
+  // filterLoading stores the Promise itself so any concurrent applyFilters call
+  // for the same match can await the already-in-flight fetch instead of skipping it
+  const needLoad = visible.filter(e => !filterCache[e.matchId])
+  if (needLoad.length) {
+    showLoader()
+    await Promise.all(needLoad.map(e => {
+      if (!filterLoading[e.matchId]) {
+        filterLoading[e.matchId] = fetchFilterStats(e.matchId, e.match.season_id)
+          .finally(() => { filterLoading[e.matchId] = null })
+      }
+      return filterLoading[e.matchId]
+    }))
+    hideLoader()
+  }
+
+  refreshMktTbodies(filters)
+}
+
+async function selectFilter(f) {
+  const wasVS = activeFilters.has('VS')
+  if (activeFilters.has(f)) {
+    if (activeFilters.size > 1) activeFilters.delete(f)
+    // sole active filter — do nothing (always keep at least one)
+  } else {
+    activeFilters.add(f)
+  }
+  pinnedFilters = new Set(activeFilters)
+  const nowVS = activeFilters.has('VS')
+  if (wasVS !== nowVS) {
+    // VS mode changed — the cache holds data for the wrong mode.
+    // Clear in-memory cache and reload from the correct localStorage bucket.
+    filterCache = {}
+    const today = cacheToday()
+    const pfx   = nowVS ? FILTER_VS_CACHE_PFX : FILTER_CACHE_PFX
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith(pfx)).forEach(k => {
+        try {
+          const c = JSON.parse(localStorage.getItem(k))
+          if (c && c.date === today && c.data)
+            filterCache[Number(k.slice(pfx.length))] = c.data
+        } catch {}
+      })
+    } catch {}
+    if (nowVS) {
+      expansionCache.clear()
+      for (const [, exp] of expansions) exp.games = undefined
+    }
+  }
+  await applyFilters()
+}
+
+function filterLSPrefix() {
+  return activeFilters.has('VS') ? FILTER_VS_CACHE_PFX : FILTER_CACHE_PFX
+}
+function setFilterCache(matchId, data) {
+  filterCache[matchId] = data
+  try {
+    const str = JSON.stringify({ data, date: cacheToday() })
+    localStorage.setItem(filterLSPrefix() + matchId, str)
+    console.log(`[cache] saved filter${activeFilters.has('VS') ? '(VS)' : ''} ${matchId} — ${(str.length/1024).toFixed(1)}KB`)
+  } catch(e) { console.warn(`[cache] failed to save filter ${matchId}:`, e) }
+}
+
+async function fetchFilterStats(matchId, seasonId) {
+  const entry = allMatches.find(e => e.matchId === matchId)
+  if (!entry) return
+
+  const playerNames = [...new Set(
+    Object.values(entry.markets).flatMap(rows => rows.map(r => r.seln_hcap).filter(Boolean))
+  )]
+
+  // Build player name→id cache — may already be populated from eager load at startup
+  // If not (e.g. first filter applied before eager load finished), fetch all players now
+  if (!window._playerNameCache) {
+    const [allPlayers, allTeams] = await Promise.all([
+      fetchAll((from, to) => db.from('sr_players').select('id, name, team_uid').range(from, to)),
+      fetchAll((from, to) => db.from('sr_teams').select('uid, name, abbr').range(from, to))
+    ])
+    window._playerNameCache    = {}
+    window._playerTeamUidCache = {}
+    window._teamCache          = {}
+    for (const p of allPlayers) {
+      window._playerNameCache[normName(p.name)] = p.id
+      window._playerTeamUidCache[p.id]          = p.team_uid
+    }
+    for (const t of allTeams) window._teamCache[t.uid] = t
+  }
+
+  const normToId  = window._playerNameCache
+  const playerIds = [...new Set(playerNames.map(n => findPlayerId(n, normToId)).filter(Boolean))]
+
+  // Debug: surface players whose names don't resolve to any known ID (even fuzzy)
+  const missing = playerNames.filter(n => !findPlayerId(n, normToId))
+  if (missing.length) console.warn('[filter] no sr_players match for:', missing.map(n => `"${n}" → "${normName(n)}"`))
+
+  if (!playerIds.length) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid: {} }); return }
+
+  const matchDate = entry.match?.match_date ?? new Date().toISOString()
+
+  // Stage 1: get all (player_id, match_id, season_id) for these players — no JSONB, lightweight
+  const playerMatchLinks = await fetchAll((from, to) =>
+    db.from('sr_player_match_stats')
+      .select('player_id, match_id, season_id')
+      .in('player_id', playerIds)
+      .order('player_id').order('match_id')
+      .range(from, to)
+  )
+  if (!playerMatchLinks.length) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid: {} }); return }
+
+  const allMatchIds = [...new Set(playerMatchLinks.map(r => r.match_id))]
+
+  // Stage 2: get dates for those matches, filter to completed before this match
+  // Batch in chunks of 200 to avoid URL-too-long (400) errors
+  const BATCH = 200
+  const matchDateRows = []
+  for (let i = 0; i < allMatchIds.length; i += BATCH) {
+    const chunk = allMatchIds.slice(i, i + BATCH)
+    const rows = await fetchAll((from, to) =>
+      db.from('sr_matches')
+        .select('id, match_date, home_team_uid, away_team_uid')
+        .in('id', chunk)
+        .not('home_score', 'is', null)
+        .lt('match_date', matchDate)
+        .order('id')
+        .range(from, to)
+    )
+    matchDateRows.push(...rows)
+  }
+  if (!matchDateRows.length) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid: {} }); return }
+
+  const validMatchIds  = new Set(matchDateRows.map(m => m.id))
+  const dateByMid      = Object.fromEntries(matchDateRows.map(m => [m.id, m.match_date]))
+  const teamsInfoByMid = Object.fromEntries(matchDateRows.map(m => [m.id, { homeTeamUid: m.home_team_uid, awayTeamUid: m.away_team_uid }]))
+
+  // Fetch any historical opponent teams not yet in the cache
+  if (window._teamCache) {
+    const histUids   = [...new Set(matchDateRows.flatMap(m => [m.home_team_uid, m.away_team_uid]).filter(Boolean))]
+    const missingUids = histUids.filter(uid => !window._teamCache[uid])
+    if (missingUids.length) {
+      const { data: missingTeams } = await db.from('sr_teams').select('uid, name, abbr').in('uid', missingUids)
+      for (const t of missingTeams ?? []) window._teamCache[t.uid] = t
+    }
+  }
+
+  // Which match IDs count as current season?
+  const csMatchIds = new Set(
+    playerMatchLinks.filter(r => r.season_id === seasonId && validMatchIds.has(r.match_id)).map(r => r.match_id)
+  )
+
+  // Per-player: bucket valid match IDs, sort desc, take last 12 + all CS
+  const perPlayer = {}
+  for (const r of playerMatchLinks) {
+    if (!validMatchIds.has(r.match_id)) continue
+    if (!perPlayer[r.player_id]) perPlayer[r.player_id] = []
+    perPlayer[r.player_id].push(r.match_id)
+  }
+
+  const homeUid  = entry.match?.home_team_uid
+  const awayUid  = entry.match?.away_team_uid
+  const isVSMode = activeFilters.has('VS')
+
+  const neededByPlayer = new Map() // player_id → Set<match_id>
+  const neededMatchIds = new Set()
+  for (const [pid, mids] of Object.entries(perPlayer)) {
+    const sorted = [...mids].sort((a, b) => new Date(dateByMid[b]) - new Date(dateByMid[a]))
+    const cs     = new Set(sorted.filter(mid => csMatchIds.has(mid)))
+    let   l12
+    if (isVSMode) {
+      // Determine the upcoming opponent for this specific player using their current team.
+      // Then pre-filter to only games where that opponent appeared, capped at 12.
+      // This replaces the old "fetch entire career" approach.
+      const playerTeamUid = window._playerTeamUidCache?.[Number(pid)]
+      const opponentUid   = playerTeamUid != null
+        ? (playerTeamUid === homeUid ? awayUid : playerTeamUid === awayUid ? homeUid : null)
+        : null
+      if (opponentUid != null) {
+        const vsGames = sorted.filter(mid => {
+          const ti = teamsInfoByMid[mid]
+          return ti && (ti.homeTeamUid === opponentUid || ti.awayTeamUid === opponentUid)
+        }).slice(0, 12)
+        l12 = new Set(vsGames)
+      } else {
+        l12 = new Set(sorted.slice(0, 12)) // unknown team — fall back to L12
+      }
+    } else {
+      l12 = new Set(sorted.slice(0, 12))
+    }
+    const needed = new Set([...l12, ...cs])
+    neededByPlayer.set(Number(pid), needed)
+    needed.forEach(mid => neededMatchIds.add(mid))
+  }
+  if (!neededMatchIds.size) { setFilterCache(matchId, { normNameToGames: {}, teamsInfoByMid }); return }
+
+  // Career BA fetch — all games for these players, just hits + AB (no JSONB overhead)
+  if (!window._careerBACache) window._careerBACache = {}
+  const missingCareer = playerIds.filter(id => !window._careerBACache[id])
+  if (missingCareer.length) {
+    const careerRows = await fetchAll((from, to) =>
+      db.from('sr_player_match_stats')
+        .select('player_id, stats->hitting_hits, stats->hitting_at_bats')
+        .in('player_id', missingCareer)
+        .range(from, to)
+    )
+    const totals = {}
+    for (const r of careerRows) {
+      const pid = r.player_id
+      const h   = Number(r.hitting_hits   ?? 0)
+      const ab  = Number(r.hitting_at_bats ?? 0)
+      if (ab === 0) continue
+      if (!totals[pid]) totals[pid] = { h: 0, ab: 0, games: 0 }
+      totals[pid].h     += h
+      totals[pid].ab    += ab
+      totals[pid].games += 1
+    }
+    for (const pid of missingCareer) {
+      const t = totals[pid]
+      window._careerBACache[pid] = (t && t.ab > 0) ? { ba: t.h / t.ab, avgAB: t.ab / t.games } : null
+    }
+  }
+
+  // Stage 3: fetch only the stat fields we actually use (not full JSONB — 17x smaller)
+  // Batch match_id in chunks of 200 to avoid URL-too-long in VS mode
+  const neededMatchArr = [...neededMatchIds]
+  const statsChunks = await Promise.all(
+    Array.from({ length: Math.ceil(neededMatchArr.length / 200) }, (_, i) =>
+      fetchAll((from, to) =>
+        db.from('sr_player_match_stats')
+          .select('player_id, match_id, stats->hitting_hits, stats->hitting_at_bats, stats->hitting_total_strikeouts, stats->hitting_total_bases, stats->hitting_total_runs_scored, stats->pitching_overall_total_strikeouts, team_uid')
+          .in('player_id', playerIds)
+          .in('match_id', neededMatchArr.slice(i * 200, (i + 1) * 200))
+          .order('player_id').order('match_id')
+          .range(from, to)
+      )
+    )
+  )
+  const stats = statsChunks.flat()
+  const idToGames = {}
+  for (const s of stats ?? []) {
+    if (!neededByPlayer.get(s.player_id)?.has(s.match_id)) continue
+    if (!idToGames[s.player_id]) idToGames[s.player_id] = []
+    idToGames[s.player_id].push({
+      stats: {
+        hitting_hits:                      s.hitting_hits,
+        hitting_at_bats:                   s.hitting_at_bats,
+        hitting_total_strikeouts:          s.hitting_total_strikeouts,
+        hitting_total_bases:               s.hitting_total_bases,
+        hitting_total_runs_scored:         s.hitting_total_runs_scored,
+        pitching_overall_total_strikeouts: s.pitching_overall_total_strikeouts,
+      },
+      match_date: dateByMid[s.match_id],
+      match_id:   s.match_id,
+      team_uid:   s.team_uid,
+    })
+  }
+  for (const g of Object.values(idToGames)) g.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
+  const normNameToGames = {}
+  for (const name of playerNames) {
+    const norm = normName(name)
+    const id   = findPlayerId(name, normToId)
+    if (id && idToGames[id]) {
+      normNameToGames[norm] = idToGames[id].map(g => ({ ...g, inSeason: csMatchIds.has(g.match_id) }))
+    } else if (id) {
+      console.warn(`[filter] "${name}" (id=${id}) resolved but 0 completed games before ${matchDate}`)
+    }
+  }
+
+  // Only store team info for match IDs we actually have stats for — keeps cache lean
+  const neededTeamsInfo = Object.fromEntries(
+    [...neededMatchIds].map(mid => [mid, teamsInfoByMid[mid]]).filter(([, v]) => v)
+  )
+  setFilterCache(matchId, { normNameToGames, teamsInfoByMid: neededTeamsInfo })
+}
+
+// ── Core ────────────────────────────────────────────────────────────────────
+
+let activeTab      = 'All'
+let activeMatch    = null
+let allMatches     = []
+let pastExpanded   = false
+let sportExpanded  = false
+let bgPrefetchGen  = 0
+
+function bgPrefetchOrder(centerMatchId) {
+  const tab = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Mexico_City' })
+  const todays = tab
+    .filter(e => e.match?.match_date &&
+      new Date(e.match.match_date).toLocaleDateString('en-US', { timeZone: 'America/Mexico_City' }) === todayStr)
+    .sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
+  const centerIdx = todays.findIndex(e => e.matchId === centerMatchId)
+  const idx = centerIdx >= 0 ? centerIdx : todays.findIndex(e => !isMatchOld(e.match?.match_date))
+  if (idx < 0) return todays
+  const result = [todays[idx]]
+  let fwd = idx + 1, bwd = idx - 1
+  while (fwd < todays.length || bwd >= 0) {
+    if (fwd < todays.length) result.push(todays[fwd++])
+    if (bwd >= 0)            result.push(todays[bwd--])
+  }
+  return result
+}
+
+async function startBgPrefetch(centerMatchId) {
+  if (!centerMatchId) return
+  const gen = ++bgPrefetchGen
+  const order = bgPrefetchOrder(centerMatchId)
+  const total = order.length
+  const el = document.getElementById('prefetch-indicator')
+  const alreadyDone = order.filter(e => filterCache[e.matchId] || filterLoading[e.matchId]).length
+  if (alreadyDone === total) {
+    if (el) { el.style.display = 'block'; el.textContent = `${total}/${total}` }
+    return
+  }
+  let done = order.filter(e => filterCache[e.matchId]).length
+  if (el) { el.style.display = 'block'; el.textContent = `${done}/${total}` }
+  for (const entry of order) {
+    if (bgPrefetchGen !== gen) return
+    if (filterCache[entry.matchId] || filterLoading[entry.matchId]) continue
+    filterLoading[entry.matchId] = fetchFilterStats(entry.matchId, entry.match?.season_id)
+      .finally(() => { filterLoading[entry.matchId] = null })
+    await filterLoading[entry.matchId]
+    done++
+    if (bgPrefetchGen !== gen) return
+    if (el) el.textContent = `${done}/${total}`
+  }
+}
+
+function togglePastExpanded() {
+  pastExpanded = !pastExpanded
+  if (pastExpanded) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 2); cutoff.setHours(0,0,0,0)
+    const pastDates = [...new Set(
+      allMatches
+        .filter(e => isMatchOld(e.match?.match_date) && e.match?.match_date && new Date(e.match.match_date) >= cutoff)
+        .map(e => `past:${dateLabel(e.match?.match_date)}`)
+    )]
+    pastDates.forEach(k => collapsedDates.add(k))
+  }
+  renderPills()
+}
+let collapsedDates = new Set()
+
+function toggleDateGroup(lbl) {
+  if (collapsedDates.has(lbl)) collapsedDates.delete(lbl)
+  else collapsedDates.add(lbl)
+  renderPills()
+}
+
+async function fetchAll(queryFn) {
+  const PAGE = 1000
+  let rows = [], from = 0
+  while (true) {
+    const { data } = await queryFn(from, from + PAGE - 1)
+    if (!data?.length) break
+    rows = rows.concat(data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return rows
+}
+
+function matchYMD(dateStr) {
+  const TZ = 'America/Mexico_City'
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(dateStr))
+}
+function isMatchOld(dateStr) {
+  if (!dateStr) return false
+  return matchYMD(dateStr) < matchYMD(new Date().toISOString())
+}
+
+function dateLabel(dateStr) {
+  if (!dateStr) return '—'
+  const TZ       = 'America/Mexico_City'
+  const d        = new Date(dateStr)
+  const today    = new Date()
+  const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1)
+  const fmt      = dt => dt.toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric' })
+  const sameDay  = (a, b) => a.toLocaleDateString('en-US', { timeZone: TZ }) === b.toLocaleDateString('en-US', { timeZone: TZ })
+  if (sameDay(d, today))    return 'TODAY'
+  if (sameDay(d, tomorrow)) return 'TOMORROW'
+  return fmt(d).toUpperCase()
+}
+
+const ODDS_CACHE_KEY    = 'palo_odds_v1'
+const PLAYER_CACHE_KEY  = 'palo_players_v1'
+const FILTER_CACHE_PFX    = 'palo_filter_v1_'
+const FILTER_VS_CACHE_PFX = 'palo_filter_vs_v1_'
+const EXP_CACHE_PFX       = 'palo_exp_v1_'
+const EXP_VS_CACHE_PFX    = 'palo_exp_vs_v1_'
+
+function cacheToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' })
+}
+function cacheGet(key) {
+  try {
+    const c = JSON.parse(localStorage.getItem(key))
+    if (!c || c.date !== cacheToday()) return null
+    return c.data
+  } catch { return null }
+}
+function cacheSet(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ data, date: cacheToday() })) } catch {}
+}
+function cacheClear() {
+  try { Object.keys(localStorage).filter(k => k.startsWith('palo_')).forEach(k => localStorage.removeItem(k)) } catch {}
+  const el = document.getElementById('prefetch-indicator'); if (el) el.style.display = 'none'
+}
+function clearFilterCache() {
+  try { Object.keys(localStorage).filter(k => k.startsWith(FILTER_CACHE_PFX) || k.startsWith(FILTER_VS_CACHE_PFX)).forEach(k => localStorage.removeItem(k)) } catch {}
+}
+
+async function load(force = false) {
+  showLoader()
+
+  let odds, matchRows, teamRows
+
+  const cached = !force && cacheGet(ODDS_CACHE_KEY)
+  if (cached) {
+    ;({ odds, matchRows, teamRows } = cached)
+  } else {
+    odds = await fetchAll((f, t) =>
+      db.from('sr_match_odds')
+        .select('match_id, mkt_name, seln_name, seln_hcap, us_prc')
+        .eq('published', true)
+        .order('match_id').order('mkt_name').order('seln_hcap').order('seln_name')
+        .range(f, t)
+    )
+
+    if (!odds.length) {
+      document.getElementById('sport-switcher').innerHTML = ''
+      document.getElementById('match-pills').innerHTML = ''
+      document.getElementById('content').innerHTML = '<p class="text-xs mt-12 text-center" style="color:var(--muted)">No published props yet.</p>'
+      return
+    }
+
+    const matchIds = [...new Set(odds.map(r => r.match_id))]
+    matchRows = []
+    for (let i = 0; i < matchIds.length; i += 200) {
+      const { data } = await db.from('sr_matches')
+        .select('id, match_date, home_team_uid, away_team_uid, season_id')
+        .in('id', matchIds.slice(i, i + 200))
+      if (data) matchRows.push(...data)
+    }
+
+    const teamUids = [...new Set(matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid]).filter(Boolean))]
+    teamRows = []
+    for (let i = 0; i < teamUids.length; i += 200) {
+      const { data } = await db.from('sr_teams').select('uid, name, abbr').in('uid', teamUids.slice(i, i + 200))
+      if (data) teamRows.push(...data)
+    }
+
+    cacheSet(ODDS_CACHE_KEY, { odds, matchRows, teamRows })
+  }
+
+  if (!odds.length) {
+    document.getElementById('sport-tabs').innerHTML = ''
+    document.getElementById('match-pills').innerHTML = ''
+    document.getElementById('content').innerHTML = '<p class="text-xs mt-12 text-center" style="color:var(--muted)">No published props yet.</p>'
+    return
+  }
+
+  const matchMap = Object.fromEntries(matchRows.map(m => [m.id, m]))
+  const teamMap  = Object.fromEntries(teamRows.map(t => [t.uid, t]))
+
+  const byMatch = {}
+  for (const row of odds) {
+    if (!byMatch[row.match_id]) byMatch[row.match_id] = {}
+    const key = row.mkt_name || '—'
+    if (!byMatch[row.match_id][key]) byMatch[row.match_id][key] = []
+    byMatch[row.match_id][key].push(row)
+  }
+
+  allMatches = Object.entries(byMatch).map(([mid, markets]) => {
+    const m    = matchMap[Number(mid)]
+    const info = (m && SEASON_INFO[m.season_id]) ?? { sport: 'Other', league: '—' }
+    const home = teamMap[m?.home_team_uid]
+    const away = teamMap[m?.away_team_uid]
+    return {
+      matchId: Number(mid), match: m, home, away,
+      abbr: `${away?.abbr ?? '?'} @ ${home?.abbr ?? '?'}`,
+      sport: info.sport, league: info.league, markets,
+    }
+  }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
+
+  filterLoading = {}
+  filterCache = {}
+  // Restore today's non-VS filter cache from localStorage; purge stale entries from both buckets
+  if (!force) {
+    const today = cacheToday()
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(FILTER_CACHE_PFX) || k.startsWith(FILTER_VS_CACHE_PFX))
+        .forEach(k => {
+          try {
+            const c = JSON.parse(localStorage.getItem(k))
+            if (c && c.date === today && c.data && k.startsWith(FILTER_CACHE_PFX)) {
+              filterCache[Number(k.slice(FILTER_CACHE_PFX.length))] = c.data
+            } else if (!c || c.date !== today) {
+              localStorage.removeItem(k) // purge stale entries from both VS and non-VS buckets
+            }
+          } catch {}
+        })
+    } catch {}
+  }
+  window._playerNameCache = null; window._playerTeamUidCache = null; window._teamCache = null; window._careerBACache = null
+
+  // Load all players before rendering so name resolution is always ready
+  const cachedPlayers = force ? null : cacheGet(PLAYER_CACHE_KEY)
+  const allPlayers = cachedPlayers ?? await fetchAll((from, to) =>
+    db.from('sr_players').select('id, name, team_uid').range(from, to)
+  )
+  if (!cachedPlayers) cacheSet(PLAYER_CACHE_KEY, allPlayers)
+  window._playerNameCache    = {}
+  window._playerTeamUidCache = {}
+  window._teamCache          = teamMap
+  for (const p of allPlayers) {
+    window._playerNameCache[normName(p.name)] = p.id
+    window._playerTeamUidCache[p.id]          = p.team_uid
+  }
+
+  const sports = [...new Set(allMatches.map(e => e.sport))]
+  if (!sports.includes(activeTab)) activeTab = sports[0] ?? 'All'
+  renderSportSwitcher(sports)
+
+  if (activeMatch !== null && !allMatches.find(e => e.matchId === activeMatch)) activeMatch = null
+
+  renderPills()
+  render()
+  hideLoader()
+  applyFilters()
+  startBgPrefetch(activeMatch)
+}
+
+function renderPills() {
+  const tabMatches = activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab)
+  const visible    = tabMatches.filter(e => !isMatchOld(e.match?.match_date))
+  const _cutoffBase = new Date(); _cutoffBase.setDate(_cutoffBase.getDate() - 2); _cutoffBase.setHours(0, 0, 0, 0)
+  const past       = tabMatches.filter(e => isMatchOld(e.match?.match_date) && e.match?.match_date && new Date(e.match.match_date) >= _cutoffBase)
+  const pillsEl    = document.getElementById('match-pills')
+  const wrapper    = document.getElementById('match-pills-wrapper')
+
+  // auto-select closest upcoming match, or most recently started if all have begun
+  if (activeMatch === null && visible.length > 0) {
+    const now = Date.now()
+    const upcoming = visible.filter(e => e.match?.match_date && new Date(e.match.match_date) > now)
+    if (upcoming.length > 0) {
+      activeMatch = upcoming.reduce((a, b) =>
+        new Date(a.match.match_date) <= new Date(b.match.match_date) ? a : b
+      ).matchId
+    } else {
+      activeMatch = visible.reduce((a, b) =>
+        new Date(a.match?.match_date) >= new Date(b.match?.match_date) ? a : b
+      ).matchId
+    }
+  }
+
+  if (visible.length === 0 && past.length === 0) { pillsEl.innerHTML = ''; wrapper.className = ''; return }
+  wrapper.className = ''
+
+  const lblBtn = (lbl, key, marginLeft) =>
+    `<button onclick="toggleDateGroup('${key}')" class="shrink-0${marginLeft ? ' ml-2' : ''}"
+      style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);background:none;border:none;padding:0;cursor:pointer">
+      ${collapsedDates.has(key) ? '▸' : '▾'} ${lbl}</button>`
+
+  let lastLabel = null
+  const parts = []
+  for (const e of visible) {
+    const lbl = dateLabel(e.match?.match_date)
+    if (lbl !== lastLabel) {
+      parts.push(lblBtn(lbl, lbl, lastLabel !== null))
+      lastLabel = lbl
+    }
+    if (collapsedDates.has(lbl)) {
+      // transparent spacer so the row height doesn't change
+      if (e === visible.filter(x => dateLabel(x.match?.match_date) === lbl)[0]) {
+        parts.push(`<div style="height:24px;width:1px;flex-shrink:0"></div>`)
+      }
+    } else {
+      const active = activeMatch === e.matchId
+      parts.push(`
+        <button onclick="setMatch(${e.matchId})"
+          class="match-pill whitespace-nowrap shrink-0 transition-colors
+                 ${active ? 'match-pill-active' : 'match-pill-inactive'}"
+          style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+          ${e.abbr}
+        </button>`)
+    }
+  }
+
+  if (past.length > 0) {
+    parts.push(`
+      <button onclick="togglePastExpanded()"
+        class="shrink-0"
+        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);background:none;border:none;padding:0;margin-left:8px;cursor:pointer">
+        ${pastExpanded ? '▾' : '▸'} 48H AGO
+      </button>`)
+    if (pastExpanded) {
+      let pastLabel = null
+      for (const e of past) {
+        const lbl = dateLabel(e.match?.match_date)
+        const key = `past:${lbl}`
+        if (lbl !== pastLabel) {
+          parts.push(lblBtn(lbl, key, true))
+          pastLabel = lbl
+        }
+        if (!collapsedDates.has(key)) {
+          const active = activeMatch === e.matchId
+          parts.push(`
+            <button onclick="setMatch(${e.matchId})"
+              class="match-pill whitespace-nowrap shrink-0 transition-colors opacity-60
+                     ${active ? 'match-pill-active' : 'match-pill-inactive'}"
+              style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
+              ${e.abbr}
+            </button>`)
+        }
+      }
+    }
+  }
+
+  pillsEl.innerHTML = parts.join('')
+  requestAnimationFrame(updateStickyOffsets)
+}
+
+function setTab(tab) {
+  activeTab = tab; activeMatch = null; sportExpanded = false
+  const sports = [...new Set(allMatches.map(e => e.sport))]
+  renderSportSwitcher(sports)
+  renderPills(); render()
+}
+
+function renderSportSwitcher(sports) {
+  const el = document.getElementById('sport-switcher')
+  if (!el) return
+  const labelStyle = `font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);background:none;border:none;padding:0;cursor:pointer`
+  if (sports.length <= 1) {
+    el.innerHTML = sports.length === 1
+      ? `<span style="${labelStyle.replace('cursor:pointer','cursor:default')}">${sports[0]}</span>`
+      : ''
+    return
+  }
+  const others = sports.filter(s => s !== activeTab)
+  let html = `<button onclick="sportExpanded=!sportExpanded;renderSportSwitcher([${sports.map(s=>`'${s}'`).join(',')}])" style="${labelStyle}">${sportExpanded ? '▾' : '▸'} ${activeTab}</button>`
+  if (sportExpanded) {
+    others.forEach(s => {
+      html += `<button onclick="setTab('${s}')"
+        class="match-pill match-pill-inactive whitespace-nowrap shrink-0"
+        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-width:2px;border-style:solid;cursor:pointer">${s}</button>`
+    })
+  }
+  el.innerHTML = html
+}
+
+function setMatch(matchId) {
+  activeMatch = matchId
+  renderPills(); render(); applyFilters()
+  startBgPrefetch(matchId)
+}
+
+function getLine(seln_name, seln_hcap) {
+  const val = parseLine(seln_name)
+  if (val != null) return `${isOver(seln_name) ? '>' : '<'}${val}`
+  return seln_name || '—'
+}
+
+function renderMatch(entry) {
+  const { matchId, match, home, away, league, markets } = entry
+  const homeFull = home?.name ?? '?'
+  const awayFull = away?.name ?? '?'
+  const homeNick = teamNick(homeFull)
+  const awayNick = teamNick(awayFull)
+  const dateStr  = match?.match_date
+    ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
+    : '—'
+  const colLabel = MODES[modeIdx].col
+  const cache    = filterCache[matchId] ?? null
+
+  const filterKeys = sortFilterKeys([...activeFilters])
+  const hasFilter  = filterKeys.length > 0
+
+  const mktsEntries = Object.entries(markets)
+  const mktCount    = mktsEntries.length
+  const mktsHtml = mktsEntries.map(([mktName, rows], mi) => {
+    const normMkt    = normName(mktName)
+    const playerMap  = buildPlayerMap(rows)
+    const tbodyHtml  = renderMktTbodyContent(mktName, playerMap, cache, filterKeys, entry)
+    const isLastMkt  = mi === mktCount - 1
+    const thBase     = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -60px 0 0 var(--bg),0 2px 0 0 var(--surface-2)`
+
+    return `
+      <div class="mkt-title" id="mkt-title-${matchId}-${mi}"
+        onclick="toggleMkt(${matchId},${mi})"
+        style="position:sticky;z-index:${20 + mktCount - mi};display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border:2px solid var(--border);overflow:hidden;box-shadow:0 -8px 0 0 var(--bg);transform:translateZ(0);${isLastMkt ? 'margin-top:2px;' : ''}"
+        onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
+        ${(m => {
+          const sub = m.match(/\s+(OVER\/UNDER|OVER|UNDER)$/i)
+          const title = sub ? m.slice(0, m.length - sub[0].length) : m
+          const subtitle = mktSubtitle(mktName, Object.keys(playerMap).length)
+          return `<span style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${title}</span>
+            <span style="font-size:10px;color:var(--muted)">${subtitle}</span>
+          </span>`
+        })(cleanMktName(mktName))}
+        <span class="chev" style="color:var(--muted);font-size:9px">${mi === 0 ? '▼' : '▶'}</span>
+      </div>
+      <div class="mkt-body" id="mkt-body-${matchId}-${mi}" style="display:${mi === 0 ? 'block' : 'none'};border:2px solid var(--border);border-top:2px solid transparent;background:var(--surface);margin-bottom:10px">
+        <table class="w-full ${hasFilter ? 'has-filter' : ''}" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0">
+          <thead>
+            <tr>
+              <th style="${thBase};text-align:left">Player</th>
+              <th class="stats-col" style="${thBase};text-align:center">Hit</th>
+              <th style="${thBase};text-align:left">Line</th>
+              <th style="${thBase};text-align:right" data-col-label>${colLabel}</th>
+            </tr>
+          </thead>
+          ${tbodyHtml}
+        </table>
+      </div>`
+  }).join('')
+
+  const matchLabel = `${awayNick} @ ${homeNick}`
+  const dateLabel  = match?.match_date
+    ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Mexico_City' })
+    : '—'
+
+  return `
+    <div data-match-id="${matchId}">
+      <div data-match-title style="position:fixed;left:0;right:0;z-index:35;background:var(--bg);padding-bottom:6px">
+        <div class="max-w-[960px] mx-auto px-4 pt-2 flex items-baseline gap-2">
+          <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text)">${matchLabel}</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${dateLabel}</span>
+        </div>
+      </div>
+      ${mktsHtml}
+    </div>`
+}
+
+function updateStickyOffsets() {
+  const header       = document.querySelector('header')
+  const pillsWrapper = document.getElementById('match-pills-wrapper')
+  const filterSection= document.getElementById('filter-section')
+  let offset = 0
+  if (header)        { offset += header.offsetHeight - 1 }
+  if (pillsWrapper)  { pillsWrapper.style.top   = offset + 'px'; offset += pillsWrapper.offsetHeight - 1 }
+  if (filterSection) { filterSection.style.top  = offset + 'px'; offset += filterSection.offsetHeight - 1 }
+  const matchTitle = document.querySelector('[data-match-title]')
+  if (matchTitle) {
+    matchTitle.style.top = offset + 'px'
+    offset = matchTitle.getBoundingClientRect().bottom
+  }
+  document.documentElement.style.setProperty('--nav-h', offset + 'px')
+  const content = document.getElementById('content')
+  if (content) content.style.paddingTop = (offset + 16) + 'px'
+  updateMktTops()
+}
+window.addEventListener('resize', updateStickyOffsets)
+
+function toggleMkt(matchId, mi) {
+  for (const [key, exp] of [...expansions]) {
+    if (exp.matchId === matchId) collapseExpansion(key)
+  }
+  const titleEl     = document.getElementById('mkt-title-' + matchId + '-' + mi)
+  const body        = document.getElementById('mkt-body-'  + matchId + '-' + mi)
+  const scrollBefore = window.scrollY
+  const offsetBefore = titleEl.offsetTop
+  const isOpen = body.style.display !== 'none'
+  const card = document.querySelector('[data-match-id="' + matchId + '"]')
+  card.querySelectorAll('.mkt-body').forEach(b  => { b.style.display = 'none' })
+  card.querySelectorAll('.mkt-title .chev').forEach(c => { c.textContent = '▶' })
+  if (!isOpen) {
+    body.style.display = 'block'
+    titleEl.querySelector('.chev').textContent = '▼'
+  }
+  const offsetAfter = titleEl.offsetTop
+  window.scrollTo(0, scrollBefore + (offsetAfter - offsetBefore))
+  requestAnimationFrame(updateMktTops)
+}
+
+function updateMktTops() {
+  if (activeMatch == null) return
+  const card = document.querySelector('[data-match-id="' + activeMatch + '"]')
+  if (!card) return
+  const titles = card.querySelectorAll('.mkt-title')
+  if (!titles.length) return
+  const navH   = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0
+  const titleH = titles[0].offsetHeight
+  titles.forEach((t, i) => {
+    t.style.top    = (navH + i * titleH) + 'px'
+    t.style.zIndex = 20 + (titles.length - i)
+    const bodyEl = document.getElementById(t.id.replace('mkt-title', 'mkt-body'))
+    if (!bodyEl) return
+    const theadTop = navH + i * titleH + titleH - 2
+    bodyEl.querySelectorAll('th').forEach(th => { th.style.top = theadTop + 'px' })
+    const thead  = bodyEl.querySelector('thead')
+    const theadH = thead ? thead.offsetHeight : 0
+    bodyEl.querySelectorAll('.team-hdr').forEach(td => { td.style.top = (theadTop + theadH) + 'px' })
+  })
+}
+
+window.addEventListener('scroll', () => {
+  const matchTitle = document.querySelector('[data-match-title]')
+  if (matchTitle) {
+    const bottom = matchTitle.getBoundingClientRect().bottom
+    document.documentElement.style.setProperty('--nav-h', bottom + 'px')
+  }
+}, { passive: true })
+
+function render() {
+  renderGlobalFilterBar()
+  updateOUToggle()
+  let entries = (activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab))
+    .filter(e => !isMatchOld(e.match?.match_date) || e.matchId === activeMatch)
+  if (activeMatch !== null) entries = entries.filter(e => e.matchId === activeMatch)
+  if (!entries.length) {
+    document.getElementById('content').innerHTML = '<p class="mono text-center" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-top:48px">NO PROPS</p>'
+    return
+  }
+  document.getElementById('content').innerHTML = entries.map(renderMatch).join('')
+  requestAnimationFrame(updateStickyOffsets)
+}
+
+renderGlobalFilterBar()
+updateOUToggle()
+updateStickyOffsets()
+load()
+
+// ── Player Row Expansion ─────────────────────────────────────────────────────
+
+// Map: playerKey → { playerName, mktName, normMkt, propLine, matchId, seasonId, lockedDirection, tr }
+const expansions = new Map()
+
+// Cache: key → { games, playerTeamUid } — persists across collapse/re-expand
+const expansionCache = new Map()
+
+
+function togglePlayerExpansion(td, playerName, mktName, normMkt, propLine, matchId, seasonId) {
+  const decode = s => s.replace(/&#39;/g, "'")
+  playerName = decode(playerName)
+  mktName    = decode(mktName)
+  const key  = normName(playerName) + '_' + matchId
+
+  // Toggle off if already open
+  if (expansions.has(key)) {
+    collapseExpansion(key)
+    if (!expansions.size) updateGlobalFilterButtons()
+    return
+  }
+
+  if (expansions.size === 0) {
+    updateGlobalFilterButtons()
+  }
+
+  const openedWhileFiltered = td.closest('tr')?.classList.contains('filtered-row') ?? false
+  expansions.set(key, { playerName, mktName, normMkt, propLine, matchId, seasonId, lockedDirection: activeDirection || 'over', tr: null, openedWhileFiltered })
+
+  insertExpansionRow(td, key)
+  fetchExpansionData(key)
+}
+
+async function fetchExpansionData(key, prefetchOnly = false) {
+  const exp = expansions.get(key)
+  if (!exp) return
+
+  const realKey = key.replace(/^__prefetch__/, '')
+
+  // Use in-memory cache if available
+  if (expansionCache.has(realKey)) {
+    const cached = expansionCache.get(realKey)
+    exp.games = cached.games
+    exp.playerTeamUid = cached.playerTeamUid
+    if (!prefetchOnly) renderExpansionContent(key)
+    return
+  }
+  // Fall back to localStorage cache
+  const expPfx = activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX
+  const lsCached = cacheGet(expPfx + realKey)
+  if (lsCached) {
+    expansionCache.set(realKey, lsCached)
+    exp.games = lsCached.games
+    exp.playerTeamUid = lsCached.playerTeamUid
+    if (!prefetchOnly) renderExpansionContent(key)
+    return
+  }
+
+  const cell = getExpCell(key)
+  if (cell) cell.innerHTML = '<p class="text-xs" style="color:var(--muted)">Loading…</p>'
+
+  const { playerName, matchId, seasonId } = exp
+
+  // Ensure player/team caches are available
+  if (!window._playerNameCache) {
+    const [allPlayers, allTeams] = await Promise.all([
+      fetchAll((from, to) => db.from('sr_players').select('id, name, team_uid').range(from, to)),
+      fetchAll((from, to) => db.from('sr_teams').select('uid, name, abbr').range(from, to))
+    ])
+    window._playerNameCache    = {}
+    window._playerTeamUidCache = {}
+    window._teamCache          = {}
+    for (const p of allPlayers) {
+      window._playerNameCache[normName(p.name)] = p.id
+      window._playerTeamUidCache[p.id]          = p.team_uid
+    }
+    for (const t of allTeams) window._teamCache[t.uid] = t
+  }
+
+  const playerId      = findPlayerId(playerName, window._playerNameCache)
+  const playerTeamUid = playerId ? window._playerTeamUidCache?.[playerId] : null
+
+  if (!playerId) {
+    if (cell) cell.innerHTML = '<p class="text-[11px] py-2" style="color:var(--muted)">Player not found in database</p>'
+    return
+  }
+
+  // Get the prop match date so we only show games before it
+  const propMatchEntry = allMatches.find(e => e.matchId === matchId)
+  const propMatchDate  = propMatchEntry?.match?.match_date ?? new Date().toISOString()
+
+  // Stage 1: get all match IDs this player has stats for (lightweight — no JSONB)
+  const matchLinks = await fetchAll((from, to) =>
+    db.from('sr_player_match_stats')
+      .select('match_id')
+      .eq('player_id', playerId)
+      .range(from, to)
+  )
+
+  if (!matchLinks?.length) {
+    exp.games = []; exp.playerTeamUid = playerTeamUid
+    expansionCache.set(realKey, { games: [], playerTeamUid }); cacheSet((activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX) + realKey, { games: [], playerTeamUid })
+    if (!prefetchOnly) renderExpansionContent(key); return
+  }
+
+  const allMatchIds = matchLinks.map(r => r.match_id)
+
+  // Stage 2: filter those to completed matches up to and including the prop date
+  // Batch in chunks of 200 to avoid URL-too-long errors; cap at 12 for non-VS mode
+  const allMatchRowsRaw = []
+  for (let i = 0; i < allMatchIds.length; i += 200) {
+    const chunk = allMatchIds.slice(i, i + 200)
+    const rows = await fetchAll((from, to) =>
+      db.from('sr_matches')
+        .select('id, match_date, home_team_uid, away_team_uid, season_id')
+        .in('id', chunk)
+        .not('home_score', 'is', null)
+        .lte('match_date', propMatchDate)
+        .order('match_date', { ascending: false })
+        .range(from, to)
+    )
+    allMatchRowsRaw.push(...rows)
+  }
+  const matchRows = activeFilters.has('VS')
+    ? allMatchRowsRaw.sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
+    : allMatchRowsRaw.sort((a, b) => new Date(b.match_date) - new Date(a.match_date)).slice(0, 12)
+
+  if (!matchRows?.length) {
+    exp.games = []; exp.playerTeamUid = playerTeamUid
+    expansionCache.set(realKey, { games: [], playerTeamUid }); cacheSet((activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX) + realKey, { games: [], playerTeamUid })
+    if (!prefetchOnly) renderExpansionContent(key); return
+  }
+
+  // Stage 3: fetch only the stat fields used in the expansion chart (not full JSONB)
+  const neededIds = matchRows.map(m => m.id)
+  const { data: statsRows } = await db.from('sr_player_match_stats')
+    .select('match_id, stats->hitting_hits, stats->hitting_at_bats, stats->hitting_total_strikeouts, stats->hitting_total_bases, stats->hitting_total_runs_scored, stats->pitching_overall_total_strikeouts, stats->minutes, stats->minutes_played, stats->time_played, team_uid')
+    .eq('player_id', playerId)
+    .in('match_id', neededIds)
+
+  const statsByMid = {}
+  const teamUidByMid = {}
+  for (const s of statsRows ?? []) {
+    statsByMid[s.match_id] = {
+      hitting_hits:                      s.hitting_hits,
+      hitting_at_bats:                   s.hitting_at_bats,
+      hitting_total_strikeouts:          s.hitting_total_strikeouts,
+      hitting_total_bases:               s.hitting_total_bases,
+      hitting_total_runs_scored:         s.hitting_total_runs_scored,
+      pitching_overall_total_strikeouts: s.pitching_overall_total_strikeouts,
+      minutes:                           s.minutes,
+      minutes_played:                    s.minutes_played,
+      time_played:                       s.time_played,
+    }
+    teamUidByMid[s.match_id] = s.team_uid
+  }
+
+  // Fetch any teams not yet in cache (both home and away for all games)
+  const allUids     = matchRows.flatMap(m => [m.home_team_uid, m.away_team_uid])
+  const missingUids = [...new Set(allUids)].filter(uid => !window._teamCache?.[uid])
+  if (missingUids.length) {
+    const { data: missing } = await db.from('sr_teams').select('uid, name, abbr').in('uid', missingUids)
+    for (const t of missing ?? []) window._teamCache[t.uid] = t
+  }
+
+  exp.games = matchRows.map(m => ({
+    match_id:    m.id,
+    match_date:  m.match_date,
+    gameTeamUid: teamUidByMid[m.id] ?? null,
+    season_id:   m.season_id,
+    homeTeamUid: m.home_team_uid,
+    awayTeamUid: m.away_team_uid,
+    stats:       statsByMid[m.id] ?? null,
+    isPropGame:  m.id === matchId
+  }))
+  exp.playerTeamUid = playerTeamUid
+
+  expansionCache.set(realKey, { games: exp.games, playerTeamUid }); cacheSet((activeFilters.has('VS') ? EXP_VS_CACHE_PFX : EXP_CACHE_PFX) + realKey, { games: exp.games, playerTeamUid })
+  if (!prefetchOnly) renderExpansionContent(key)
+}
+
+function insertExpansionRow(td, key) {
+  let lastRow = td.closest('tr')
+  const rs    = td.rowSpan || 1
+  const expandedRows = [lastRow]
+  for (let i = 1; i < rs; i++) {
+    lastRow = lastRow.nextElementSibling
+    expandedRows.push(lastRow)
+  }
+  expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = 'var(--border)' })
+  lastRow.insertAdjacentHTML('afterend', `
+    <tr data-expansion-key="${key}" style="border-top:none">
+      <td colspan="10" class="px-4 py-4" style="background:var(--border)" data-expansion-cell="${key}"></td>
+    </tr>`)
+  const exp = expansions.get(key)
+  if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
+}
+
+function collapseExpansion(key) {
+  const exp = expansions.get(key)
+  if (exp?.tr) exp.tr.remove()
+  if (exp?.expandedRows) exp.expandedRows.forEach(r => { r.classList.remove('row-expanded'); r.style.background = '' })
+  expansions.delete(key)
+}
+
+function getExpCell(key) {
+  return expansions.get(key)?.tr?.querySelector(`[data-expansion-cell="${key}"]`)
+}
+
+function reinstateExpansion() {
+  const toCollapse = []
+  for (const [key, exp] of expansions) {
+    exp.tr = null
+    const { normMkt, matchId } = exp
+    const td = document.querySelector(
+      `[data-match-id="${matchId}"] table[data-mkt="${normMkt}"] [data-player-exp="${key}"]`)
+    if (!td) continue
+    // Collapse if filtered state changed in either direction
+    const nowFiltered = td.closest('tr')?.classList.contains('filtered-row') ?? false
+    if (nowFiltered || exp.openedWhileFiltered) { toCollapse.push(key); continue }
+    insertExpansionRow(td, key)
+    if (exp.games !== undefined) renderExpansionContent(key)
+    else fetchExpansionData(key)
+  }
+  toCollapse.forEach(key => collapseExpansion(key))
+  if (!expansions.size) updateGlobalFilterButtons()
+}
+
+function renderExpansionContent(key) {
+  const exp  = expansions.get(key)
+  const cell = getExpCell(key)
+  if (!exp || !cell) return
+
+  const { mktName, propLine, seasonId, lockedDirection, games, playerTeamUid } = exp
+
+  if (games === undefined) {
+    cell.innerHTML = '<p class="text-xs" style="color:var(--muted)">Loading…</p>'
+    return
+  }
+
+  if (!activeFilters.size) {
+    cell.innerHTML = '<p class="text-[11px] py-2" style="color:var(--muted)">Select a filter above to see chart</p>'
+    return
+  }
+
+  const filterKey   = sortFilterKeys([...activeFilters]).at(-1)
+  const isCS        = filterKey === 'CS'
+  const isVS        = filterKey === 'VS'
+  const N           = isCS || isVS ? Infinity : parseInt(filterKey.slice(1))
+
+  const statKey     = mktToStatKey(mktName)
+  const isHitsMkt   = statKey === 'hitting_hits'
+  const sport       = SEASON_INFO[seasonId]?.sport ?? ''
+  const showMinutes = sport === 'Soccer' || sport === 'Basketball' || sport === 'NBA'
+
+  // games sorted desc (most recent first); exclude 0-AB games for hits markets, then reverse for display
+  const gamesFiltered = isHitsMkt
+    ? games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
+    : games
+
+  // VS filter key: restrict bars to games vs upcoming opponent
+  let vsGames = gamesFiltered
+  if (activeFilters.has('VS')) {
+    const matchEntry = allMatches.find(e => e.matchId === exp.matchId)
+    const mHomeUid = matchEntry?.match?.home_team_uid
+    const mAwayUid = matchEntry?.match?.away_team_uid
+    // Determine upcoming opponent from current team or either side of the match
+    const upcomingOpp = playerTeamUid === mHomeUid ? mAwayUid
+                      : playerTeamUid === mAwayUid ? mHomeUid
+                      : mHomeUid ?? null  // fallback: just pick one side
+    if (upcomingOpp != null) {
+      vsGames = gamesFiltered.filter(g => {
+        const gameTeamUid = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+        const oppUid = gameTeamUid === g.homeTeamUid ? g.awayTeamUid
+                     : gameTeamUid === g.awayTeamUid ? g.homeTeamUid : null
+        return oppUid === upcomingOpp
+      })
+    }
+  }
+
+  const barsData = (isCS ? vsGames.filter(g => g.season_id === seasonId)
+                  : isVS ? vsGames
+                  : vsGames.slice(0, N)).slice(-12).reverse()
+
+  const CHART_H   = 120
+  const allVals    = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
+  const maxAB      = isHitsMkt ? Math.max(...barsData.map(g => Number(g.stats?.hitting_at_bats ?? 0)), 1) : 0
+  const maxVal     = Math.max(...allVals, propLine ?? 0, maxAB, 0)
+  const maxChart   = maxVal > 0 ? maxVal * 1.35 : 1
+  const linePct    = (propLine != null && maxChart > 0) ? (propLine / maxChart * 100) : null
+
+
+  const barsHtml = barsData.length === 0
+    ? '<p class="text-[10px] py-4" style="color:var(--muted)">No games in this window</p>'
+    : barsData.map(g => {
+        const rawVal   = statKey ? (g.stats?.[statKey] ?? null) : null
+        const value    = rawVal != null ? Number(rawVal) : 0
+        const isHome   = playerTeamUid != null ? g.homeTeamUid === playerTeamUid : null
+        const oppUid   = isHome !== null ? (isHome ? g.awayTeamUid : g.homeTeamUid) : null
+        const opp      = oppUid ? window._teamCache?.[oppUid] : null
+        const isProp   = g.isPropGame === true
+        const passes   = propLine != null ? (lockedDirection === 'under' ? value < propLine : value > propLine) : null
+        const minutes  = showMinutes ? (g.stats?.minutes ?? g.stats?.minutes_played ?? g.stats?.time_played ?? null) : null
+        const dateStr  = g.match_date ? new Date(g.match_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'numeric', day: 'numeric' }) : '—'
+        const heightPx = maxChart > 0 ? Math.round((value / maxChart) * CHART_H) : 0
+        const barH     = value > 0 ? Math.max(heightPx, 3) : 0
+        const color    = isProp ? '#f5c518' : passes === null ? 'var(--muted)' : passes ? 'var(--green)' : 'var(--magenta)'
+        const dispVal  = value % 1 === 0 ? String(value) : value.toFixed(1)
+        const homeAway = isHome === null ? '' : isHome ? 'Home' : 'Away'
+        const haColor  = isHome === null ? 'var(--muted)' : isHome ? '#89b4fa' : '#fab387'
+        const valColor = passes === true ? 'var(--green)' : passes === false ? 'var(--magenta)' : 'var(--muted)'
+        const ab     = isHitsMkt && g.stats ? Number(g.stats.hitting_at_bats ?? 0) : null
+        const abBarH = ab != null && maxChart > 0 ? Math.round((ab / maxChart) * CHART_H) : 0
+
+        let barInner
+        if (value === 0) {
+          barInner = `<span class="absolute text-[10px] font-bold leading-none text-center w-full" style="bottom:6px;color:var(--muted)">0</span>
+                      <div class="absolute bottom-0 left-0.5 right-0.5" style="height:3px;background:var(--surface-2);border-radius:1px"></div>`
+        } else if (heightPx < 18) {
+          barInner = `<span class="absolute text-[10px] font-bold leading-none text-center w-full" style="bottom:${barH + 3}px;color:${valColor}">${dispVal}</span>
+                      <div class="absolute bottom-0 left-0.5 right-0.5" style="height:${barH}px;background:${color};border-radius:1px 1px 0 0"></div>`
+        } else {
+          barInner = `<div class="absolute bottom-0 left-0.5 right-0.5 flex items-center justify-center" style="height:${barH}px;background:${color};border-radius:1px 1px 0 0">
+                        <span class="text-[10px] font-bold leading-none" style="color:var(--bg)">${dispVal}</span>
+                      </div>`
+        }
+
+        const hitMissLabel = isProp && passes !== null
+          ? `<span class="text-[9px] font-bold leading-none" style="color:${passes ? 'var(--green)' : 'var(--magenta)'}">${passes ? 'HIT' : 'MISS'}</span>`
+          : `<span class="text-[9px] leading-none opacity-0">·</span>`
+
+        return `<div class="flex-1 min-w-0 flex flex-col items-center gap-0.5">
+          <span class="text-[10px] font-mono leading-none truncate w-full text-center" style="color:var(--text)">${opp?.abbr ?? '?'}</span>
+          <span class="text-[9px] leading-none" style="color:${haColor}">${homeAway}</span>
+          ${hitMissLabel}
+          <div class="relative w-full mt-1" style="height:${CHART_H}px">
+            ${ab != null && ab > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(99,179,237,0.15);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#63b3ed">${ab}</span></div>` : ''}
+            ${barInner}
+            ${linePct != null ? `<div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>` : ''}
+          </div>
+          <span class="text-[9px] mt-0.5 leading-none" style="color:${isProp ? 'rgba(240,238,244,0.6)' : 'var(--muted)'}">${dateStr}</span>
+          ${minutes != null ? `<span class="text-[9px] leading-none" style="color:var(--muted)">${minutes}m</span>` : ''}
+        </div>`
+      }).join('')
+
+  cell.innerHTML = !statKey
+    ? '<p class="text-[11px] py-2" style="color:var(--muted)">No stat mapping for this market</p>'
+    : `<div class="flex gap-1.5 overflow-hidden">${barsHtml}</div>`
+}
+</script>
+</body>
+</html>
