@@ -353,9 +353,11 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
 
     const playerCellHtml = `<td class="align-top select-none" rowspan="${rowspan}"
          style="padding:7px 10px;color:var(--text);vertical-align:top"
-         data-player-exp="${norm}_${matchId}">
+         data-player-exp="${norm}_${matchId}"
+         onmouseover="var r=this.closest('tr');for(var i=0;i<this.rowSpan;i++){if(r){r.style.background='#1e1e1e';r=r.nextElementSibling}}"
+         onmouseout="var r=this.closest('tr');for(var i=0;i<this.rowSpan;i++){if(r){r.style.background='';r=r.nextElementSibling}}">
       <div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:700;line-height:1.2;margin-bottom:4px">
-        <span data-us="${usOdds ?? ''}" data-other-us="${otherUs ?? ''}" style="color:${oddsCol}">${oddsStr}</span><span style="color:var(--muted);font-size:10px;margin-left:5px">&gt;${lineVal}</span>
+        <span data-us="${usOdds ?? ''}" data-other-us="${otherUs ?? ''}" style="color:${oddsCol}">${oddsStr}</span><span style="color:var(--muted);font-size:10px;margin-left:5px">${activeDirection === 'under' ? '&lt;' : '&gt;'}${lineVal}</span>
       </div>
       <div style="display:flex;align-items:center">
         ${punkImg(playerName)}
