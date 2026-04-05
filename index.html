@@ -317,7 +317,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     if (!dbRow) continue
 
     // Use original display name from the cache row (normName key is lowercase)
-    const playerName = dbRow.player_name ?? norm
+    const playerName    = dbRow.player_name ?? norm
     const playerTeamUid = cache.playerTeamUids?.[norm]
     const teamKey       = playerTeamUid === homeUid ? 'home'
                         : playerTeamUid === awayUid ? 'away' : 'unknown'
@@ -347,68 +347,70 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     const normMkt  = normName(mktName).replace(/'/g,"\\'")
     const seasonId = dbRow.season_id ?? 0
     const matchId  = entry?.matchId  ?? 0
+    const rowspan  = 1 + sortedFKs.length
 
-    // rowspan covers DB/ALL row + every active filter row
-    const rowspan = 1 + sortedFKs.length
+    // Closure — colors assigned after sort so A/B matches final position
+    const buildTrows = (normalBg, expandedBg) => {
+      const playerCellHtml = `<td class="align-top select-none" rowspan="${rowspan}"
+           style="padding:7px 10px;color:var(--text);vertical-align:top"
+           data-player-exp="${norm}_${matchId}"
+           data-ab-bg="${expandedBg}"
+           data-normal-bg="${normalBg}"
+           onclick="var k='${norm}_${matchId}';if(expansions.has(k)){event.stopPropagation();collapseExpansion(k)}"
+           onmouseover="groupHover('${norm}_${matchId}','#1e1e1e')"
+           onmouseout="groupLeave('${norm}_${matchId}')">
+        <div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:700;line-height:1.2;margin-bottom:4px">
+          <span data-us="${usOdds ?? ''}" data-other-us="${otherUs ?? ''}" style="color:${oddsCol}">${oddsStr}</span><span style="color:var(--muted);font-size:10px;margin-left:5px">${activeDirection === 'under' ? '&lt;' : '&gt;'}${lineVal}</span>
+        </div>
+        <div style="display:flex;align-items:center">
+          ${punkImg(playerName)}
+          <span style="display:inline-flex;flex-direction:column;line-height:1.3">
+            <span style="font-size:11px;font-weight:600">${playerName}</span>
+            ${meta ? `<span style="font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace">${meta}</span>` : ''}
+          </span>
+        </div>
+      </td>`
 
-    const playerCellHtml = `<td class="align-top select-none" rowspan="${rowspan}"
-         style="padding:7px 10px;color:var(--text);vertical-align:top"
-         data-player-exp="${norm}_${matchId}"
-         onmouseover="var r=this.closest('tr');for(var i=0;i<this.rowSpan;i++){if(r){r.style.background='#1e1e1e';r=r.nextElementSibling}}"
-         onmouseout="var r=this.closest('tr');for(var i=0;i<this.rowSpan;i++){if(r){r.style.background='';r=r.nextElementSibling}}">
-      <div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:700;line-height:1.2;margin-bottom:4px">
-        <span data-us="${usOdds ?? ''}" data-other-us="${otherUs ?? ''}" style="color:${oddsCol}">${oddsStr}</span><span style="color:var(--muted);font-size:10px;margin-left:5px">${activeDirection === 'under' ? '&lt;' : '&gt;'}${lineVal}</span>
-      </div>
-      <div style="display:flex;align-items:center">
-        ${punkImg(playerName)}
-        <span style="display:inline-flex;flex-direction:column;line-height:1.3">
-          <span style="font-size:11px;font-weight:600">${playerName}</span>
-          ${meta ? `<span style="font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace">${meta}</span>` : ''}
-        </span>
-      </div>
-    </td>`
+      return ['DB', ...sortedFKs].map((f, idx) => {
+        const cRow        = filterMap[f]
+        const filterLabel = f === 'DB' ? 'GLOBAL' : f
 
-    // Rows: ALL (DB) first, then each active filter
-    const allRowFilters = ['DB', ...sortedFKs]
-    const trows = allRowFilters.map((f, idx) => {
-      const cRow        = filterMap[f]
-      const filterLabel = f === 'DB' ? 'ALL' : f
+        const evRaw = activeDirection === 'under' ? cRow?.under_ev : cRow?.ev
+        const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
+        const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
+        const evCol = evPct == null ? 'var(--muted)' : evPct > 0 ? 'var(--green)' : 'var(--magenta)'
 
-      const evRaw = activeDirection === 'under' ? cRow?.under_ev : cRow?.ev
-      const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10   // e.g. 0.0830 → 8.3
-      const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
-      const evCol = evPct == null ? 'var(--muted)' : evPct > 0 ? 'var(--green)' : 'var(--magenta)'
+        const avgStr = cRow?.avg != null
+          ? `.${Math.round(cRow.avg * 1000).toString().padStart(3,'0')}`
+          : '—'
+        const abStr = cRow?.avg_ab_per_game != null ? cRow.avg_ab_per_game.toFixed(1) : '—'
 
-      const avgStr = cRow?.avg != null
-        ? `.${Math.round(cRow.avg * 1000).toString().padStart(3,'0')}`
-        : '—'
-      const abStr  = cRow?.avg_ab_per_game != null ? cRow.avg_ab_per_game.toFixed(1) : '—'
+        const gc  = cRow?.games_count    ?? 0
+        const gwh = cRow?.games_with_hit ?? 0
+        const pct = gc > 0 ? Math.round(gwh / gc * 100) : 0
+        const hStr = gc > 0 ? `${gwh}/${gc} <span style="color:var(--muted)">(${pct}%)</span>` : '—'
 
-      const gc  = cRow?.games_count    ?? 0
-      const gwh = cRow?.games_with_hit ?? 0
-      const pct = gc > 0 ? Math.round(gwh / gc * 100) : 0
-      const hStr = gc > 0 ? `${gwh}/${gc} <span style="color:var(--muted)">(${pct}%)</span>` : '—'
+        const pcell     = idx === 0 ? playerCellHtml : ''
+        const topBorder = idx === 0 ? 'border-top:1px solid #222;' : 'border-top:1px solid #1a1a1a;'
 
-      const pcell = idx === 0 ? playerCellHtml : ''
-      const topBorder = idx === 0 ? 'border-top:1px solid #222;' : 'border-top:1px solid #1a1a1a;'
-
-      return `<tr class="${shouldFilter ? 'filtered-row' : ''}"
-        style="${shouldFilter ? 'display:none;' : ''}${topBorder}cursor:pointer"
-        onclick="handleRowClick(this,'${safeName}','${safeMkt}','${normMkt}',${lineVal},${matchId},${seasonId},'${f}')"
-        onmouseover="this.style.background='#1e1e1e'" onmouseout="this.style.background=''">
-        ${pcell}
-        <td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${filterLabel === 'ALL' ? 'var(--muted)' : 'var(--gold)'};text-transform:uppercase;letter-spacing:0.08em;text-align:center;vertical-align:middle">${filterLabel}</td>
-        <td class="mono" style="padding:5px 10px;font-size:11px;color:#5eafc6;text-align:center;vertical-align:middle">${avgStr}</td>
-        <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:center;vertical-align:middle">${abStr}</td>
-        <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${hStr}</td>
-        <td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>
-      </tr>`
-    }).join('')
+        return `<tr class="${shouldFilter ? 'filtered-row' : ''}"
+          style="${shouldFilter ? 'display:none;' : ''}${topBorder}cursor:pointer;background:${normalBg}"
+          onclick="handleRowClick(this,'${safeName}','${safeMkt}','${normMkt}',${lineVal},${matchId},${seasonId},'${f}')"
+          onmouseover="groupHover('${norm}_${matchId}','#1e1e1e')" onmouseout="groupLeave('${norm}_${matchId}')">
+          ${pcell}
+          <td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${filterLabel === 'GLOBAL' ? 'var(--muted)' : 'var(--gold)'};text-transform:uppercase;letter-spacing:0.08em;text-align:center;vertical-align:middle">${filterLabel}</td>
+          <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${avgStr}</td>
+          <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${abStr}</td>
+          <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${hStr}</td>
+          <td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>
+        </tr>`
+      }).join('')
+    }
 
     const dbEv = activeDirection === 'under' ? dbRow.under_ev : dbRow.ev
 
-    if (shouldFilter) failing.push({ trows, teamKey })
-    else              passing.push({ trows, teamKey, dbEv })
+    if (shouldFilter) failing.push({ buildTrows, teamKey })
+    else              passing.push({ buildTrows, teamKey, dbEv })
   }
 
   // Sort by DB ev descending (best positive EV first, nulls last)
@@ -419,11 +421,25 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     return b.dbEv - a.dbEv
   })
 
-  // Group by home/away team
+  // Group by home/away team (preserving EV sort order within each group)
   const byTeam = new Map()
   for (const e of passing) {
     if (!byTeam.has(e.teamKey)) byTeam.set(e.teamKey, [])
     byTeam.get(e.teamKey).push(e)
+  }
+
+  // Build flat render order (team-grouped) THEN assign A/B colors by render position
+  const abColors = (i) => {
+    const even = i % 2 === 0
+    const normalBg = even ? '#111111' : '#161616'
+    return { normalBg, expandedBg: normalBg }
+  }
+  let renderIdx = 0
+  for (const entries of byTeam.values()) {
+    for (const e of entries) {
+      const { normalBg, expandedBg } = abColors(renderIdx++)
+      e.trows = e.buildTrows(normalBg, expandedBg)
+    }
   }
 
   let tbodys = ''
@@ -433,7 +449,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     tbodys += `<tbody>`
     if (teamLabel) {
       tbodys += `<tr>
-        <td colspan="6" class="team-hdr" style="position:sticky;z-index:10;background:var(--bg);padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+        <td colspan="6" class="team-hdr" style="position:sticky;z-index:10;background:#0a0a0a;padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
       </tr>`
     }
     tbodys += entries.map(e => e.trows).join('')
@@ -453,6 +469,14 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
       if (!failByTeam.has(e.teamKey)) failByTeam.set(e.teamKey, [])
       failByTeam.get(e.teamKey).push(e)
     }
+    // Assign A/B for failing section separately, resetting counter
+    let failIdx = 0
+    for (const entries of failByTeam.values()) {
+      for (const e of entries) {
+        const { normalBg, expandedBg } = abColors(failIdx++)
+        e.trows = e.buildTrows(normalBg, expandedBg)
+      }
+    }
     for (const [key, entries] of failByTeam) {
       const teamObj   = key === 'home' ? entry?.home : key === 'away' ? entry?.away : null
       const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
@@ -467,6 +491,25 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
   }
 
   return tbodys
+}
+
+function groupHover(key, bg) {
+  const ptd = document.querySelector(`[data-player-exp="${key}"]`)
+  if (!ptd) return
+  let r = ptd.closest('tr')
+  const rs = ptd.rowSpan || 1
+  for (let i = 0; i < rs; i++) { if (r) { r.style.background = bg; r = r.nextElementSibling } }
+}
+function groupLeave(key) {
+  const ptd = document.querySelector(`[data-player-exp="${key}"]`)
+  if (!ptd) return
+  const normalBg = ptd.dataset.normalBg || ''
+  const expandedBg = ptd.dataset.abBg || ''
+  let r = ptd.closest('tr')
+  const rs = ptd.rowSpan || 1
+  for (let i = 0; i < rs; i++) {
+    if (r) { r.style.background = r.classList.contains('row-expanded') ? expandedBg : normalBg; r = r.nextElementSibling }
+  }
 }
 
 function toggleFilteredRows(el) {
@@ -1101,10 +1144,11 @@ function handleRowClick(tr, playerName, mktName, normMkt, propLine, matchId, sea
   const playerTd = document.querySelector(`[data-player-exp="${key}"]`)
   if (!playerTd) return
 
+  const normalBg = playerTd.dataset.normalBg || ''
   expansions.set(key, {
     playerName, mktName, normMkt, propLine, matchId, seasonId,
     lockedFilter: filterKey, lockedDirection: activeDirection || 'over',
-    tr: null, expandedRows: null,
+    normalBg, tr: null, expandedRows: null,
   })
   insertExpansionRow(playerTd, key)
   fetchExpansionData(key)
@@ -1122,6 +1166,7 @@ function fetchExpansionData(key) {
 }
 
 function insertExpansionRow(td, key) {
+  const expandedBg = td.dataset.abBg || '#2a2a2a'
   let lastRow = td.closest('tr')
   const rs    = td.rowSpan || 1
   const expandedRows = [lastRow]
@@ -1129,10 +1174,10 @@ function insertExpansionRow(td, key) {
     lastRow = lastRow.nextElementSibling
     if (lastRow) expandedRows.push(lastRow)
   }
-  expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = 'var(--border)' })
+  expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = expandedBg })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:none">
-      <td colspan="10" class="px-4 py-4" style="background:var(--border)" data-expansion-cell="${key}"></td>
+      <td colspan="10" class="px-4 py-4" style="background:${expandedBg}" data-expansion-cell="${key}"></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
@@ -1141,7 +1186,7 @@ function insertExpansionRow(td, key) {
 function collapseExpansion(key) {
   const exp = expansions.get(key)
   if (exp?.tr) exp.tr.remove()
-  if (exp?.expandedRows) exp.expandedRows.forEach(r => { r.classList.remove('row-expanded'); r.style.background = '' })
+  if (exp?.expandedRows) exp.expandedRows.forEach(r => { r.classList.remove('row-expanded'); r.style.background = exp.normalBg || '' })
   expansions.delete(key)
 }
 
@@ -1268,7 +1313,7 @@ function renderExpansionContent(key) {
         </div>`
       }).join('')
 
-  const filterLabel = filterKey === 'DB' ? 'ALL' : filterKey
+  const filterLabel = filterKey === 'DB' ? 'GLOBAL' : filterKey
   cell.innerHTML = !statKey
     ? '<p class="text-[11px] py-2" style="color:var(--muted)">No stat mapping for this market</p>'
     : `<div style="margin-bottom:6px;font-size:9px;font-family:'Geist Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">${filterLabel} · ${barsData.length} games</div>
