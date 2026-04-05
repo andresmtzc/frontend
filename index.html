@@ -431,7 +431,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
   // Build flat render order (team-grouped) THEN assign A/B colors by render position
   const abColors = (i) => {
     const even = i % 2 === 0
-    const normalBg = even ? '#111111' : '#161616'
+    const normalBg = even ? '#111111' : '#1a1a1a'
     return { normalBg, expandedBg: normalBg }
   }
   let renderIdx = 0
@@ -482,7 +482,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
       const teamLabel = teamObj?.abbr ?? teamObj?.name ?? null
       if (teamLabel) {
         tbodys += `<tr class="filtered-row" style="display:none;border-top:1px solid #222">
-          <td colspan="6" style="padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+          <td colspan="6" style="background:#0a0a0a;padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
         </tr>`
       }
       tbodys += entries.map(p => p.trows).join('')
@@ -1258,7 +1258,7 @@ function renderExpansionContent(key) {
 
   const barsData = (isCS ? vsGames.filter(g => g.season_id === seasonId)
                   : isVS ? vsGames
-                  : vsGames.slice(0, N)).slice(-12).reverse()
+                  : vsGames.slice(0, N)).slice(0, 12).reverse()
 
   const CHART_H  = 120
   const allVals  = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
