@@ -146,9 +146,151 @@
 function showLoader() { document.getElementById('retro-loader').classList.add('visible') }
 function hideLoader() { document.getElementById('retro-loader').classList.remove('visible') }
 
+// ── Image name resolution (mirrors PropsSection.jsx matching) ────────────────
+// Word-level accent restoration — Codere strips accents, images preserve them as _
+// Map unaccented lowercase token → accented version
+const ACCENT_MAP = {
+  // First names
+  'jose': 'josé', 'andres': 'andrés', 'agustin': 'agustín',
+  'german': 'germán', 'ivan': 'iván', 'jesus': 'jesús',
+  'martin': 'martín', 'moises': 'moisés', 'ramon': 'ramón',
+  'yoan': 'yoán', 'fermin': 'fermín',
+  // Last names
+  'ramirez': 'ramírez', 'jimenez': 'jiménez', 'gimenez': 'giménez',
+  'hernandez': 'hernández', 'suarez': 'suárez', 'diaz': 'díaz',
+  'garcia': 'garcía', 'sanchez': 'sánchez', 'perez': 'pérez',
+  'marquez': 'márquez', 'gonzalez': 'gonzález', 'rodriguez': 'rodríguez',
+  'martinez': 'martínez', 'nunez': 'núñez', 'gutierrez': 'gutiérrez',
+  'munoz': 'muñoz', 'pena': 'peña', 'acuna': 'acuña',
+  'urias': 'urías', 'pagan': 'pagán', 'moran': 'morán',
+  'dubon': 'dubón', 'pages': 'pagés', 'marchan': 'marchán',
+  'brazoban': 'brazobán', 'lopez': 'lópez', 'gomez': 'gómez',
+  'alvarez': 'álvarez', 'henriquez': 'henríquez', 'arraez': 'arráez',
+  'paez': 'páez',
+  // nunez intentionally omitted — players differ (Nasim=Nuñez, Anthony=Nunez)
+}
+
+const IMG_OVERRIDES = {
+  'markus betts':          'mookie betts',
+  'ednel baez':            'javier baez',
+  'boyce mullins':         'cedric mullins',
+  'john crawford':         'jp crawford',
+  'mckenzie moniak':       'mickey moniak',
+  'tyler france':          'ty france',
+  'tj rumfield':           'toby rumfield',
+  'robert wynns':          'austin wynns',
+  'richard palacios':      'richie palacios',
+  'leonardo jimenez':      'leo jiménez',
+  'peter crow armstrong':  'pete crow armstrong',
+  'nasim nunez':           'nasim nuñez',
+  'hye seong kim':         'hyeseong kim',
+  'joshua douglas naylor': 'josh naylor',
+  'ronal acuna jr':        'ronald acuña jr.',
+  'lee jung hoo':          'jung hoo lee',
+}
+const IMG_ALIASES = {
+  'frederick': ['freddie', 'fred'],
+  'jacob':     ['jake'],
+  'jakob':     ['jake'],
+  'nicholas':  ['nico', 'nick'],
+  'manuel':    ['manny'],
+  'michael':   ['mike'],
+  'mike':      ['michael'],
+  'matthew':   ['matt'],
+  'matt':      ['matthew'],
+  'maxwell':   ['max'],
+  'max':       ['maxwell'],
+  'zachary':   ['zach'],
+  'zach':      ['zachary'],
+  'joshua':    ['josh'],
+  'josh':      ['joshua'],
+  'caleb':     ['cal'],
+  'cal':       ['caleb'],
+  'cameron':   ['cam'],
+  'cam':       ['cameron'],
+  'ozhanio':   ['ozzie'],
+  'ozhaino':   ['ozzie'],
+  'joseph':    ['joey', 'joe'],
+  'terry':     ['tj'],
+  'richard':   ['rich', 'rick', 'richie'],
+  'lucas':     ['luke'],
+  'christopher': ['chris'],
+  'william':   ['will', 'willie', 'bill'],
+  'robert':    ['rob', 'bobby', 'bob'],
+  'james':     ['jim', 'jimmy'],
+  'jonathan':  ['jon', 'jonny'],
+  'alexander': ['alex'],
+  'nathaniel': ['nate', 'nat'],
+}
+
+function toSlug(name) {
+  return (name || '').replace(/[^a-z0-9]/gi, '_')
+}
+function stripAccents(name) {
+  return (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+function titleCase(str) {
+  return str.replace(/\b[a-z]/g, c => c.toUpperCase())
+}
+function imgCandidates(name) {
+  const clean = (name || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/-/g, ' ').replace(/[^a-z\s]/g, '').trim()
+  const seen = new Set()
+  const candidates = []
+  const add = (n) => {
+    const s = toSlug(n); if (s && !seen.has(s)) { seen.add(s); candidates.push(s) }
+    const sl = s?.toLowerCase(); if (sl && !seen.has(sl)) { seen.add(sl); candidates.push(sl) }
+  }
+
+  // 1. Original as-is (preserves Codere casing)
+  add(name)
+  // 2. Periods/hyphens stripped (handles C.J. → CJ, Hye-seong → Hyeseong, etc.)
+  const noPeriods = (name || '').replace(/\./g, '')
+  const noHyphens = (name || '').replace(/-/g, '')
+  const noSpecial = (name || '').replace(/[.\-]/g, '')
+  add(noPeriods); add(noHyphens); add(noSpecial)
+  // 3. Accent-stripped
+  add(stripAccents(name))
+  add(stripAccents(noSpecial))
+  // 3. Word-level accent restoration (e.g. "diaz" → "díaz")
+  const tokens = clean.split(' ')
+  const reaccented = tokens.map(t => ACCENT_MAP[t] ?? t).join(' ')
+  if (reaccented !== clean) { add(titleCase(reaccented)); add(titleCase(stripAccents(reaccented))) }
+  // 4. Override → title-cased
+  if (IMG_OVERRIDES[clean]) {
+    const ov = IMG_OVERRIDES[clean]
+    const ovAcc = ov.split(' ').map(t => ACCENT_MAP[t] ?? t).join(' ')
+    add(titleCase(ovAcc))
+    add(titleCase(ov))
+    add(titleCase(stripAccents(ov)))
+  }
+  // 5. First-name alias substitutions → title-cased to match image filenames
+  for (const [i, tok] of tokens.entries()) {
+    const aliases = IMG_ALIASES[tok]
+    if (!aliases) continue
+    for (const alias of aliases) {
+      const alt = [...tokens.slice(0, i), alias, ...tokens.slice(i + 1)].join(' ')
+      const altAcc = alt.split(' ').map(t => ACCENT_MAP[t] ?? t).join(' ')
+      add(titleCase(altAcc))
+      add(titleCase(alt))
+      add(titleCase(stripAccents(alt)))
+    }
+  }
+  return candidates
+}
+
+function punkImgFallback(img, alts) {
+  if (!alts.length) { img.onerror = null; img.src = 'mlb-punks/fallback.png'; return }
+  const next = alts.shift()
+  img.onerror = () => punkImgFallback(img, alts)
+  img.src = `mlb-punks/${next}.png`
+}
+
 function punkImg(name) {
-  const file = (name || '').replace(/[^a-z0-9]/gi, '_') + '.png'
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#2a2a2a;border:1px solid #3a3a3a;flex-shrink:0;margin-right:6px;vertical-align:middle"><img src="mlb-punks/${file}" style="height:32px;width:32px;object-fit:contain;image-rendering:pixelated;display:block;" onerror="this.onerror=null;this.src='mlb-punks/fallback.png'"></span>`
+  const [first, ...rest] = imgCandidates(name)
+  const altsJson = JSON.stringify(rest).replace(/"/g, '&quot;')
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#2a2a2a;border:1px solid #3a3a3a;flex-shrink:0;margin-right:6px;vertical-align:middle"><img src="mlb-punks/${first}.png" style="height:32px;width:32px;object-fit:contain;image-rendering:pixelated;display:block;" onerror="punkImgFallback(this,JSON.parse(this.dataset.alts))" data-alts="${altsJson}"></span>`
 }
 
 const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
@@ -347,6 +489,24 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     const normMkt  = normName(mktName).replace(/'/g,"\\'")
     const seasonId = dbRow.season_id ?? 0
     const matchId  = entry?.matchId  ?? 0
+
+    // Past match result — find actual game in game_logs matching this match's date + teams
+    const isPast = isMatchOld(entry?.match?.match_date)
+    let gameResult = null
+    if (isPast) {
+      const gDate   = dbRow.game_date ?? ''
+      const allGames = cache.normNameToGames?.[norm] ?? []
+      const actual  = allGames.find(g =>
+        g.match_date === gDate &&
+        g.homeTeamUid === homeUid &&
+        g.awayTeamUid === awayUid
+      )
+      if (actual) {
+        const hits = Number(actual.stats?.hitting_hits ?? 0)
+        const ab   = Number(actual.stats?.hitting_at_bats ?? 0)
+        gameResult = { hits, ab }
+      }
+    }
     const rowspan  = 1 + sortedFKs.length
 
     // Closure — colors assigned after sort so A/B matches final position
@@ -380,6 +540,19 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
         const evCol = evPct == null ? 'var(--muted)' : evPct > 0 ? 'var(--green)' : 'var(--magenta)'
 
+        // For past matches, determine HIT/MISS from actual result
+        let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>`
+        if (isPast && gameResult) {
+          const won = activeDirection === 'under'
+            ? gameResult.hits < lineVal
+            : gameResult.hits > lineVal
+          const label = won ? 'HIT' : 'MISS'
+          const col   = won ? 'var(--green)' : 'var(--magenta)'
+          resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${gameResult.hits}H</span></td>`
+        } else if (isPast) {
+          resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
+        }
+
         const avgStr = cRow?.avg != null
           ? `.${Math.round(cRow.avg * 1000).toString().padStart(3,'0')}`
           : '—'
@@ -402,7 +575,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${avgStr}</td>
           <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${abStr}</td>
           <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${hStr}</td>
-          <td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>
+          ${resultCell}
         </tr>`
       }).join('')
     }
