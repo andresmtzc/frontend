@@ -185,8 +185,8 @@ const IMG_OVERRIDES = {
   'nasim nunez':           'nasim nuñez',
   'hye seong kim':         'hyeseong kim',
   'joshua douglas naylor': 'josh naylor',
-  'ronal acuna jr':        'ronald acuña jr.',
-  'ronald acuna jr':       'ronald acuña jr.',
+  'ronal acuna jr':        'ronald acuna jr.',
+  'ronald acuna jr':       'ronald acuna jr.',
   'lee jung hoo':          'jung hoo lee',
 }
 const IMG_ALIASES = {
@@ -547,7 +547,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           const won = activeDirection === 'under'
             ? gameResult.hits < lineVal
             : gameResult.hits > lineVal
-          const label = won ? 'HIT' : 'MISS'
+          const label = won ? 'WON' : 'LOSS'
           const col   = won ? 'var(--green)' : 'var(--magenta)'
           resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${gameResult.hits}H</span></td>`
         } else if (isPast) {
@@ -745,7 +745,7 @@ function cycleDirection() {
   }
 }
 
-const FILTER_ORDER = ['L3','L6','L9','L12','CS','VS']
+const FILTER_ORDER = ['L3','L6','L9','L12','L30','CS','VS']
 function sortFilterKeys(keys) {
   return [...keys].sort((a, b) => FILTER_ORDER.indexOf(a) - FILTER_ORDER.indexOf(b))
 }
@@ -762,7 +762,7 @@ function filterBtnHtml(f) {
 
 function renderGlobalFilterBar() {
   document.getElementById('global-filter-bar').innerHTML =
-    ['L3','L6','L9','L12'].map(f => filterBtnHtml(f)).join('') +
+    ['L3','L6','L9','L12','L30'].map(f => filterBtnHtml(f)).join('') +
     `<div style="width:1px;background:#222222;flex-shrink:0"></div>` +
     ['CS','VS'].map(f => filterBtnHtml(f)).join('')
 }
@@ -1148,6 +1148,7 @@ function renderMatch(entry) {
   const cache      = filterCache[matchId] ?? null
   const filterKeys = sortFilterKeys([...activeFilters])
 
+  const isPastMatch = isMatchOld(match?.match_date)
   const mktsEntries = Object.entries(markets)
   const mktCount    = mktsEntries.length
   const mktsHtml = mktsEntries.map(([mktName, rows], mi) => {
@@ -1177,7 +1178,7 @@ function renderMatch(entry) {
               <th style="${thBase};text-align:center">Avg</th>
               <th style="${thBase};text-align:center">AB Avg</th>
               <th style="${thBase};text-align:center">Hit Rate</th>
-              <th style="${thBase};text-align:right">EV</th>
+              <th style="${thBase};text-align:right">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
           ${tbodyHtml}
@@ -1432,7 +1433,8 @@ function renderExpansionContent(key) {
 
   const barsData = (isCS ? vsGames.filter(g => g.season_id === seasonId)
                   : isVS ? vsGames
-                  : vsGames.slice(0, N)).slice(0, 12).reverse()
+                  : isDB ? vsGames.slice(0, 30)
+                  : vsGames.slice(0, N)).reverse()
 
   const CHART_H  = 120
   const allVals  = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
@@ -1446,11 +1448,12 @@ function renderExpansionContent(key) {
     : barsData.map(g => {
         const rawVal   = statKey ? (g.stats?.[statKey] ?? null) : null
         const value    = rawVal != null ? Number(rawVal) : 0
-        const isHome   = playerTeamUid != null ? g.homeTeamUid === playerTeamUid : null
+        const barGameTeamUid = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+        const isHome   = barGameTeamUid != null ? g.homeTeamUid === barGameTeamUid : null
         const oppUid   = isHome !== null ? (isHome ? g.awayTeamUid : g.homeTeamUid) : null
         const opp      = oppUid ? window._teamCache?.[oppUid] : null
         const passes   = propLine != null ? (lockedDirection === 'under' ? value < propLine : value > propLine) : null
-        const dateStr  = g.match_date ? new Date(g.match_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'numeric', day: 'numeric' }) : '—'
+        const dateStr  = g.match_date ? new Date(g.match_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: '2-digit' }) : '—'
         const heightPx = maxChart > 0 ? Math.round((value / maxChart) * CHART_H) : 0
         const barH     = value > 0 ? Math.max(heightPx, 3) : 0
         const color    = passes === null ? 'var(--muted)' : passes ? 'var(--green)' : 'var(--magenta)'
