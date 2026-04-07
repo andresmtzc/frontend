@@ -124,6 +124,8 @@
       onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">−200</button>
     <button id="ou-toggle" onclick="cycleDirection()" class="mono shrink-0"
       style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase">OVER</button>
+    <button id="venue-toggle" onclick="cycleVenue()" class="mono shrink-0"
+      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase;user-select:none">H/A</button>
   </div>
   <span class="filter-status-global mono mt-1 block" style="font-size:10px;color:var(--muted)"></span>
   </div>
@@ -534,7 +536,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
 
       return ['DB', ...sortedFKs].map((f, idx) => {
         const cRow        = filterMap[f]
-        const filterLabel = f === 'DB' ? 'GLOBAL' : f
+        const filterLabel = f === 'DB' ? 'GLOBAL' : (FILTER_LABELS[f] ?? f)
 
         const evRaw = activeDirection === 'under' ? cRow?.under_ev : cRow?.ev
         const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
@@ -699,13 +701,14 @@ function toggleFilteredRows(el) {
 // ── Filter state ────────────────────────────────────────────────────────────
 let activeFilters   = new Set()       // L3/L6/L9/L12/CS/VS — empty = only ALL shown
 let activeDirection = 'over'          // 'over' | 'under'
+let activeVenue     = 'both'          // 'both' | 'home' | 'away'
 let filterCache     = {}              // matchId → { normNameToGames, teamsInfoByMid, playerStats, playerTeamUids }
 
 function filterBtnClass() {
   return `mono outline-none focus:outline-none cursor-pointer`
 }
 function filterBtnStyle(isActive) {
-  const base = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer`
+  const base = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;user-select:none`
   return isActive
     ? `${base};border-color:var(--gold);color:var(--gold)`
     : `${base};border-color:var(--border);color:var(--muted)`
@@ -745,7 +748,25 @@ function cycleDirection() {
   }
 }
 
-const FILTER_ORDER = ['L3','L6','L9','L12','L30','CS','VS']
+function updateVenueToggle() {
+  const btn = document.getElementById('venue-toggle')
+  if (!btn) return
+  const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;text-transform:uppercase;font-family:'Geist Mono',monospace;user-select:none`
+  btn.style.cssText = `${s};border-color:var(--gold);color:var(--gold)`
+  btn.textContent = activeVenue === 'home' ? 'HOME' : activeVenue === 'away' ? 'AWAY' : 'H/A'
+}
+
+function cycleVenue() {
+  activeVenue = activeVenue === 'both' ? 'home' : activeVenue === 'home' ? 'away' : 'both'
+  updateVenueToggle()
+  for (const [key, exp] of expansions) {
+    exp.barPage = null
+    renderExpansionContent(key)
+  }
+}
+
+const FILTER_ORDER  = ['L5','L10','L30','CS','LS','VS']
+const FILTER_LABELS = { LS: "'25" }
 function sortFilterKeys(keys) {
   return [...keys].sort((a, b) => FILTER_ORDER.indexOf(a) - FILTER_ORDER.indexOf(b))
 }
@@ -756,15 +777,15 @@ function filterBtnHtml(f) {
     class="${filterBtnClass()}" style="${filterBtnStyle(active)}"
     onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
     onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">
-    ${f}
+    ${FILTER_LABELS[f] ?? f}
   </button>`
 }
 
 function renderGlobalFilterBar() {
   document.getElementById('global-filter-bar').innerHTML =
-    ['L3','L6','L9','L12','L30'].map(f => filterBtnHtml(f)).join('') +
+    ['L5','L10','L30'].map(f => filterBtnHtml(f)).join('') +
     `<div style="width:1px;background:#222222;flex-shrink:0"></div>` +
-    ['CS','VS'].map(f => filterBtnHtml(f)).join('')
+    ['CS','LS','VS'].map(f => filterBtnHtml(f)).join('')
 }
 
 function updateGlobalFilterButtons() {
@@ -773,7 +794,7 @@ function updateGlobalFilterButtons() {
     const active = activeFilters.has(f)
     btn.className    = filterBtnClass()
     btn.style.cssText = filterBtnStyle(active)
-    btn.textContent  = f
+    btn.textContent  = FILTER_LABELS[f] ?? f
     active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
     btn.removeAttribute('data-pinned')
   })
@@ -1276,6 +1297,7 @@ window.addEventListener('scroll', () => {
 function render() {
   renderGlobalFilterBar()
   updateOUToggle()
+  updateVenueToggle()
   let entries = (activeTab === 'All' ? allMatches : allMatches.filter(e => e.sport === activeTab))
     .filter(e => !isMatchOld(e.match?.match_date) || e.matchId === activeMatch)
   if (activeMatch !== null) entries = entries.filter(e => e.matchId === activeMatch)
@@ -1289,6 +1311,7 @@ function render() {
 
 renderGlobalFilterBar()
 updateOUToggle()
+updateVenueToggle()
 updateStickyOffsets()
 load()
 
@@ -1310,6 +1333,7 @@ function handleRowClick(tr, playerName, mktName, normMkt, propLine, matchId, sea
     } else {
       // Different row → update bar chart in place
       exp.lockedFilter = filterKey
+      exp.barPage = null
       renderExpansionContent(key)
     }
     return
@@ -1323,6 +1347,7 @@ function handleRowClick(tr, playerName, mktName, normMkt, propLine, matchId, sea
   expansions.set(key, {
     playerName, mktName, normMkt, propLine, matchId, seasonId,
     lockedFilter: filterKey, lockedDirection: activeDirection || 'over',
+    barPage: null,
     normalBg, tr: null, expandedRows: null,
   })
   insertExpansionRow(playerTd, key)
@@ -1352,10 +1377,17 @@ function insertExpansionRow(td, key) {
   expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = expandedBg })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:none">
-      <td colspan="10" class="px-4 py-4" style="background:${expandedBg}" data-expansion-cell="${key}"></td>
+      <td colspan="10" class="px-4 py-4" style="background:${expandedBg};user-select:none" data-expansion-cell="${key}"></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
+}
+
+function setBarPage(key, page) {
+  const exp = expansions.get(key)
+  if (!exp) return
+  exp.barPage = page
+  renderExpansionContent(key)
 }
 
 function collapseExpansion(key) {
@@ -1400,9 +1432,15 @@ function renderExpansionContent(key) {
 
   const filterKey = lockedFilter ?? 'DB'
   const isCS      = filterKey === 'CS'
+  const isLS      = filterKey === 'LS'
   const isVS      = filterKey === 'VS'
   const isDB      = filterKey === 'DB'
-  const N         = (isCS || isVS || isDB) ? Infinity : parseInt(filterKey.slice(1))
+  const N         = (isCS || isLS || isVS || isDB) ? Infinity : parseInt(filterKey.slice(1))
+
+  // Derive last season ID dynamically from player's games
+  const allSeasonIds  = [...new Set(games.map(g => g.season_id).filter(Boolean))].sort((a, b) => a - b)
+  const curSeasonIdx  = allSeasonIds.indexOf(seasonId)
+  const lastSeasonId  = curSeasonIdx > 0 ? allSeasonIds[curSeasonIdx - 1] : null
 
   const statKey   = mktToStatKey(mktName)
   const isHitsMkt = statKey === 'hitting_hits'
@@ -1431,21 +1469,39 @@ function renderExpansionContent(key) {
     }
   }
 
-  const barsData = (isCS ? vsGames.filter(g => g.season_id === seasonId)
-                  : isVS ? vsGames
-                  : isDB ? vsGames.slice(0, 30)
-                  : vsGames.slice(0, N)).reverse()
+  // Apply venue filter
+  const venueGames = activeVenue === 'both' ? vsGames : vsGames.filter(g => {
+    const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+    const isHome = gTeam != null ? g.homeTeamUid === gTeam : null
+    if (isHome === null) return true
+    return activeVenue === 'home' ? isHome : !isHome
+  })
+
+  const barsData = (isCS ? venueGames.filter(g => g.season_id === seasonId)
+                  : isLS ? venueGames.filter(g => g.season_id === lastSeasonId)
+                  : isVS || isDB ? venueGames
+                  : venueGames.slice(0, N)).reverse()
 
   const CHART_H  = 120
   const allVals  = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
   const maxAB    = isHitsMkt ? Math.max(...barsData.map(g => Number(g.stats?.hitting_at_bats ?? 0)), 1) : 0
+  // Scale computed against full dataset so bar height is consistent across pages
   const maxVal   = Math.max(...allVals, propLine ?? 0, maxAB, 0)
   const maxChart = maxVal > 0 ? maxVal * 1.35 : 1
   const linePct  = (propLine != null && maxChart > 0) ? (propLine / maxChart * 100) : null
 
-  const barsHtml = barsData.length === 0
+  const PAGE_SIZE  = 10
+  const totalBars  = barsData.length
+  const totalPages = Math.ceil(totalBars / PAGE_SIZE)
+  const page       = Math.min(exp.barPage ?? 0, Math.max(0, totalPages - 1))
+  // Paginate from end so page 0 = most recent 10, last page = oldest remainder
+  const pageEnd    = totalBars - page * PAGE_SIZE
+  const pageStart  = Math.max(0, pageEnd - PAGE_SIZE)
+  const pageBars   = totalPages > 1 ? barsData.slice(pageStart, pageEnd) : barsData
+
+  const barsHtml = pageBars.length === 0
     ? '<p class="text-[10px] py-4" style="color:var(--muted)">No games in this window</p>'
-    : barsData.map(g => {
+    : pageBars.map(g => {
         const rawVal   = statKey ? (g.stats?.[statKey] ?? null) : null
         const value    = rawVal != null ? Number(rawVal) : 0
         const barGameTeamUid = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
@@ -1490,11 +1546,22 @@ function renderExpansionContent(key) {
         </div>`
       }).join('')
 
-  const filterLabel = filterKey === 'DB' ? 'GLOBAL' : filterKey
+  const filterLabel = filterKey === 'DB' ? 'GLOBAL' : (FILTER_LABELS[filterKey] ?? filterKey)
+  const labelColor  = filterKey === 'DB' ? 'var(--muted)' : 'var(--gold)'
+  const rangeFrom   = page * PAGE_SIZE + 1
+  const rangeTo     = page * PAGE_SIZE + pageBars.length
+  const rangeStr    = totalPages > 1 ? `${rangeFrom}–${rangeTo} of ${totalBars}` : `${totalBars} games`
+  const labelHtml   = `<span style="color:${labelColor}">${filterLabel}</span> · <span style="color:var(--muted)">${rangeStr}</span>`
+
+  const arrowBtn    = (dir, targetPage, hidden) => hidden ? '' :
+    `<button onclick="setBarPage('${key}',${targetPage})" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:36px;padding:0 6px;line-height:1;display:flex;align-items:center;align-self:stretch;transition:opacity 0.15s;opacity:0.8" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">${dir}</button>`
+  const prevBtn     = totalPages > 1 ? arrowBtn('‹', page + 1, page >= totalPages - 1) : ''
+  const nextBtn     = totalPages > 1 ? arrowBtn('›', page - 1, page === 0) : ''
+
   cell.innerHTML = !statKey
     ? '<p class="text-[11px] py-2" style="color:var(--muted)">No stat mapping for this market</p>'
-    : `<div style="margin-bottom:6px;font-size:9px;font-family:'Geist Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">${filterLabel} · ${barsData.length} games</div>
-       <div class="flex gap-1.5 overflow-hidden">${barsHtml}</div>`
+    : `<div style="margin-bottom:6px;font-size:9px;font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.1em">${labelHtml}</div>
+       <div style="display:flex;align-items:stretch;gap:0">${prevBtn}<div class="flex gap-1.5 overflow-hidden" style="width:${Math.round(pageBars.length / PAGE_SIZE * 100)}%;max-width:100%;margin-left:auto">${barsHtml}</div>${nextBtn}</div>`
 }
 </script>
 </body>
