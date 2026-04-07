@@ -71,6 +71,32 @@
       font-size: 7px; color: var(--muted); letter-spacing: 1px;
     }
 
+    #info-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75); z-index: 998;
+    }
+    #info-backdrop.visible { display: block; }
+    #info-modal {
+      display: none; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%); z-index: 999;
+      background: var(--surface-2); border: 3px solid var(--border);
+      padding: 20px 28px; flex-direction: column; align-items: flex-start; gap: 12px;
+      min-width: 300px; max-width: 420px;
+    }
+    #info-modal.visible { display: flex; }
+    #info-modal .im-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; color: #fff; letter-spacing: 1px;
+    }
+    #info-modal .im-line {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px; color: var(--muted); letter-spacing: 1px; line-height: 1.9;
+    }
+    #info-modal .im-line.hi { color: #fff; }
+    #info-modal .im-sep {
+      width: 100%; height: 1px; background: var(--border);
+    }
+
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     .mkt-body + .mkt-title { margin-top: 0; }
     .mkt-body:last-child { margin-bottom: 0; }
@@ -125,11 +151,14 @@
     <button id="ou-toggle" onclick="cycleDirection()" class="mono shrink-0"
       style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase">OVER</button>
     <button id="venue-toggle" onclick="cycleVenue()" class="mono shrink-0"
-      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase;user-select:none">H/A</button>
+      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase;user-select:none">H&A</button>
   </div>
   <span class="filter-status-global mono mt-1 block" style="font-size:10px;color:var(--muted)"></span>
   </div>
 </div>
+
+<div id="info-backdrop" onclick="hideInfoModal()"></div>
+<div id="info-modal"></div>
 
 <div id="retro-loader">
   <div class="rl-line1">NOW LOADING</div>
@@ -147,6 +176,144 @@
 <script>
 function showLoader() { document.getElementById('retro-loader').classList.add('visible') }
 function hideLoader() { document.getElementById('retro-loader').classList.remove('visible') }
+
+const COLUMN_INFO = {
+  player: {
+    title: 'PLAYER',
+    rows: [
+      ['hi','ODDS'],
+      ['','AMERICAN ODDS FOR THE'],
+      ['','SELECTED DIRECTION'],
+      ['','OVER OR UNDER'],
+      ['sep'],
+      ['hi','LINE'],
+      ['','THE PROP LINE'],
+      ['','E.G. 0.5 OR 1.5 HITS'],
+    ]
+  },
+  filter: {
+    title: 'FILTER',
+    rows: [
+      ['hi','ALL'],
+      ['','FULL HISTORY'],
+      ["","'24, '25, '26"],
+      ['sep'],
+      ['hi','L5 / L10 / L30'],
+      ['','LAST N GAMES'],
+      ['','PLAYED BY THIS PLAYER'],
+      ['sep'],
+      ['hi','CS — CURRENT SEASON'],
+      ["","'26"],
+      ['sep'],
+      ["hi","'25 — PREV SEASON"],
+      ['sep'],
+      ['hi','VS — VS OPPONENT'],
+      ['','ALL GAMES VS TODAY\'S'],
+      ['','OPP REGARDLESS OF'],
+      ['','WHICH TEAM HE WAS ON'],
+    ]
+  },
+  avg: {
+    title: 'AVG',
+    rows: [
+      ['hi','BATTING AVERAGE'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','HITS ÷ AT-BATS'],
+    ]
+  },
+  ab_avg: {
+    title: 'AB AVG',
+    rows: [
+      ['hi','AVG AT-BATS PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','MORE AB = MORE'],
+      ['','CHANCES TO HIT'],
+      ['sep'],
+      ['','USED IN THE BINOMIAL'],
+      ['','MODEL AS N (ROUNDED)'],
+    ]
+  },
+  hit_rate: {
+    title: 'HIT RATE',
+    rows: [
+      ['hi','% OF GAMES WHERE'],
+      ['hi','PLAYER EXCEEDED'],
+      ['hi','THE LINE'],
+      ['sep'],
+      ['','LINE 0.5 → ≥1 HIT'],
+      ['','LINE 1.5 → ≥2 HITS'],
+    ]
+  },
+  ev: {
+    title: 'EV',
+    rows: [
+      ['hi','EXPECTED VALUE'],
+      ['','EV = MODEL% - MARKET%'],
+      ['','+ = YOU HAVE AN EDGE'],
+      ['','- = BOOK HAS THE EDGE'],
+      ['sep'],
+      ['hi','STEP 1: IMPLIED PROB'],
+      ['','CONVERT ODDS TO PROB'],
+      ['','NEGATIVE ODDS (-150):'],
+      ['','150 / (150+100) = 60%'],
+      ['','POSITIVE ODDS (+130):'],
+      ['','100 / (130+100) = 43.5%'],
+      ['sep'],
+      ['hi','STEP 2: REMOVE VIG'],
+      ['','BOOK PRICES BOTH SIDES'],
+      ['','TO SUM OVER 100%'],
+      ['','WE NORMALIZE:'],
+      ['','TRUE = OVER%'],
+      ['','    / (OVER% + UNDER%)'],
+      ['sep'],
+      ['hi','STEP 3: BINOMIAL'],
+      ['','MODEL EACH AB AS AN'],
+      ['','INDEPENDENT TRIAL'],
+      ['','N = ROUND(AB AVG)'],
+      ['','P = BATTING AVG'],
+      ['','K = FLOOR(LINE)'],
+      ['','MODEL% = 1 - P(X≤K)'],
+      ['','WHERE X~BINOM(N,P)'],
+      ['sep'],
+      ['hi','STEP 4: EV'],
+      ['','EV = MODEL% - TRUE%'],
+    ]
+  },
+  result: {
+    title: 'RESULT',
+    rows: [
+      ['hi','OUTCOME OF THIS PROP'],
+      ['sep'],
+      ['hi','WON'],
+      ['','PLAYER EXCEEDED'],
+      ['','THE LINE'],
+      ['sep'],
+      ['hi','LOSS'],
+      ['','PLAYER DID NOT'],
+      ['','EXCEED THE LINE'],
+    ]
+  },
+}
+
+function showInfoModal(col) {
+  const info = COLUMN_INFO[col]
+  if (!info) return
+  const modal = document.getElementById('info-modal')
+  modal.innerHTML = `<div class="im-title">${info.title}</div>` +
+    info.rows.map(r => r[0] === 'sep'
+      ? `<div class="im-sep"></div>`
+      : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}">${r[1]}</div>`
+    ).join('')
+  modal.classList.add('visible')
+  document.getElementById('info-backdrop').classList.add('visible')
+}
+function hideInfoModal() {
+  document.getElementById('info-modal').classList.remove('visible')
+  document.getElementById('info-backdrop').classList.remove('visible')
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideInfoModal() })
 
 // ── Image name resolution (mirrors PropsSection.jsx matching) ────────────────
 // Word-level accent restoration — Codere strips accents, images preserve them as _
@@ -536,7 +703,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
 
       return ['DB', ...sortedFKs].map((f, idx) => {
         const cRow        = filterMap[f]
-        const filterLabel = f === 'DB' ? 'GLOBAL' : (FILTER_LABELS[f] ?? f)
+        const filterLabel = f === 'DB' ? 'ALL' : (FILTER_LABELS[f] ?? f)
 
         const evRaw = activeDirection === 'under' ? cRow?.under_ev : cRow?.ev
         const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
@@ -557,7 +724,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         }
 
         const avgStr = cRow?.avg != null
-          ? `.${Math.round(cRow.avg * 1000).toString().padStart(3,'0')}`
+          ? cRow.avg >= 1 ? '1.000' : `.${Math.round(cRow.avg * 1000).toString().padStart(3,'0')}`
           : '—'
         const abStr = cRow?.avg_ab_per_game != null ? cRow.avg_ab_per_game.toFixed(1) : '—'
 
@@ -574,7 +741,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           onclick="handleRowClick(this,'${safeName}','${safeMkt}','${normMkt}',${lineVal},${matchId},${seasonId},'${f}')"
           onmouseover="groupHover('${norm}_${matchId}','#1e1e1e')" onmouseout="groupLeave('${norm}_${matchId}')">
           ${pcell}
-          <td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${filterLabel === 'GLOBAL' ? 'var(--muted)' : 'var(--gold)'};text-transform:uppercase;letter-spacing:0.08em;text-align:center;vertical-align:middle">${filterLabel}</td>
+          <td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${filterLabel === 'ALL' ? 'var(--muted)' : 'var(--gold)'};text-transform:uppercase;letter-spacing:0.08em;text-align:center;vertical-align:middle">${filterLabel}</td>
           <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${avgStr}</td>
           <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${abStr}</td>
           <td class="mono" style="padding:5px 10px;font-size:11px;color:var(--text);text-align:center;vertical-align:middle">${hStr}</td>
@@ -753,7 +920,7 @@ function updateVenueToggle() {
   if (!btn) return
   const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;text-transform:uppercase;font-family:'Geist Mono',monospace;user-select:none`
   btn.style.cssText = `${s};border-color:var(--gold);color:var(--gold)`
-  btn.textContent = activeVenue === 'home' ? 'HOME' : activeVenue === 'away' ? 'AWAY' : 'H/A'
+  btn.textContent = activeVenue === 'home' ? 'HOME' : activeVenue === 'away' ? 'AWAY' : 'H&A'
 }
 
 function cycleVenue() {
@@ -1194,12 +1361,12 @@ function renderMatch(entry) {
         <table class="w-full" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0">
           <thead>
             <tr>
-              <th style="${thBase};text-align:left">Player</th>
-              <th style="${thBase};text-align:center">Filter</th>
-              <th style="${thBase};text-align:center">Avg</th>
-              <th style="${thBase};text-align:center">AB Avg</th>
-              <th style="${thBase};text-align:center">Hit Rate</th>
-              <th style="${thBase};text-align:right">${isPastMatch ? 'Result' : 'EV'}</th>
+              <th style="${thBase};text-align:left;cursor:pointer" onclick="showInfoModal('player')">Player</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('filter')">Filter</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg')">Avg</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('ab_avg')">AB Avg</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate')">Hit Rate</th>
+              <th style="${thBase};text-align:right;cursor:pointer" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
           ${tbodyHtml}
@@ -1546,7 +1713,7 @@ function renderExpansionContent(key) {
         </div>`
       }).join('')
 
-  const filterLabel = filterKey === 'DB' ? 'GLOBAL' : (FILTER_LABELS[filterKey] ?? filterKey)
+  const filterLabel = filterKey === 'DB' ? 'ALL' : (FILTER_LABELS[filterKey] ?? filterKey)
   const labelColor  = filterKey === 'DB' ? 'var(--muted)' : 'var(--gold)'
   const rangeFrom   = page * PAGE_SIZE + 1
   const rangeTo     = page * PAGE_SIZE + pageBars.length
