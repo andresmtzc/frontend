@@ -143,11 +143,6 @@
   <div class="flex items-stretch gap-1.5">
     <div class="flex gap-1.5" id="global-filter-bar"></div>
     <div class="shrink-0" style="width:1px;background:#222222"></div>
-    <button onclick="toggleHeavyLine()" id="heavy-btn"
-      class="mono shrink-0"
-      style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;outline:none"
-      onmouseover="if(!this.dataset.active){this.style.borderColor='var(--gold)';this.style.color='var(--gold)'}"
-      onmouseout="if(!this.dataset.active){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">−200</button>
     <button id="ou-toggle" onclick="cycleDirection()" class="mono shrink-0"
       style="font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid var(--gold);background:var(--surface);color:var(--gold);cursor:pointer;outline:none;text-transform:uppercase">OVER</button>
     <button id="venue-toggle" onclick="cycleVenue()" class="mono shrink-0"
@@ -637,8 +632,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     // Filtering
     const hasHistory   = (dbRow.games_count ?? 0) > 0
     const dirOdds      = activeDirection === 'under' ? dbRow.under_us_odds : dbRow.over_us_odds
-    const isHeavy      = filterHeavyLines && dirOdds != null && dirOdds < -200
-    const shouldFilter = !hasHistory || isHeavy
+    const shouldFilter = !hasHistory
 
     // Odds — switch with OVER/UNDER toggle; data-us allows mode cycling
     const overUs  = dbRow.over_us_odds
@@ -881,21 +875,6 @@ function filterBtnStyle(isActive) {
     : `${base};border-color:var(--border);color:var(--muted)`
 }
 
-let filterHeavyLines = false
-function toggleHeavyLine() {
-  filterHeavyLines = !filterHeavyLines
-  updateHeavyBtn()
-  refreshMktTbodies([...activeFilters])
-}
-
-function updateHeavyBtn() {
-  const btn = document.getElementById('heavy-btn')
-  if (!btn) return
-  const active = filterHeavyLines
-  const s = `font-size:10px;font-weight:700;line-height:1;padding:0;height:24px;width:44px;text-align:center;border:2px solid;background:var(--surface);cursor:pointer;outline:none;font-family:'Geist Mono',monospace`
-  btn.style.cssText = active ? `${s};border-color:var(--gold);color:var(--gold)` : `${s};border-color:var(--border);color:var(--muted)`
-  active ? btn.setAttribute('data-active','1') : btn.removeAttribute('data-active')
-}
 
 function updateOUToggle() {
   const btn = document.getElementById('ou-toggle')
@@ -994,7 +973,6 @@ function refreshMktTbodies(filterKeys) {
 function applyFilters() {
   updateGlobalFilterButtons()
   updateOUToggle()
-  updateHeavyBtn()
   refreshMktTbodies([...activeFilters])
 }
 
