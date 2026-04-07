@@ -77,8 +77,8 @@
     }
     #info-backdrop.visible { display: block; }
     @media (min-width: 640px) {
-      table[data-mkt] th:nth-child(2),
-      table[data-mkt] td:nth-child(2) { width: 90px !important; }
+      table[data-mkt] th:nth-child(1),
+      table[data-mkt] td:nth-child(1) { width: 300px !important; }
     }
     #info-modal {
       display: none; position: fixed; top: 50%; left: 50%;
@@ -1503,12 +1503,12 @@ function renderMatch(entry) {
         <table class="w-full" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0;table-layout:fixed">
           <thead>
             <tr>
-              <th style="${thBase};text-align:left;cursor:pointer;width:144px" onclick="showInfoModal('player')">Player</th>
+              <th style="${thBase};text-align:left;cursor:pointer;width:120px" onclick="showInfoModal('player')">Player</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg')">Avg</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('ab_avg')">AB Avg</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate')">Hit Rate</th>
-              <th style="${thBase};text-align:right;cursor:pointer;width:60px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
+              <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
           ${tbodyHtml}
