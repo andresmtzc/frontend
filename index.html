@@ -189,6 +189,9 @@ const COLUMN_INFO = {
   filter: {
     title: 'FILTER',
     rows: [
+      ['hi','WINDOW OF GAMES USED'],
+      ['hi','FOR CALCULATIONS'],
+      ['sep'],
       ['hi','ALL'],
       ['','FULL HISTORY'],
       ["","'24, '25, '26"],
@@ -1339,11 +1342,11 @@ function renderMatch(entry) {
         <table class="w-full" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0">
           <thead>
             <tr>
-              <th style="${thBase};text-align:left;cursor:pointer" onclick="showInfoModal('player')">Player</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('filter')">Filter</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg')">Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('ab_avg')">AB Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate')">Hit Rate</th>
+              <th style="${thBase};text-align:left;cursor:pointer;width:140px" onclick="showInfoModal('player')">Player</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('filter')">FLTR</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('avg')">Avg</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('ab_avg')">AB Avg</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('hit_rate')">Hit Rate</th>
               <th style="${thBase};text-align:right;cursor:pointer" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
@@ -1522,7 +1525,7 @@ function insertExpansionRow(td, key) {
   expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = expandedBg })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:none">
-      <td colspan="10" class="px-2.5 py-2.5" style="background:${expandedBg};user-select:none" data-expansion-cell="${key}"></td>
+      <td colspan="10" style="background:${expandedBg};user-select:none;padding:0" data-expansion-cell="${key}"><div class="px-2.5 py-2.5" style="overflow:hidden;width:100%;box-sizing:border-box"></div></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
@@ -1543,7 +1546,8 @@ function collapseExpansion(key) {
 }
 
 function getExpCell(key) {
-  return expansions.get(key)?.tr?.querySelector(`[data-expansion-cell="${key}"]`)
+  const td = expansions.get(key)?.tr?.querySelector(`[data-expansion-cell="${key}"]`)
+  return td?.querySelector('div') ?? td
 }
 
 function reinstateExpansion() {
