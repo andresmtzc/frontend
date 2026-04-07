@@ -76,6 +76,10 @@
       background: rgba(0,0,0,0.75); z-index: 998;
     }
     #info-backdrop.visible { display: block; }
+    @media (min-width: 640px) {
+      table[data-mkt] th:nth-child(2),
+      table[data-mkt] td:nth-child(2) { width: 90px !important; }
+    }
     #info-modal {
       display: none; position: fixed; top: 50%; left: 50%;
       transform: translate(-50%,-50%); z-index: 999;
@@ -246,43 +250,57 @@ const COLUMN_INFO = {
   },
   ev: {
     title: 'EV',
-    rows: [
-      ['hi','EXPECTED VALUE'],
-      ['','EV = MODEL% - MARKET%'],
-      ['','+ = YOU HAVE AN EDGE'],
-      ['','- = BOOK HAS THE EDGE'],
-      ['sep'],
-      ['hi','STEP 1: IMPLIED PROB'],
-      ['','CONVERT ODDS TO PROB'],
-      ['','NEGATIVE ODDS (-150):'],
-      ['','150 / (150+100) = 60%'],
-      ['','POSITIVE ODDS (+130):'],
-      ['','100 / (130+100) = 43.5%'],
-      ['sep'],
-      ['hi','STEP 2: REMOVE VIG'],
-      ['','BOOK PRICES BOTH SIDES'],
-      ['','TO SUM OVER 100%'],
-      ['','WE NORMALIZE:'],
-      ['','TRUE = OVER%'],
-      ['','    / (OVER% + UNDER%)'],
-      ['sep'],
-      ['hi','STEP 3: BINOMIAL'],
-      ['','MODEL EACH AB AS AN'],
-      ['','INDEPENDENT TRIAL'],
-      ['','N = ROUND(AB AVG)'],
-      ['','P = BATTING AVG'],
-      ['','K = FLOOR(LINE)'],
-      ['','MODEL% = 1 - P(X≤K)'],
-      ['','WHERE X~BINOM(N,P)'],
-      ['sep'],
-      ['hi','STEP 4: EV'],
-      ['','EV = MODEL% - TRUE%'],
-      ['sep'],
-      ['hi','⚠ HISTORICAL MODEL'],
-      ['','ALL STATS ARE BACKWARD-'],
-      ['','LOOKING. PAST RESULTS'],
-      ['','DO NOT PREDICT'],
-      ['','FUTURE PERFORMANCE'],
+    pages: [
+      [
+        ['hi','EXPECTED VALUE'],
+        ['','EV = MODEL% - MARKET%'],
+        ['','+ = YOU HAVE AN EDGE'],
+        ['','- = BOOK HAS THE EDGE'],
+        ['sep'],
+        ['hi','⚠ HISTORICAL MODEL'],
+        ['','BASED ON PAST STATS.'],
+        ['','DOES NOT PREDICT'],
+        ['','FUTURE RESULTS.'],
+      ],
+      [
+        ['hi','STEP 1: IMPLIED PROB'],
+        ['','CONVERT ODDS TO PROB'],
+        ['sep'],
+        ['','NEG ODDS (-150):'],
+        ['','150/(150+100) = 60%'],
+        ['sep'],
+        ['','POS ODDS (+130):'],
+        ['','100/(130+100) = 43%'],
+      ],
+      [
+        ['hi','STEP 2: REMOVE VIG'],
+        ['','BOOK PRICES BOTH SIDES'],
+        ['','TO SUM OVER 100%'],
+        ['','WE NORMALIZE:'],
+        ['sep'],
+        ['','FAIR% = SIDE%'],
+        ['','  / (OVER% + UNDER%)'],
+      ],
+      [
+        ['hi','STEP 3: BINOMIAL'],
+        ['','MODEL EACH AB AS AN'],
+        ['','INDEPENDENT TRIAL'],
+        ['sep'],
+        ['','N = ROUND(AB AVG)'],
+        ['','P = BATTING AVG'],
+        ['','K = FLOOR(LINE)'],
+        ['','MODEL% = 1-P(X≤K)'],
+        ['','X ~ BINOM(N,P)'],
+      ],
+      [
+        ['hi','STEP 4: EV'],
+        ['','EV = MODEL% - FAIR%'],
+        ['sep'],
+        ['','POSITIVE = EDGE IN'],
+        ['','YOUR FAVOR'],
+        ['','NEGATIVE = BOOK'],
+        ['','HAS THE EDGE'],
+      ],
     ]
   },
   result: {
@@ -301,18 +319,44 @@ const COLUMN_INFO = {
   },
 }
 
-function showInfoModal(col) {
-  const info = COLUMN_INFO[col]
+let _infoModalCol  = null
+let _infoModalPage = 0
+
+function _renderInfoModal() {
+  const info  = COLUMN_INFO[_infoModalCol]
   if (!info) return
   const modal = document.getElementById('info-modal')
-  modal.innerHTML = `<div class="im-title">${info.title}</div>` +
-    info.rows.map(r => r[0] === 'sep'
-      ? `<div class="im-sep"></div>`
-      : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}">${r[1]}</div>`
-    ).join('')
-  modal.classList.add('visible')
+  const pages = info.pages
+  const rows  = pages ? pages[_infoModalPage] : info.rows
+  const rowsHtml = rows.map(r => r[0] === 'sep'
+    ? `<div class="im-sep"></div>`
+    : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}">${r[1]}</div>`
+  ).join('')
+  const navHtml = pages ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:4px">
+      <button onclick="stepInfoModal(-1)" style="font-family:'Press Start 2P',monospace;font-size:8px;background:none;border:2px solid var(--border);color:${_infoModalPage === 0 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === 0 ? 'default' : 'pointer'}">◀</button>
+      <span style="font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted)">${_infoModalPage + 1} / ${pages.length}</span>
+      <button onclick="stepInfoModal(1)" style="font-family:'Press Start 2P',monospace;font-size:8px;background:none;border:2px solid var(--border);color:${_infoModalPage === pages.length - 1 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === pages.length - 1 ? 'default' : 'pointer'}">▶</button>
+    </div>` : ''
+  modal.innerHTML = `<div class="im-title">${info.title}</div>${rowsHtml}${navHtml}`
+}
+
+function showInfoModal(col) {
+  if (!COLUMN_INFO[col]) return
+  _infoModalCol  = col
+  _infoModalPage = 0
+  _renderInfoModal()
+  document.getElementById('info-modal').classList.add('visible')
   document.getElementById('info-backdrop').classList.add('visible')
 }
+
+function stepInfoModal(dir) {
+  const info = COLUMN_INFO[_infoModalCol]
+  if (!info?.pages) return
+  _infoModalPage = Math.max(0, Math.min(info.pages.length - 1, _infoModalPage + dir))
+  _renderInfoModal()
+}
+
 function hideInfoModal() {
   document.getElementById('info-modal').classList.remove('visible')
   document.getElementById('info-backdrop').classList.remove('visible')
@@ -1456,15 +1500,15 @@ function renderMatch(entry) {
         <span class="chev" style="color:var(--muted);font-size:9px">${mi === 0 ? '▼' : '▶'}</span>
       </div>
       <div class="mkt-body" id="mkt-body-${matchId}-${mi}" style="display:${mi === 0 ? 'block' : 'none'};border:2px solid var(--border);border-top:2px solid transparent;background:var(--surface);margin-bottom:10px">
-        <table class="w-full" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0">
+        <table class="w-full" data-mkt="${normMkt}" style="font-size:11px;border-collapse:separate;border-spacing:0;table-layout:fixed">
           <thead>
             <tr>
-              <th style="${thBase};text-align:left;cursor:pointer;width:140px" onclick="showInfoModal('player')">Player</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('filter')">FLTR</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('avg')">Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('ab_avg')">AB Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:14%" onclick="showInfoModal('hit_rate')">Hit Rate</th>
-              <th style="${thBase};text-align:right;cursor:pointer" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
+              <th style="${thBase};text-align:left;cursor:pointer;width:144px" onclick="showInfoModal('player')">Player</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg')">Avg</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('ab_avg')">AB Avg</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate')">Hit Rate</th>
+              <th style="${thBase};text-align:right;cursor:pointer;width:60px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
           ${tbodyHtml}
