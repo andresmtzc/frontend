@@ -873,7 +873,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           const won = activeDirection === 'under'
             ? gameResult.hits < lineVal
             : gameResult.hits > lineVal
-          const label = won ? 'WON' : 'LOSS'
+          const label = won ? 'WON' : 'LOST'
           const col   = won ? 'var(--green)' : 'var(--magenta)'
           resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${gameResult.hits}H</span></td>`
         } else if (isPast) {
