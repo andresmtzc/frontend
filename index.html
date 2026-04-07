@@ -78,7 +78,7 @@
     #info-backdrop.visible { display: block; }
     @media (min-width: 640px) {
       table[data-mkt] th:nth-child(1),
-      table[data-mkt] td:nth-child(1) { width: 300px !important; }
+      table[data-mkt] td:nth-child(1):not([data-expansion-cell]) { width: 300px !important; }
     }
     #info-modal {
       display: none; position: fixed; top: 50%; left: 50%;
@@ -1686,7 +1686,7 @@ function insertExpansionRow(td, key) {
   expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = expandedBg })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:none">
-      <td colspan="10" style="background:${expandedBg};user-select:none;padding:0" data-expansion-cell="${key}"><div class="px-2.5 py-2.5" style="overflow:hidden;width:100%;box-sizing:border-box"></div></td>
+      <td colspan="6" style="background:${expandedBg};user-select:none;padding:0" data-expansion-cell="${key}"><div class="px-2.5 py-2.5" style="overflow:hidden;width:100%;box-sizing:border-box"></div></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
