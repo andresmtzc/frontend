@@ -1522,7 +1522,7 @@ function insertExpansionRow(td, key) {
   expandedRows.forEach(r => { r.classList.add('row-expanded'); r.style.background = expandedBg })
   lastRow.insertAdjacentHTML('afterend', `
     <tr data-expansion-key="${key}" style="border-top:none">
-      <td colspan="10" class="px-4 py-4" style="background:${expandedBg};user-select:none" data-expansion-cell="${key}"></td>
+      <td colspan="10" class="px-2.5 py-2.5" style="background:${expandedBg};user-select:none" data-expansion-cell="${key}"></td>
     </tr>`)
   const exp = expansions.get(key)
   if (exp) { exp.tr = lastRow.nextElementSibling; exp.expandedRows = expandedRows }
@@ -1678,7 +1678,7 @@ function renderExpansionContent(key) {
                       </div>`
         }
 
-        return `<div class="flex-1 min-w-0 flex flex-col items-center gap-0.5">
+        return `<div class="flex flex-col items-center gap-0.5" style="min-width:0">
           <span class="text-[10px] font-mono leading-none truncate w-full text-center" style="color:var(--text)">${opp?.abbr ?? '?'}</span>
           <span class="text-[9px] leading-none" style="color:${haColor}">${homeAway}</span>
           <span class="text-[9px] leading-none opacity-0">·</span>
@@ -1698,15 +1698,15 @@ function renderExpansionContent(key) {
   const rangeStr    = totalPages > 1 ? `${rangeFrom}–${rangeTo} of ${totalBars}` : `${totalBars} games`
   const labelHtml   = `<span style="color:${labelColor}">${filterLabel}</span> · <span style="color:var(--muted)">${rangeStr}</span>`
 
-  const arrowBtn    = (dir, targetPage, hidden) => hidden ? '' :
-    `<button onclick="setBarPage('${key}',${targetPage})" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:36px;padding:0 6px;line-height:1;display:flex;align-items:center;align-self:stretch;transition:opacity 0.15s;opacity:0.8" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">${dir}</button>`
-  const prevBtn     = totalPages > 1 ? arrowBtn('‹', page + 1, page >= totalPages - 1) : ''
-  const nextBtn     = totalPages > 1 ? arrowBtn('›', page - 1, page === 0) : ''
+  const arrowBtn    = (dir, targetPage, invisible) =>
+    `<button onclick="setBarPage('${key}',${targetPage})" style="background:none;border:none;cursor:${invisible ? 'default' : 'pointer'};color:var(--gold);font-size:36px;padding:0 2px;line-height:1;display:flex;align-items:center;align-self:stretch;transition:opacity 0.15s;opacity:0.8;flex-shrink:0;visibility:${invisible ? 'hidden' : 'visible'};pointer-events:${invisible ? 'none' : 'auto'}" onmouseover="if(this.style.visibility!=='hidden')this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">${dir}</button>`
+  const prevBtn     = totalPages > 1 ? arrowBtn('‹', page + 1, page >= totalPages - 1) : arrowBtn('‹', 0, true)
+  const nextBtn     = totalPages > 1 ? arrowBtn('›', page - 1, page === 0)             : arrowBtn('›', 0, true)
 
   cell.innerHTML = !statKey
     ? '<p class="text-[11px] py-2" style="color:var(--muted)">No stat mapping for this market</p>'
     : `<div style="margin-bottom:6px;font-size:9px;font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.1em">${labelHtml}</div>
-       <div style="display:flex;align-items:stretch;gap:0">${prevBtn}<div class="flex gap-1.5 overflow-hidden" style="width:${Math.round(pageBars.length / PAGE_SIZE * 100)}%;max-width:100%;margin-left:auto">${barsHtml}</div>${nextBtn}</div>`
+       <div style="display:flex;align-items:stretch;gap:0;width:100%;overflow:hidden">${prevBtn}<div style="flex:1;display:grid;grid-template-columns:repeat(${PAGE_SIZE},1fr);gap:6px;overflow:hidden;min-width:0">${'<div></div>'.repeat(PAGE_SIZE - pageBars.length)}${barsHtml}</div>${nextBtn}</div>`
 }
 </script>
 </body>
