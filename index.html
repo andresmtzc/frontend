@@ -609,6 +609,111 @@ function mktSubtitle(name, playerCount) {
   return `${desc} · ${playerCount} lines`
 }
 
+// ── Binomial EV helpers ──────────────────────────────────────────────────────
+
+function binomCoeff(n, k) {
+  if (k > n || k < 0) return 0
+  if (k === 0 || k === n) return 1
+  if (k > n - k) k = n - k
+  let r = 1
+  for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1)
+  return r
+}
+
+function binomCDF(k, n, p) {
+  // P(X <= k) for X ~ Binomial(n, p)
+  if (p <= 0) return k >= 0 ? 1 : 0
+  if (p >= 1) return k >= n ? 1 : 0
+  let sum = 0
+  for (let i = 0; i <= Math.min(k, n); i++) {
+    sum += binomCoeff(n, i) * Math.pow(p, i) * Math.pow(1 - p, n - i)
+  }
+  return Math.min(sum, 1)
+}
+
+function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs) {
+  if (avg == null || abAvgPerGame == null || line == null) return null
+  if (overUs == null && underUs == null) return null
+
+  // No-vig implied probabilities
+  const rawOver  = impliedProb(overUs)
+  const rawUnder = impliedProb(underUs)
+  if (rawOver == null || rawUnder == null) return null
+  const total      = rawOver + rawUnder
+  const modelProb  = direction === 'under' ? rawUnder / total : rawOver / total
+
+  // Binomial true probability: n = rounded AB avg, p = batting avg
+  const n = Math.round(abAvgPerGame)
+  if (n <= 0) return null
+  const p    = Math.min(Math.max(avg, 0), 1)
+  const cdf  = binomCDF(Math.floor(line), n, p)
+  const trueProb = direction === 'under' ? cdf : 1 - cdf
+
+  return trueProb - modelProb
+}
+
+// ── Venue-filtered stat computation (mirrors expansion bar logic) ────────────
+
+function computeVenueStats(norm, filterKey, cache, seasonId, entry) {
+  const games         = cache?.normNameToGames?.[norm] ?? []
+  const playerTeamUid = cache?.playerTeamUids?.[norm]  ?? null
+
+  // Exclude 0-AB games (hits market)
+  let filtered = games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
+
+  // VS: restrict to upcoming opponent
+  if (filterKey === 'VS') {
+    const mHomeUid   = entry?.match?.home_team_uid
+    const mAwayUid   = entry?.match?.away_team_uid
+    const upcomingOpp = playerTeamUid === mHomeUid ? mAwayUid
+                      : playerTeamUid === mAwayUid ? mHomeUid
+                      : mHomeUid ?? null
+    if (upcomingOpp != null) {
+      filtered = filtered.filter(g => {
+        const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+        const oppUid = gTeam === g.homeTeamUid ? g.awayTeamUid
+                     : gTeam === g.awayTeamUid ? g.homeTeamUid : null
+        return oppUid === upcomingOpp
+      })
+    }
+  }
+
+  // Venue filter
+  if (activeVenue !== 'both') {
+    filtered = filtered.filter(g => {
+      const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+      const isHome = gTeam != null ? g.homeTeamUid === gTeam : null
+      if (isHome === null) return true
+      return activeVenue === 'home' ? isHome : !isHome
+    })
+  }
+
+  // Apply filter window
+  const allSeasonIds = [...new Set(filtered.map(g => g.season_id).filter(Boolean))].sort((a, b) => a - b)
+  const curSeasonIdx = allSeasonIds.indexOf(seasonId)
+  const lastSeasonId = curSeasonIdx > 0 ? allSeasonIds[curSeasonIdx - 1] : null
+
+  let windowGames
+  if      (filterKey === 'CS') windowGames = filtered.filter(g => g.season_id === seasonId)
+  else if (filterKey === 'LS') windowGames = filtered.filter(g => g.season_id === lastSeasonId)
+  else if (filterKey === 'VS' || filterKey === 'DB') windowGames = filtered
+  else { const N = parseInt(filterKey.slice(1)); windowGames = filtered.slice(0, N) }
+
+  const gc = windowGames.length
+  if (gc === 0) return { avg: null, avg_ab_per_game: null, games_count: 0, games_with_hit: 0 }
+
+  const totalHits = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
+  const totalAB   = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+  const gwh       = windowGames.filter(g => Number(g.stats?.hitting_hits ?? 0) > 0).length
+
+  return {
+    avg:             totalAB > 0 ? totalHits / totalAB : null,
+    avg_ab_per_game: totalAB / gc,
+    games_count:     gc,
+    games_with_hit:  gwh,
+  }
+}
+
 // ── Render market tbody — reads from player_prop_cache via filterCache ──────
 
 function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
@@ -702,7 +807,12 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const cRow        = filterMap[f]
         const filterLabel = f === 'DB' ? 'ALL' : (FILTER_LABELS[f] ?? f)
 
-        const evRaw = activeDirection === 'under' ? cRow?.under_ev : cRow?.ev
+        const vs     = activeVenue !== 'both' ? computeVenueStats(norm, f, cache, seasonId, entry) : null
+        const effRow = vs ?? cRow
+
+        const evRaw = activeVenue !== 'both'
+          ? computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds)
+          : (activeDirection === 'under' ? cRow?.under_ev : cRow?.ev)
         const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
         const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
         const evCol = evPct == null ? 'var(--muted)' : evPct > 0 ? 'var(--green)' : 'var(--magenta)'
@@ -719,14 +829,14 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         } else if (isPast) {
           resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
         }
-
-        const avgStr = cRow?.avg != null
-          ? cRow.avg >= 1 ? '1.000' : `.${Math.round(cRow.avg * 1000).toString().padStart(3,'0')}`
+        const avgRaw  = effRow?.avg
+        const avgStr  = avgRaw != null
+          ? avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}`
           : '—'
-        const abStr = cRow?.avg_ab_per_game != null ? cRow.avg_ab_per_game.toFixed(1) : '—'
+        const abStr = effRow?.avg_ab_per_game != null ? effRow.avg_ab_per_game.toFixed(1) : '—'
 
-        const gc  = cRow?.games_count    ?? 0
-        const gwh = cRow?.games_with_hit ?? 0
+        const gc  = effRow?.games_count    ?? 0
+        const gwh = effRow?.games_with_hit ?? 0
         const pct = gc > 0 ? Math.round(gwh / gc * 100) : 0
         const hStr = gc > 0 ? `${gwh}/${gc} <span style="color:var(--muted)">(${pct}%)</span>` : '—'
 
@@ -908,6 +1018,7 @@ function updateVenueToggle() {
 function cycleVenue() {
   activeVenue = activeVenue === 'both' ? 'home' : activeVenue === 'home' ? 'away' : 'both'
   updateVenueToggle()
+  refreshMktTbodies([...activeFilters])
   for (const [key, exp] of expansions) {
     exp.barPage = null
     renderExpansionContent(key)
