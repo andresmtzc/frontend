@@ -234,7 +234,7 @@ const COLUMN_INFO = {
       ['','CHANCES TO HIT'],
       ['sep'],
       ['','USED IN THE BINOMIAL'],
-      ['','MODEL AS N (ROUNDED)'],
+      ['','MODEL AS N (FLOORED)'],
     ]
   },
   hit_rate: {
@@ -286,7 +286,7 @@ const COLUMN_INFO = {
         ['','MODEL EACH AB AS AN'],
         ['','INDEPENDENT TRIAL'],
         ['sep'],
-        ['','N = ROUND(AB AVG)'],
+        ['','N = FLOOR(AB AVG)'],
         ['','P = BATTING AVG'],
         ['','K = FLOOR(LINE)'],
         ['','MODEL% = 1-P(X≤K)'],
@@ -405,6 +405,10 @@ const IMG_OVERRIDES = {
   'ronal acuna jr':        'ronald acuna jr.',
   'ronald acuna jr':       'ronald acuna jr.',
   'lee jung hoo':          'jung hoo lee',
+  'luis roberts':          'luis robert jr.',
+  'jacob realmuto':        'j.t. realmuto',
+  'jordon adell':          'jo adell',
+  'jose adolis garcia':    'adolis garcía',
 }
 const IMG_ALIASES = {
   'frederick': ['freddie', 'fred'],
@@ -436,6 +440,10 @@ const IMG_ALIASES = {
   'william':   ['will', 'willie', 'bill'],
   'robert':    ['rob', 'bobby', 'bob'],
   'james':     ['jim', 'jimmy'],
+  'peter':     ['pete'],
+  'trenton':   ['trent'],
+  'elijah':    ['eli'],
+  'daniel':    ['danny', 'dan'],
   'jonathan':  ['jon', 'jonny'],
   'alexander': ['alex'],
   'nathaniel': ['nate', 'nat'],
@@ -692,8 +700,8 @@ function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs) {
   const total      = rawOver + rawUnder
   const modelProb  = direction === 'under' ? rawUnder / total : rawOver / total
 
-  // Binomial true probability: n = rounded AB avg, p = batting avg
-  const n = Math.round(abAvgPerGame)
+  // Binomial true probability: n = floored AB avg, p = batting avg
+  const n = Math.floor(abAvgPerGame)
   if (n <= 0) return null
   const p    = Math.min(Math.max(avg, 0), 1)
   const cdf  = binomCDF(Math.floor(line), n, p)
@@ -1343,6 +1351,60 @@ async function load(force = false) {
   render()
   hideLoader()
   applyFilters()
+  fetchGameOdds()
+}
+
+// ── Polymarket favorite dots (via Supabase Edge Function) ────────────────────
+const polymarketCache = {} // matchId → { awayProb, homeProb }
+const POLYMARKET_FN = 'https://wxvjetgeiuzjuyzfhutv.supabase.co/functions/v1/polymarket'
+
+function matchFavDots(entry, color = 'inherit') {
+  const pm = polymarketCache[entry.matchId]
+  if (!pm) return { away: '', home: '' }
+  const dot = `<span style="color:${color}">●</span>`
+  return {
+    away: pm.awayProb >= 0.58 ? dot : '',
+    home: pm.homeProb >= 0.58 ? dot : '',
+  }
+}
+
+function buildPolymarketSlug(entry) {
+  const away = entry.away?.abbr?.toLowerCase()
+  const home = entry.home?.abbr?.toLowerCase()
+  if (!away || !home || !entry.match?.match_date) return null
+  const d = new Date(entry.match.match_date)
+  const dateStr = d.toISOString().slice(0, 10)
+  return `mlb-${away}-${home}-${dateStr}`
+}
+
+async function fetchGameOdds() {
+  const upcoming = allMatches.filter(e => e.sport === 'MLB' && !isMatchOld(e.match?.match_date))
+  await Promise.all(upcoming.map(async entry => {
+    const slug = buildPolymarketSlug(entry)
+    if (!slug) return
+    try {
+      const res  = await fetch(`${POLYMARKET_FN}?slug=${slug}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const event = Array.isArray(data) ? data[0] : data
+      if (!event?.markets?.length) return
+      const mkt      = event.markets[0]
+      const prices   = JSON.parse(mkt.outcomePrices ?? '[]')
+      const outcomes = JSON.parse(mkt.outcomes     ?? '[]')
+      if (prices.length < 2 || outcomes.length < 2) return
+      const awayToken = entry.away?.name?.toLowerCase().split(' ').pop() ?? ''
+      const homeToken = entry.home?.name?.toLowerCase().split(' ').pop() ?? ''
+      let awayIdx = outcomes.findIndex(o => o.toLowerCase().includes(awayToken))
+      let homeIdx = outcomes.findIndex(o => o.toLowerCase().includes(homeToken))
+      if (awayIdx === -1 || homeIdx === -1 || awayIdx === homeIdx) { awayIdx = 0; homeIdx = 1 }
+      polymarketCache[entry.matchId] = {
+        awayProb: parseFloat(prices[awayIdx]),
+        homeProb: parseFloat(prices[homeIdx]),
+      }
+    } catch (_) {}
+  }))
+  renderPills()
+  render()
 }
 
 function renderPills() {
@@ -1395,7 +1457,7 @@ function renderPills() {
           class="match-pill whitespace-nowrap shrink-0 transition-colors
                  ${active ? 'match-pill-active' : 'match-pill-inactive'}"
           style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;font-variation-settings:'wght' 700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
-          ${e.abbr}
+          ${(() => { const d = matchFavDots(e); return `${d.away}${e.away?.abbr ?? '?'} @ ${d.home}${e.home?.abbr ?? '?'}` })()}
         </button>`)
     }
   }
@@ -1423,7 +1485,7 @@ function renderPills() {
               class="match-pill whitespace-nowrap shrink-0 transition-colors opacity-60
                      ${active ? 'match-pill-active' : 'match-pill-inactive'}"
               style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer">
-              ${e.abbr}
+              ${(() => { const d = matchFavDots(e); return `${d.away}${e.away?.abbr ?? '?'} @ ${d.home}${e.home?.abbr ?? '?'}` })()}
             </button>`)
         }
       }
@@ -1516,7 +1578,8 @@ function renderMatch(entry) {
       </div>`
   }).join('')
 
-  const matchLbl = `${awayNick} @ ${homeNick}`
+  const _favDots = matchFavDots(entry, 'var(--text)')
+  const matchLbl = `${_favDots.away}${awayNick} @ ${_favDots.home}${homeNick}`
   const dateLbl  = match?.match_date
     ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: TZ })
     : '—'
