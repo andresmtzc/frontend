@@ -213,12 +213,6 @@ const COLUMN_INFO = {
       ['','ALL GAMES VS TODAY\'S'],
       ['','OPP REGARDLESS OF'],
       ['','WHICH TEAM HE WAS ON'],
-      ['sep'],
-      ['hi','H&A / HOME / AWAY'],
-      ['','VENUE FILTER — CYCLE'],
-      ['','THE BUTTON ABOVE TO'],
-      ['','RESTRICT STATS TO'],
-      ['','HOME OR AWAY GAMES'],
     ]
   },
   avg: {
@@ -230,19 +224,8 @@ const COLUMN_INFO = {
       ['','HITS ÷ AT-BATS'],
     ]
   },
-  avg_strikeouts: {
-    title: 'AVG',
-    rows: [
-      ['hi','SO PER GAME'],
-      ['','IN THIS WINDOW'],
-      ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED STRIKEOUTS'],
-      ['','PER START'],
-    ]
-  },
   ab_avg: {
-    title: 'AB/G',
+    title: 'AB AVG',
     rows: [
       ['hi','AVG AT-BATS PER GAME'],
       ['','IN THIS WINDOW'],
@@ -254,18 +237,6 @@ const COLUMN_INFO = {
       ['','MODEL AS N (FLOORED)'],
     ]
   },
-  ab_avg_strikeouts: {
-    title: 'IP/G',
-    rows: [
-      ['hi','AVG INNINGS PITCHED'],
-      ['','PER START'],
-      ['','IN THIS WINDOW'],
-      ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
-    ]
-  },
   hit_rate: {
     title: 'HIT RATE',
     rows: [
@@ -275,17 +246,6 @@ const COLUMN_INFO = {
       ['sep'],
       ['','LINE 0.5 → ≥1 HIT'],
       ['','LINE 1.5 → ≥2 HITS'],
-    ]
-  },
-  hit_rate_strikeouts: {
-    title: 'K RATE',
-    rows: [
-      ['hi','% OF STARTS WHERE'],
-      ['hi','PITCHER EXCEEDED'],
-      ['hi','THE LINE'],
-      ['sep'],
-      ['','LINE 4.5 → ≥5 K'],
-      ['','LINE 5.5 → ≥6 K'],
     ]
   },
   ev: {
@@ -357,6 +317,75 @@ const COLUMN_INFO = {
       ['','EXCEED THE LINE'],
     ]
   },
+  // ── Pitcher strikeout column info ────────────────────────────────────────────
+  so_avg: {
+    title: 'SO/G',
+    rows: [
+      ['hi','AVG STRIKEOUTS'],
+      ['','PER GAME STARTED'],
+      ['sep'],
+      ['','POISSON LAMBDA (λ)'],
+      ['','USED DIRECTLY IN'],
+      ['','THE EV MODEL'],
+    ]
+  },
+  ip_avg: {
+    title: 'IP/G',
+    rows: [
+      ['hi','AVG INNINGS PITCHED'],
+      ['','PER GAME STARTED'],
+      ['sep'],
+      ['','MORE IP = MORE'],
+      ['','K OPPORTUNITIES'],
+    ]
+  },
+  so_rate: {
+    title: 'OVER RATE',
+    rows: [
+      ['hi','% OF STARTS WHERE'],
+      ['hi','PITCHER EXCEEDED'],
+      ['hi','THE LINE'],
+      ['sep'],
+      ['','LINE 5.5 → ≥6 K'],
+      ['','LINE 7.5 → ≥8 K'],
+    ]
+  },
+  so_ev: {
+    title: 'EV',
+    pages: [
+      [
+        ['hi','EXPECTED VALUE'],
+        ['','EV = MODEL% - MARKET%'],
+        ['','+ = YOU HAVE AN EDGE'],
+        ['','- = BOOK HAS THE EDGE'],
+        ['sep'],
+        ['hi','⚠ HISTORICAL MODEL'],
+        ['','BASED ON PAST STATS.'],
+        ['','DOES NOT PREDICT'],
+        ['','FUTURE RESULTS.'],
+      ],
+      [
+        ['hi','STEP 3: POISSON'],
+        ['','STRIKEOUTS PER GAME'],
+        ['','ARE COUNT DATA —'],
+        ['','POISSON FITS BEST'],
+        ['sep'],
+        ['','λ = AVG SO/GAME'],
+        ['','K = FLOOR(LINE)'],
+        ['','MODEL% = 1-P(X≤K)'],
+        ['','X ~ POISSON(λ)'],
+      ],
+      [
+        ['hi','STEP 4: EV'],
+        ['','EV = MODEL% - FAIR%'],
+        ['sep'],
+        ['','POSITIVE = EDGE IN'],
+        ['','YOUR FAVOR'],
+        ['','NEGATIVE = BOOK'],
+        ['','HAS THE EDGE'],
+      ],
+    ]
+  },
 }
 
 let _infoModalCol  = null
@@ -381,10 +410,9 @@ function _renderInfoModal() {
   modal.innerHTML = `<div class="im-title">${info.title}</div>${rowsHtml}${navHtml}`
 }
 
-function showInfoModal(col, propType) {
-  const key = propType && COLUMN_INFO[col + '_' + propType] ? col + '_' + propType : col
-  if (!COLUMN_INFO[key]) return
-  _infoModalCol  = key
+function showInfoModal(col) {
+  if (!COLUMN_INFO[col]) return
+  _infoModalCol  = col
   _infoModalPage = 0
   _renderInfoModal()
   document.getElementById('info-modal').classList.add('visible')
@@ -450,7 +478,6 @@ const IMG_OVERRIDES = {
   'jacob realmuto':        'j.t. realmuto',
   'jordon adell':          'jo adell',
   'jose adolis garcia':    'adolis garcía',
-  'patrick higgins':       'p.j. higgins',
 }
 const IMG_ALIASES = {
   'frederick': ['freddie', 'fred'],
@@ -671,12 +698,6 @@ function tokenMatch(a, b) {
   return m >= 3 && (a.startsWith(b) || b.startsWith(a))
 }
 
-function mktPropType(mktName) {
-  const m = mktName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  if (m.includes('pitcher') && m.includes('strikeout')) return 'strikeouts'
-  return 'hits'
-}
-
 function mktToStatKey(mktName) {
   const m = mktName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   if (m.includes('pitcher') && m.includes('strikeout')) return 'pitching_overall_total_strikeouts'
@@ -694,7 +715,6 @@ function impliedProb(us) {
 
 function cleanMktName(name) {
   return name
-    .replace(/\bPITCHER\s+STRIKEOUTS\b/gi, "PITCHER K'S")
     .replace(/\s+DEL\s+BATEADOR/gi, '')
     .replace(/\s*\(INCL\.?\s*EXTRA\s*INNINGS\)/gi, '')
     .replace(/\s+M[AÁ]S\s+DE\s*[\/]\s*MENOS\s+DE/gi, ' OVER/UNDER')
@@ -715,20 +735,6 @@ function mktSubtitle(name, playerCount) {
   else if (m.includes('rbi'))        desc = 'RBI props'
   else if (m.includes('home run'))   desc = 'Home run props'
   return `${desc} · ${playerCount} lines`
-}
-
-// ── Poisson EV helpers ───────────────────────────────────────────────────────
-
-function poissonProb(lambda, line) {
-  // P(X > line) for X ~ Poisson(lambda)
-  if (lambda == null || lambda <= 0) return null
-  const k = Math.floor(line)
-  let cdf = 0, term = Math.exp(-lambda)
-  for (let i = 0; i <= k; i++) {
-    cdf += term
-    term *= lambda / (i + 1)
-  }
-  return Math.min(Math.max(1 - cdf, 0), 1)
 }
 
 // ── Binomial EV helpers ──────────────────────────────────────────────────────
@@ -753,46 +759,59 @@ function binomCDF(k, n, p) {
   return Math.min(sum, 1)
 }
 
-function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType = 'hits') {
-  if (avg == null || line == null) return null
+function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs) {
+  if (avg == null || abAvgPerGame == null || line == null) return null
   if (overUs == null && underUs == null) return null
 
   // No-vig implied probabilities
   const rawOver  = impliedProb(overUs)
   const rawUnder = impliedProb(underUs)
   if (rawOver == null || rawUnder == null) return null
+  const total      = rawOver + rawUnder
+  const modelProb  = direction === 'under' ? rawUnder / total : rawOver / total
+
+  // Binomial true probability: n = floored AB avg, p = batting avg
+  const n = Math.floor(abAvgPerGame)
+  if (n <= 0) return null
+  const p    = Math.min(Math.max(avg, 0), 1)
+  const cdf  = binomCDF(Math.floor(line), n, p)
+  const trueProb = direction === 'under' ? cdf : 1 - cdf
+
+  return trueProb - modelProb
+}
+
+// Poisson CDF: P(X <= k) for X ~ Poisson(lambda)
+function poissonCDF(k, lambda) {
+  if (lambda <= 0) return k >= 0 ? 1 : 0
+  let sum = 0, term = Math.exp(-lambda)
+  for (let i = 0; i <= Math.floor(k); i++) { sum += term; term *= lambda / (i + 1) }
+  return Math.min(sum, 1)
+}
+
+// EV for pitcher strikeouts (Poisson model): lambda = avg SO/game
+function computeSOEV(avgSoPerGame, line, direction, overUs, underUs) {
+  if (avgSoPerGame == null || avgSoPerGame <= 0 || line == null) return null
+  if (overUs == null && underUs == null) return null
+  const rawOver = impliedProb(overUs), rawUnder = impliedProb(underUs)
+  if (rawOver == null || rawUnder == null) return null
   const total     = rawOver + rawUnder
   const modelProb = direction === 'under' ? rawUnder / total : rawOver / total
-
-  let trueProb
-  if (propType === 'strikeouts') {
-    // Poisson model: lambda = SO/game avg
-    const pOver = poissonProb(avg, line)
-    if (pOver == null) return null
-    trueProb = direction === 'under' ? 1 - pOver : pOver
-  } else {
-    // Binomial model: n = floored AB avg, p = batting avg
-    if (abAvgPerGame == null) return null
-    const n = Math.floor(abAvgPerGame)
-    if (n <= 0) return null
-    const p   = Math.min(Math.max(avg, 0), 1)
-    const cdf = binomCDF(Math.floor(line), n, p)
-    trueProb = direction === 'under' ? cdf : 1 - cdf
-  }
-
+  const cdf       = poissonCDF(Math.floor(line), avgSoPerGame)
+  const trueProb  = direction === 'under' ? cdf : 1 - cdf
   return trueProb - modelProb
 }
 
 // ── Venue-filtered stat computation (mirrors expansion bar logic) ────────────
 
-function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = 'hits', line = 0.5) {
+function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = 'hits') {
   const games         = cache?.normNameToGames?.[norm] ?? []
   const playerTeamUid = cache?.playerTeamUids?.[norm]  ?? null
+  const isSO          = propType === 'strikeouts'
+  const valueKey      = isSO ? 'pitching_overall_total_strikeouts' : 'hitting_hits'
+  const denomKey      = isSO ? 'pitching_overall_innings_pitched'  : 'hitting_at_bats'
 
-  // Exclude 0-AB games for hits, 0-IP games for strikeouts
-  let filtered = propType === 'strikeouts'
-    ? games.filter(g => (g.stats?.pitching_overall_innings_pitched ?? 0) > 0)
-    : games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
+  // Exclude 0-denom games (0 AB for hits, 0 IP for SO)
+  let filtered = games.filter(g => (g.stats?.[denomKey] ?? 0) > 0)
 
   // VS: restrict to upcoming opponent
   if (filterKey === 'VS') {
@@ -835,25 +854,14 @@ function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = '
   const gc = windowGames.length
   if (gc === 0) return { avg: null, avg_ab_per_game: null, games_count: 0, games_with_hit: 0 }
 
-  if (propType === 'strikeouts') {
-    const totalSO = windowGames.reduce((s, g) => s + Number(g.stats?.pitching_overall_total_strikeouts ?? 0), 0)
-    const totalIP = windowGames.reduce((s, g) => s + Number(g.stats?.pitching_overall_innings_pitched  ?? 0), 0)
-    const gwh     = windowGames.filter(g => Number(g.stats?.pitching_overall_total_strikeouts ?? 0) > line).length
-    return {
-      avg:             gc > 0 ? totalSO / gc : null,
-      avg_ab_per_game: totalIP / gc,
-      games_count:     gc,
-      games_with_hit:  gwh,
-    }
-  }
-
-  const totalHits = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
-  const totalAB   = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
-  const gwh       = windowGames.filter(g => Number(g.stats?.hitting_hits ?? 0) > 0).length
+  const totalVal   = windowGames.reduce((s, g) => s + Number(g.stats?.[valueKey] ?? 0), 0)
+  const totalDenom = windowGames.reduce((s, g) => s + Number(g.stats?.[denomKey] ?? 0), 0)
+  const gwh        = windowGames.filter(g => Number(g.stats?.[valueKey] ?? 0) > 0).length
 
   return {
-    avg:             totalAB > 0 ? totalHits / totalAB : null,
-    avg_ab_per_game: totalAB / gc,
+    // For SO: avg = SO/game (Poisson lambda). For hits: avg = batting avg (hits/AB)
+    avg:             isSO ? (gc > 0 ? totalVal / gc : null) : (totalDenom > 0 ? totalVal / totalDenom : null),
+    avg_ab_per_game: totalDenom > 0 ? totalDenom / gc : null,
     games_count:     gc,
     games_with_hit:  gwh,
   }
@@ -861,12 +869,12 @@ function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = '
 
 // ── Render market tbody — reads from player_prop_cache via filterCache ──────
 
-function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
+function renderMktTbodyContent(mktName, cache, filterKeys, entry, propType = 'hits') {
+  const isSOMkt = propType === 'strikeouts'
   if (!cache?.playerStats) {
     return `<tbody><tr><td colspan="6" style="padding:12px 10px;text-align:center;font-size:10px;color:var(--muted);font-family:'Geist Mono',monospace">No cache data</td></tr></tbody>`
   }
 
-  const propType  = mktPropType(mktName)
   const homeUid   = entry?.match?.home_team_uid
   const awayUid   = entry?.match?.away_team_uid
   const sortedFKs = sortFilterKeys(filterKeys)
@@ -876,7 +884,6 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
   for (const [norm, filterMap] of Object.entries(cache.playerStats)) {
     const dbRow = filterMap['DB']
     if (!dbRow) continue
-    if ((dbRow.prop_type ?? 'hits') !== propType) continue
 
     // Use original display name from the cache row (normName key is lowercase)
     const playerName    = dbRow.player_name ?? norm
@@ -921,10 +928,13 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         g.awayTeamUid === awayUid
       )
       if (actual) {
-        const hits = Number(actual.stats?.hitting_hits ?? 0)
-        const ab   = Number(actual.stats?.hitting_at_bats ?? 0)
-        const so   = Number(actual.stats?.pitching_overall_total_strikeouts ?? 0)
-        gameResult = { hits, ab, so }
+        const val  = isSOMkt
+          ? Number(actual.stats?.pitching_overall_total_strikeouts ?? 0)
+          : Number(actual.stats?.hitting_hits ?? 0)
+        const denom = isSOMkt
+          ? Number(actual.stats?.pitching_overall_innings_pitched ?? 0)
+          : Number(actual.stats?.hitting_at_bats ?? 0)
+        gameResult = { hits: val, ab: denom }
       }
     }
     const rowspan  = 1 + sortedFKs.length
@@ -955,11 +965,13 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const cRow        = filterMap[f]
         const filterLabel = f === 'DB' ? 'ALL' : (FILTER_LABELS[f] ?? f)
 
-        const vs     = activeVenue !== 'both' ? computeVenueStats(norm, f, cache, seasonId, entry, propType, lineVal) : null
+        const vs     = activeVenue !== 'both' ? computeVenueStats(norm, f, cache, seasonId, entry, propType) : null
         const effRow = vs ?? cRow
 
         const evRaw = activeVenue !== 'both'
-          ? computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds, propType)
+          ? (isSOMkt
+              ? computeSOEV(effRow?.avg, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds)
+              : computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds))
           : (activeDirection === 'under' ? cRow?.under_ev : cRow?.ev)
         const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
         const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
@@ -968,21 +980,20 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         // For past matches, determine HIT/MISS from actual result
         let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>`
         if (isPast && gameResult) {
-          const actual = propType === 'strikeouts' ? gameResult.so : gameResult.hits
-          const won = activeDirection === 'under' ? actual < lineVal : actual > lineVal
+          const won = activeDirection === 'under'
+            ? gameResult.hits < lineVal
+            : gameResult.hits > lineVal
           const label = won ? 'WON' : 'LOST'
           const col   = won ? 'var(--green)' : 'var(--magenta)'
-          const suffix = propType === 'strikeouts' ? 'K' : 'H'
-          resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${actual}${suffix}</span></td>`
+          resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${gameResult.hits}${isSOMkt ? 'K' : 'H'}</span></td>`
         } else if (isPast) {
           resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
         }
         const avgRaw  = effRow?.avg
-        const avgStr  = avgRaw != null
-          ? propType === 'strikeouts'
-            ? avgRaw.toFixed(1)
-            : avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}`
-          : '—'
+        const avgStr  = avgRaw == null ? '—'
+          : isSOMkt
+            ? avgRaw.toFixed(1)                                                         // SO/G: "7.3"
+            : avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}` // batting avg: ".327"
         const abStr = effRow?.avg_ab_per_game != null ? effRow.avg_ab_per_game.toFixed(1) : '—'
 
         const gc  = effRow?.games_count    ?? 0
@@ -1369,54 +1380,53 @@ async function load(force = false) {
   // Build filterCache for every match from cached rows
   filterCache = {}
   for (const [midStr, rows] of Object.entries(rowsByMatch)) {
-    const mid    = Number(midStr)
-    const dbRows = rows.filter(r => r.filter === 'DB')
+    const mid = Number(midStr)
 
-    // normNameToGames: game_logs from DB rows, compact → expanded format
-    const normNameToGames = {}
-    for (const r of dbRows) {
-      const norm     = normName(r.player_name)
-      const propType = r.prop_type ?? 'hits'
-      normNameToGames[norm] = (r.game_logs ?? []).map(g => ({
-        match_date:  g.d,
-        gameTeamUid: g.t,
-        season_id:   g.s,
-        homeTeamUid: g.h,
-        awayTeamUid: g.a,
-        stats: propType === 'strikeouts'
-          ? {
-              pitching_overall_total_strikeouts:           g.so,
-              pitching_overall_innings_pitched:            g.ip,
-              pitching_overall_strikeouts_per_9_innings:   g.k9,
-              pitching_overall_pitch_count:                g.pc,
-              pitching_overall_strikeouts_swinging:        g.ks,
-              pitching_overall_batters_faced:              g.bf,
-              pitching_overall_not_in_play_strikes_swinging: g.sws,
-              pitching_overall_opponents_batting_average:  g.oba,
-            }
-          : { hitting_hits: g.hi, hitting_at_bats: g.ab },
-      }))
-    }
+    // Build separate sub-cache per prop type so each market gets its own player set
+    const propTypes = [...new Set(rows.map(r => r.prop_type ?? 'hits'))]
+    const subCaches = {}
 
-    // teamsInfoByMid: keyed by date string (max 1 game per player per day)
-    const teamsInfoByMid = {}
-    for (const r of dbRows) {
-      for (const g of r.game_logs ?? []) {
-        teamsInfoByMid[g.d] = { homeTeamUid: g.h, awayTeamUid: g.a }
+    for (const pt of propTypes) {
+      const ptRows   = rows.filter(r => (r.prop_type ?? 'hits') === pt)
+      const ptDbRows = ptRows.filter(r => r.filter === 'DB')
+      const isSO     = pt === 'strikeouts'
+
+      // normNameToGames: compact game_logs → expanded stats (stat keys differ per prop type)
+      const normNameToGames = {}
+      for (const r of ptDbRows) {
+        const norm = normName(r.player_name)
+        normNameToGames[norm] = (r.game_logs ?? []).map(g => ({
+          match_date:  g.d,
+          gameTeamUid: g.t,
+          season_id:   g.s,
+          homeTeamUid: g.h,
+          awayTeamUid: g.a,
+          stats: isSO
+            ? { pitching_overall_total_strikeouts: g.so, pitching_overall_innings_pitched: g.ip }
+            : { hitting_hits: g.hi, hitting_at_bats: g.ab },
+        }))
       }
+
+      const teamsInfoByMid = {}
+      for (const r of ptDbRows) {
+        for (const g of r.game_logs ?? []) {
+          teamsInfoByMid[g.d] = { homeTeamUid: g.h, awayTeamUid: g.a }
+        }
+      }
+
+      const playerStats    = {}
+      const playerTeamUids = {}
+      for (const r of ptRows) {
+        const norm = normName(r.player_name)
+        if (!playerStats[norm]) playerStats[norm] = {}
+        playerStats[norm][r.filter] = r
+        if (r.player_team_uid != null) playerTeamUids[norm] = r.player_team_uid
+      }
+
+      subCaches[pt] = { normNameToGames, teamsInfoByMid, playerStats, playerTeamUids }
     }
 
-    // playerStats: normName → { filter → cacheRow }
-    const playerStats    = {}
-    const playerTeamUids = {}
-    for (const r of rows) {
-      const norm = normName(r.player_name)
-      if (!playerStats[norm]) playerStats[norm] = {}
-      playerStats[norm][r.filter] = r
-      if (r.player_team_uid != null) playerTeamUids[norm] = r.player_team_uid
-    }
-
-    filterCache[mid] = { normNameToGames, teamsInfoByMid, playerStats, playerTeamUids }
+    filterCache[mid] = subCaches
   }
 
   // Build _playerNameCache for any legacy helpers
@@ -1436,12 +1446,12 @@ async function load(force = false) {
     const home = teamMap[m?.home_team_uid]
     const away = teamMap[m?.away_team_uid]
     const info = (m && SEASON_INFO[m.season_id]) ?? { sport: 'MLB', league: 'MLB' }
-    // markets holds DB rows split by prop type; renderer reads from filterCache
+    // markets holds DB rows per prop type; renderer reads from filterCache[mid][propType]
     const markets = {}
-    const hitsDbRows = rows.filter(r => r.filter === 'DB' && (r.prop_type == null || r.prop_type === 'hits'))
-    const soDbRows   = rows.filter(r => r.filter === 'DB' && r.prop_type === 'strikeouts')
-    if (hitsDbRows.length) markets[HITS_MKT]       = hitsDbRows
-    if (soDbRows.length)   markets[PITCHER_SO_MKT] = soDbRows
+    const hitDb = rows.filter(r => (r.prop_type ?? 'hits') === 'hits'        && r.filter === 'DB')
+    const soDb  = rows.filter(r =>  r.prop_type             === 'strikeouts'  && r.filter === 'DB')
+    if (hitDb.length) markets[HITS_MKT]       = hitDb
+    if (soDb.length)  markets[PITCHER_SO_MKT] = soDb
     return {
       matchId: mid, match: m, home, away,
       abbr:   `${away?.abbr ?? '?'} @ ${home?.abbr ?? '?'}`,
@@ -1645,18 +1655,27 @@ function renderMatch(entry) {
   const homeNick = teamNick(homeFull)
   const awayNick = teamNick(awayFull)
 
-  const cache      = filterCache[matchId] ?? null
-  const filterKeys = sortFilterKeys([...activeFilters])
+  const allSubCaches = filterCache[matchId] ?? {}
+  const filterKeys   = sortFilterKeys([...activeFilters])
 
   const isPastMatch = isMatchOld(match?.match_date)
   const mktsEntries = Object.entries(markets)
   const mktCount    = mktsEntries.length
   const mktsHtml = mktsEntries.map(([mktName, rows], mi) => {
+    const propType    = mktName === PITCHER_SO_MKT ? 'strikeouts' : 'hits'
+    const isSOMkt     = propType === 'strikeouts'
+    const cache       = allSubCaches[propType] ?? null
     const normMkt     = normName(mktName)
     const playerCount = cache ? Object.keys(cache.playerStats ?? {}).length : rows.length
-    const tbodyHtml   = renderMktTbodyContent(mktName, cache, filterKeys, entry)
+    const tbodyHtml   = renderMktTbodyContent(mktName, cache, filterKeys, entry, propType)
     const isLastMkt   = mi === mktCount - 1
     const thBase      = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -60px 0 0 var(--bg),0 2px 0 0 var(--surface-2)`
+    // Dynamic column labels per prop type
+    const colAvg  = isSOMkt ? { label: 'SO/G',     info: 'so_avg'  } : { label: 'Avg',      info: 'avg'      }
+    const colAb   = isSOMkt ? { label: 'IP/G',     info: 'ip_avg'  } : { label: 'AB Avg',   info: 'ab_avg'   }
+    const colRate = isSOMkt ? { label: 'Over Rate', info: 'so_rate' } : { label: 'Hit Rate', info: 'hit_rate' }
+    const colEv   = isSOMkt ? { label: isPastMatch ? 'Result' : 'EV', info: isPastMatch ? 'result' : 'so_ev' }
+                            : { label: isPastMatch ? 'Result' : 'EV', info: isPastMatch ? 'result' : 'ev'    }
 
     return `
       <div class="mkt-title" id="mkt-title-${matchId}-${mi}"
@@ -1675,10 +1694,10 @@ function renderMatch(entry) {
             <tr>
               <th style="${thBase};text-align:left;cursor:pointer;width:120px" onclick="showInfoModal('player')">Player</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg','${mktPropType(mktName)}')">Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'IP/G' : 'AB/G'}</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : 'Hit Rate'}</th>
-              <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('${colAvg.info}')">${colAvg.label}</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('${colAb.info}')">${colAb.label}</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('${colRate.info}')">${colRate.label}</th>
+              <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${colEv.info}')">${colEv.label}</th>
             </tr>
           </thead>
           ${tbodyHtml}
