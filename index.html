@@ -387,6 +387,103 @@ const COLUMN_INFO = {
       ['','LINE 2.5 → ≥3 BASES'],
     ]
   },
+  avg_hr: {
+    title: 'AVG',
+    rows: [
+      ['hi','HOME RUNS PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','POISSON LAMBDA —'],
+      ['','EXPECTED HR'],
+      ['','PER GAME'],
+    ]
+  },
+  ab_avg_hr: {
+    title: 'AB/G',
+    rows: [
+      ['hi','AVG AT-BATS PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','CONTEXT ONLY —'],
+      ['','NOT USED IN THE'],
+      ['','POISSON MODEL'],
+    ]
+  },
+  avg_singles: {
+    title: 'AVG',
+    rows: [
+      ['hi','SINGLES PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','POISSON LAMBDA —'],
+      ['','EXPECTED SINGLES'],
+      ['','PER GAME'],
+    ]
+  },
+  ab_avg_singles: {
+    title: 'AB/G',
+    rows: [
+      ['hi','AVG AT-BATS PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','CONTEXT ONLY —'],
+      ['','NOT USED IN THE'],
+      ['','POISSON MODEL'],
+    ]
+  },
+  avg_doubles: {
+    title: 'AVG',
+    rows: [
+      ['hi','DOUBLES PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','POISSON LAMBDA —'],
+      ['','EXPECTED DOUBLES'],
+      ['','PER GAME'],
+    ]
+  },
+  ab_avg_doubles: {
+    title: 'AB/G',
+    rows: [
+      ['hi','AVG AT-BATS PER GAME'],
+      ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','CONTEXT ONLY —'],
+      ['','NOT USED IN THE'],
+      ['','POISSON MODEL'],
+    ]
+  },
+  hit_rate_doubles: {
+    title: '2B RATE',
+    rows: [
+      ['hi','% OF GAMES WHERE'],
+      ['hi','PLAYER EXCEEDED'],
+      ['hi','THE LINE'],
+      ['sep'],
+      ['','LINE 0.5 → ≥1 DOUBLE'],
+      ['','LINE 1.5 → ≥2 DOUBLES'],
+    ]
+  },
+  hit_rate_singles: {
+    title: '1B RATE',
+    rows: [
+      ['hi','% OF GAMES WHERE'],
+      ['hi','PLAYER EXCEEDED'],
+      ['hi','THE LINE'],
+      ['sep'],
+      ['','LINE 0.5 → ≥1 SINGLE'],
+      ['','LINE 1.5 → ≥2 SINGLES'],
+    ]
+  },
+  hit_rate_hr: {
+    title: 'HR RATE',
+    rows: [
+      ['hi','% OF GAMES WHERE'],
+      ['hi','PLAYER HIT A HOME RUN'],
+      ['sep'],
+      ['','LINE 0.5 → ≥1 HR'],
+    ]
+  },
   ev: {
     title: 'EV',
     pages: [
@@ -670,6 +767,9 @@ const PITCHER_SO_MKT = 'Pitcher strikeouts Más de/Menos de (incl. extra innings
 const RUNS_MKT       = 'Runs Más de/Menos de (incl. extra innings)'
 const RBI_MKT        = 'Jugador - Carreras Impulsadas Más / Menos (incl. extra innings)'
 const BASES_MKT      = 'Bases Más de/Menos de (incl. extra innings)'
+const HR_MKT         = 'Jugador - Home runs Más / Menos (incl. extra innings)'
+const SINGLES_MKT    = 'Jugador - Sencillos Más / Menos (incl. extra innings)'
+const DOUBLES_MKT    = 'Jugador - Dobles Más / Menos (incl. extra innings)'
 const MLB_SEASON = 134469
 const TZ         = 'America/Mexico_City'
 
@@ -777,6 +877,9 @@ function mktPropType(mktName) {
   const m = mktName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   if (m.includes('pitcher') && m.includes('strikeout')) return 'strikeouts'
   if (m.includes('impuls')) return 'rbi'
+  if (m.includes('doble')) return 'doubles'
+  if (m.includes('sencillo')) return 'singles'
+  if (m.includes('home') && m.includes('run')) return 'hr'
   if (m.includes('run')) return 'runs'
   if (m.includes('base') && !m.includes('robada')) return 'bases'
   return 'hits'
@@ -789,6 +892,9 @@ function mktToStatKey(mktName) {
   if (m.includes('hit'))        return 'hitting_hits'
   if (m.includes('base'))       return 'hitting_total_bases'
   if (m.includes('impuls'))     return 'hitting_runs_batted_in'
+  if (m.includes('doble')) return 'hitting_doubles'
+  if (m.includes('sencillo')) return 'hitting_singles'
+  if (m.includes('home') && m.includes('run')) return 'hitting_home_runs'
   if (m.includes('run'))        return 'hitting_total_runs_scored'
   return null
 }
@@ -801,6 +907,9 @@ function impliedProb(us) {
 function cleanMktName(name) {
   return name
     .replace(/\bJUGADOR\s*-\s*/gi, '')
+    .replace(/\bTOTALES\s+POR\s+JUGADOR\b/gi, '')
+    .replace(/\bDOBLES\b/gi, 'DOUBLES')
+    .replace(/\bSENCILLOS\b/gi, 'SINGLES')
     .replace(/\bCARRERAS\s+IMPULSADAS\b/gi, 'RBI<span style="text-transform:none">s</span>')
     .replace(/\bPITCHER\s+STRIKEOUTS\b/gi, "PITCHER K'S")
     .replace(/\s+DEL\s+BATEADOR/gi, '')
@@ -819,9 +928,11 @@ function mktSubtitle(name, playerCount) {
   else if (m.includes('strikeout'))  desc = 'Batter strikeout props'
   else if (m.includes('hit'))        desc = 'Player hit props'
   else if (m.includes('base'))       desc = 'Total bases props'
+  else if (m.includes('doble')) desc = 'Doubles props'
+  else if (m.includes('sencillo')) desc = 'Singles props'
+  else if (m.includes('home') && m.includes('run')) desc = 'Home run props'
   else if (m.includes('run'))        desc = 'Runs scored props'
   else if (m.includes('rbi') || m.includes('impuls')) desc = 'RBI props'
-  else if (m.includes('home run'))   desc = 'Home run props'
   return `${desc} · ${playerCount} lines`
 }
 
@@ -868,12 +979,14 @@ function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType
   // No-vig implied probabilities
   const rawOver  = impliedProb(overUs)
   const rawUnder = impliedProb(underUs)
-  if (rawOver == null || rawUnder == null) return null
-  const total     = rawOver + rawUnder
-  const modelProb = direction === 'under' ? rawUnder / total : rawOver / total
+  if (rawOver == null) return null
+  // No-under market (e.g. HR): use raw implied directly, no devigging
+  const mktOver   = rawUnder != null ? rawOver / (rawOver + rawUnder) : rawOver
+  const mktUnder  = rawUnder != null ? rawUnder / (rawOver + rawUnder) : 1 - rawOver
+  const modelProb = direction === 'under' ? mktUnder : mktOver
 
   let trueProb
-  if (propType === 'strikeouts' || propType === 'runs' || propType === 'rbi' || propType === 'bases') {
+  if (propType === 'strikeouts' || propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles') {
     // Poisson model: lambda = stat/game avg
     const pOver = poissonProb(avg, line)
     if (pOver == null) return null
@@ -994,6 +1107,42 @@ function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = '
     }
   }
 
+  if (propType === 'hr') {
+    const totalHR = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_home_runs ?? 0), 0)
+    const totalAB = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    const gwh     = windowGames.filter(g => Number(g.stats?.hitting_home_runs ?? 0) > line).length
+    return {
+      avg:             gc > 0 ? totalHR / gc : null,
+      avg_ab_per_game: totalAB / gc,
+      games_count:     gc,
+      games_with_hit:  gwh,
+    }
+  }
+
+  if (propType === 'singles') {
+    const totalS  = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_singles ?? 0), 0)
+    const totalAB = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    const gwh     = windowGames.filter(g => Number(g.stats?.hitting_singles ?? 0) > line).length
+    return {
+      avg:             gc > 0 ? totalS / gc : null,
+      avg_ab_per_game: totalAB / gc,
+      games_count:     gc,
+      games_with_hit:  gwh,
+    }
+  }
+
+  if (propType === 'doubles') {
+    const totalD  = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_doubles ?? 0), 0)
+    const totalAB = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    const gwh     = windowGames.filter(g => Number(g.stats?.hitting_doubles ?? 0) > line).length
+    return {
+      avg:             gc > 0 ? totalD / gc : null,
+      avg_ab_per_game: totalAB / gc,
+      games_count:     gc,
+      games_with_hit:  gwh,
+    }
+  }
+
   const totalHits = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
   const totalAB   = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
   const gwh       = windowGames.filter(g => Number(g.stats?.hitting_hits ?? 0) > 0).length
@@ -1075,7 +1224,10 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const r    = Number(actual.stats?.hitting_total_runs_scored ?? 0)
         const rbi  = Number(actual.stats?.hitting_runs_batted_in ?? 0)
         const tb   = Number(actual.stats?.hitting_total_bases ?? 0)
-        gameResult = { hits, ab, so, r, rbi, tb }
+        const hr   = Number(actual.stats?.hitting_home_runs ?? 0)
+        const s1   = Number(actual.stats?.hitting_singles ?? 0)
+        const d2   = Number(actual.stats?.hitting_doubles ?? 0)
+        gameResult = { hits, ab, so, r, rbi, tb, hr, s1, d2 }
       }
     }
     const rowspan  = 1 + sortedFKs.length
@@ -1119,19 +1271,19 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         // For past matches, determine HIT/MISS from actual result
         let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>`
         if (isPast && gameResult) {
-          const actual = propType === 'strikeouts' ? gameResult.so : propType === 'runs' ? gameResult.r : propType === 'rbi' ? gameResult.rbi : propType === 'bases' ? gameResult.tb : gameResult.hits
+          const actual = propType === 'strikeouts' ? gameResult.so : propType === 'runs' ? gameResult.r : propType === 'rbi' ? gameResult.rbi : propType === 'bases' ? gameResult.tb : propType === 'hr' ? gameResult.hr : propType === 'singles' ? gameResult.s1 : propType === 'doubles' ? gameResult.d2 : gameResult.hits
           const won = activeDirection === 'under' ? actual < lineVal : actual > lineVal
           const label = won ? 'WON' : 'LOST'
           const col   = won ? 'var(--green)' : 'var(--magenta)'
-          const suffix = propType === 'strikeouts' ? 'K' : propType === 'runs' ? 'R' : propType === 'rbi' ? 'RBI' : propType === 'bases' ? 'TB' : 'H'
+          const suffix = propType === 'strikeouts' ? 'K' : propType === 'runs' ? 'R' : propType === 'rbi' ? 'RBI' : propType === 'bases' ? 'TB' : propType === 'hr' ? 'HR' : propType === 'singles' ? '1B' : propType === 'doubles' ? '2B' : 'H'
           resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${actual}${suffix}</span></td>`
         } else if (isPast) {
           resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
         }
         const avgRaw  = effRow?.avg
         const avgStr  = avgRaw != null
-          ? (propType === 'strikeouts' || propType === 'runs' || propType === 'rbi' || propType === 'bases')
-            ? avgRaw.toFixed(1)
+          ? (propType === 'strikeouts' || propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles')
+            ? propType === 'hr' ? avgRaw.toFixed(2) : avgRaw.toFixed(1)
             : avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}`
           : '—'
         const abStr = effRow?.avg_ab_per_game != null ? effRow.avg_ab_per_game.toFixed(1) : '—'
@@ -1552,6 +1704,12 @@ async function load(force = false) {
           ? { hitting_runs_batted_in: g.rbi, hitting_at_bats: g.ab }
           : propType === 'bases'
           ? { hitting_total_bases: g.tb, hitting_at_bats: g.ab }
+          : propType === 'hr'
+          ? { hitting_home_runs: g.hr, hitting_at_bats: g.ab }
+          : propType === 'singles'
+          ? { hitting_singles: g.s1, hitting_at_bats: g.ab }
+          : propType === 'doubles'
+          ? { hitting_doubles: g.d2, hitting_at_bats: g.ab }
           : { hitting_hits: g.hi, hitting_at_bats: g.ab },
       }))
     }
@@ -1603,11 +1761,17 @@ async function load(force = false) {
     const runsDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'runs')
     const rbiDbRows   = rows.filter(r => r.filter === 'DB' && r.prop_type === 'rbi')
     const basesDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'bases')
-    if (hitsDbRows.length)  markets[HITS_MKT]       = hitsDbRows
-    if (soDbRows.length)    markets[PITCHER_SO_MKT] = soDbRows
-    if (runsDbRows.length)  markets[RUNS_MKT]       = runsDbRows
-    if (rbiDbRows.length)   markets[RBI_MKT]        = rbiDbRows
-    if (basesDbRows.length) markets[BASES_MKT]      = basesDbRows
+    const hrDbRows      = rows.filter(r => r.filter === 'DB' && r.prop_type === 'hr')
+    const singlesDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'singles')
+    if (hitsDbRows.length)    markets[HITS_MKT]       = hitsDbRows
+    if (soDbRows.length)      markets[PITCHER_SO_MKT] = soDbRows
+    if (runsDbRows.length)    markets[RUNS_MKT]       = runsDbRows
+    if (rbiDbRows.length)     markets[RBI_MKT]        = rbiDbRows
+    if (basesDbRows.length)   markets[BASES_MKT]      = basesDbRows
+    if (hrDbRows.length)      markets[HR_MKT]         = hrDbRows
+    const doublesDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'doubles')
+    if (singlesDbRows.length) markets[SINGLES_MKT]    = singlesDbRows
+    if (doublesDbRows.length) markets[DOUBLES_MKT]    = doublesDbRows
     return {
       matchId: mid, match: m, home, away,
       abbr:   `${away?.abbr ?? '?'} @ ${home?.abbr ?? '?'}`,
@@ -1843,7 +2007,7 @@ function renderMatch(entry) {
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg','${mktPropType(mktName)}')">Avg</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'IP/G' : 'AB/G'}</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : mktPropType(mktName) === 'runs' ? 'Run Rate' : mktPropType(mktName) === 'rbi' ? 'RBI Rate' : mktPropType(mktName) === 'bases' ? 'TB Rate' : 'Hit Rate'}</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : mktPropType(mktName) === 'runs' ? 'Run Rate' : mktPropType(mktName) === 'rbi' ? 'RBI Rate' : mktPropType(mktName) === 'bases' ? 'TB Rate' : mktPropType(mktName) === 'hr' ? 'HR Rate' : mktPropType(mktName) === 'singles' ? '1B Rate' : mktPropType(mktName) === 'doubles' ? '2B Rate' : 'Hit Rate'}</th>
               <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
@@ -2093,7 +2257,7 @@ function renderExpansionContent(key) {
   const statKey    = mktToStatKey(mktName)
   const propType   = mktPropType(mktName)
   const isHitsMkt  = statKey === 'hitting_hits'
-  const isRunsMkt  = propType === 'runs' || propType === 'rbi' || propType === 'bases'
+  const isRunsMkt  = propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles'
 
   // Exclude 0-AB games for hits, runs, and rbi markets
   const gamesFiltered = (isHitsMkt || isRunsMkt)
