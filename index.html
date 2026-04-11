@@ -769,6 +769,10 @@ function imgCandidates(name) {
     const sl = s?.toLowerCase(); if (sl && !seen.has(sl)) { seen.add(sl); candidates.push(sl) }
   }
 
+  // 0. Naive slug — matches files named without NFD (accented chars → underscore)
+  const naiveSlug = (n) => (n || '').replace(/[^a-z0-9]/gi, '_')
+  const ns = naiveSlug(name); if (ns && !seen.has(ns)) { seen.add(ns); candidates.unshift(ns) }
+  const nsl = ns?.toLowerCase(); if (nsl && !seen.has(nsl)) { seen.add(nsl); candidates.splice(1, 0, nsl) }
   // 1. Original as-is (preserves Codere casing)
   add(name)
   // 2. Periods/hyphens stripped (handles C.J. → CJ, Hye-seong → Hyeseong, etc.)
@@ -782,7 +786,14 @@ function imgCandidates(name) {
   // 3. Word-level accent restoration (e.g. "diaz" → "díaz")
   const tokens = clean.split(' ')
   const reaccented = tokens.map(t => ACCENT_MAP[t] ?? t).join(' ')
-  if (reaccented !== clean) { add(titleCase(reaccented)); add(titleCase(stripAccents(reaccented))) }
+  if (reaccented !== clean) {
+    add(titleCase(reaccented))
+    add(titleCase(stripAccents(reaccented)))
+    // Also try naive slug of reaccented (catches files named without NFD from accented source)
+    const rns = naiveSlug(titleCase(reaccented))
+    if (rns && !seen.has(rns)) { seen.add(rns); candidates.push(rns) }
+    const rnsl = rns?.toLowerCase(); if (rnsl && !seen.has(rnsl)) { seen.add(rnsl); candidates.push(rnsl) }
+  }
   // 4. Override → title-cased
   if (IMG_OVERRIDES[clean]) {
     const ov = IMG_OVERRIDES[clean]
