@@ -2111,10 +2111,10 @@ function renderMatch(entry) {
     const thBase      = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -60px 0 0 var(--bg),0 2px 0 0 var(--surface-2)`
 
     return `
-      <div class="mkt-item" data-mkt-name="${mktName.replace(/"/g,'&quot;')}">
+      <div class="mkt-item" data-mkt-name="${mktName.replace(/"/g,'&quot;')}" style="position:sticky;background:var(--bg);${mi > 0 ? 'margin-top:2px;' : ''}">
       <div class="mkt-title" id="mkt-title-${matchId}-${mi}"
         onclick="toggleMkt(${matchId},${mi})"
-        style="position:sticky;z-index:${20 + mktCount - mi};display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border:2px solid var(--border);overflow:hidden;box-shadow:0 -8px 0 0 var(--bg);transform:translateZ(0);${mi > 0 ? 'margin-top:2px;' : ''}"
+        style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border:2px solid var(--border);overflow:hidden;box-shadow:0 -10px 0 0 var(--bg);transform:translateZ(0);"
         onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
         <span style="display:flex;align-items:center;gap:8px">
           <span class="mkt-drag-handle" onclick="event.stopPropagation()" style="cursor:grab;color:var(--muted);font-size:13px;padding:0 4px 0 0;line-height:1;user-select:none">☰</span>
@@ -2206,14 +2206,14 @@ function updateMktTops() {
   if (activeMatch == null) return
   const card = document.querySelector('[data-match-id="' + activeMatch + '"]')
   if (!card) return
-  const titles = card.querySelectorAll('.mkt-title')
-  if (!titles.length) return
+  const items = card.querySelectorAll('.mkt-item')
+  if (!items.length) return
   const navH   = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0
-  const titleH = titles[0].offsetHeight
-  titles.forEach((t, i) => {
-    t.style.top    = (navH + i * titleH) + 'px'
-    t.style.zIndex = 20 + (titles.length - i)
-    const bodyEl = document.getElementById(t.id.replace('mkt-title', 'mkt-body'))
+  const titleH = (card.querySelector('.mkt-title') || { offsetHeight: 33 }).offsetHeight
+  items.forEach((item, i) => {
+    item.style.top    = (navH + i * titleH) + 'px'
+    item.style.zIndex = 20 + (items.length - i)
+    const bodyEl = item.querySelector('.mkt-body')
     if (!bodyEl) return
     const theadTop = navH + i * titleH + titleH - 2
     bodyEl.querySelectorAll('th').forEach(th => { th.style.top = theadTop + 'px' })
