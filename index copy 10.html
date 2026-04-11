@@ -1458,7 +1458,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     tbodys += `<tbody>`
     if (teamLabel) {
       tbodys += `<tr>
-        <td colspan="6" class="team-hdr" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h) + 39px);z-index:10;background:#0a0a0a;padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
+        <td colspan="6" class="team-hdr" style="background:#0a0a0a;padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}</td>
       </tr>`
     }
     tbodys += entries.map(e => e.trows).join('')
@@ -2108,7 +2108,7 @@ function renderMatch(entry) {
     const playerCount = rows.length
     const tbodyHtml   = renderMktTbodyContent(mktName, cache, filterKeys, entry)
     const isLastMkt   = mi === mktCount - 1
-    const thBase      = `position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 2px 0 0 var(--surface-2)`
+    const thBase      = `background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em`
 
     return `
       <div class="mkt-item" data-mkt-name="${mktName.replace(/"/g,'&quot;')}" style="${mi > 0 ? 'margin-top:2px;' : ''}">
@@ -2185,26 +2185,21 @@ function toggleMkt(matchId, mi) {
   for (const [key, exp] of [...expansions]) {
     if (exp.matchId === matchId) collapseExpansion(key)
   }
-  const titleEl = document.getElementById('mkt-title-' + matchId + '-' + mi)
-  const body    = document.getElementById('mkt-body-'  + matchId + '-' + mi)
-  const isOpen  = body.style.display !== 'none'
+  const titleEl      = document.getElementById('mkt-title-' + matchId + '-' + mi)
+  const body         = document.getElementById('mkt-body-'  + matchId + '-' + mi)
+  const scrollBefore = window.scrollY
   const offsetBefore = titleEl.offsetTop
+  const isOpen = body.style.display !== 'none'
   const card = document.querySelector('[data-match-id="' + matchId + '"]')
   card.querySelectorAll('.mkt-body').forEach(b  => { b.style.display = 'none' })
   card.querySelectorAll('.mkt-title .chev').forEach(c => { c.textContent = '▶' })
-  card.querySelectorAll('.mkt-title').forEach(t => { t.style.position = ''; t.style.top = ''; t.style.zIndex = '' })
   if (!isOpen) {
     body.style.display = 'block'
     titleEl.querySelector('.chev').textContent = '▼'
-    titleEl.style.position = 'sticky'
-    titleEl.style.top      = 'var(--nav-h)'
-    titleEl.style.zIndex   = '25'
   }
-  if (!isOpen) {
-    const navH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0
-    const item = titleEl.closest('.mkt-item')
-    requestAnimationFrame(() => window.scrollTo({ top: item.offsetTop - navH, behavior: 'instant' }))
-  }
+  const offsetAfter = titleEl.offsetTop
+  window.scrollTo(0, scrollBefore + (offsetAfter - offsetBefore))
+  requestAnimationFrame(updateMktTops)
 }
 
 function updateMktTops() {}

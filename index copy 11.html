@@ -2185,10 +2185,11 @@ function toggleMkt(matchId, mi) {
   for (const [key, exp] of [...expansions]) {
     if (exp.matchId === matchId) collapseExpansion(key)
   }
-  const titleEl = document.getElementById('mkt-title-' + matchId + '-' + mi)
-  const body    = document.getElementById('mkt-body-'  + matchId + '-' + mi)
-  const isOpen  = body.style.display !== 'none'
+  const titleEl      = document.getElementById('mkt-title-' + matchId + '-' + mi)
+  const body         = document.getElementById('mkt-body-'  + matchId + '-' + mi)
+  const scrollBefore = window.scrollY
   const offsetBefore = titleEl.offsetTop
+  const isOpen = body.style.display !== 'none'
   const card = document.querySelector('[data-match-id="' + matchId + '"]')
   card.querySelectorAll('.mkt-body').forEach(b  => { b.style.display = 'none' })
   card.querySelectorAll('.mkt-title .chev').forEach(c => { c.textContent = '▶' })
@@ -2200,11 +2201,8 @@ function toggleMkt(matchId, mi) {
     titleEl.style.top      = 'var(--nav-h)'
     titleEl.style.zIndex   = '25'
   }
-  if (!isOpen) {
-    const navH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0
-    const item = titleEl.closest('.mkt-item')
-    requestAnimationFrame(() => window.scrollTo({ top: item.offsetTop - navH, behavior: 'instant' }))
-  }
+  const offsetAfter = titleEl.offsetTop
+  window.scrollTo(0, scrollBefore + (offsetAfter - offsetBefore))
 }
 
 function updateMktTops() {}
