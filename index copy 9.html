@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Clash+Grotesk:wght@600;700&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     /* ── design system: lucha libre ── */
@@ -2093,15 +2092,7 @@ function renderMatch(entry) {
   const filterKeys = sortFilterKeys([...activeFilters])
 
   const isPastMatch = isMatchOld(match?.match_date)
-  const savedOrder  = JSON.parse(localStorage.getItem('mkt-order-' + matchId) || 'null')
-  const mktsEntries = Object.entries(markets).sort(([a], [b]) => {
-    if (!savedOrder) return 0
-    const ia = savedOrder.indexOf(a), ib = savedOrder.indexOf(b)
-    if (ia === -1 && ib === -1) return 0
-    if (ia === -1) return 1
-    if (ib === -1) return -1
-    return ia - ib
-  })
+  const mktsEntries = Object.entries(markets)
   const mktCount    = mktsEntries.length
   const mktsHtml = mktsEntries.map(([mktName, rows], mi) => {
     const normMkt     = normName(mktName)
@@ -2111,17 +2102,13 @@ function renderMatch(entry) {
     const thBase      = `position:sticky;z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 -60px 0 0 var(--bg),0 2px 0 0 var(--surface-2)`
 
     return `
-      <div class="mkt-item" data-mkt-name="${mktName.replace(/"/g,'&quot;')}">
       <div class="mkt-title" id="mkt-title-${matchId}-${mi}"
         onclick="toggleMkt(${matchId},${mi})"
         style="position:sticky;z-index:${20 + mktCount - mi};display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;background:var(--surface-2);border:2px solid var(--border);overflow:hidden;box-shadow:0 -8px 0 0 var(--bg);transform:translateZ(0);${mi > 0 ? 'margin-top:2px;' : ''}"
         onmouseover="this.style.background='#1e1e22'" onmouseout="this.style.background='var(--surface-2)'">
-        <span style="display:flex;align-items:center;gap:8px">
-          <span class="mkt-drag-handle" onclick="event.stopPropagation()" style="cursor:grab;color:var(--muted);font-size:13px;padding:0 4px 0 0;line-height:1;user-select:none">☰</span>
-          <span style="display:flex;align-items:baseline;gap:8px">
-            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${cleanMktName(mktName)}</span>
-            <span style="font-size:10px;color:var(--muted)">${mktSubtitle(mktName, playerCount)}</span>
-          </span>
+        <span style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${cleanMktName(mktName)}</span>
+          <span style="font-size:10px;color:var(--muted)">${mktSubtitle(mktName, playerCount)}</span>
         </span>
         <span class="chev" style="color:var(--muted);font-size:9px">▶</span>
       </div>
@@ -2139,7 +2126,6 @@ function renderMatch(entry) {
           </thead>
           ${tbodyHtml}
         </table>
-      </div>
       </div>`
   }).join('')
 
@@ -2157,7 +2143,7 @@ function renderMatch(entry) {
           <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${dateLbl}</span>
         </div>
       </div>
-      <div id="mkt-list-${matchId}">${mktsHtml}</div>
+      ${mktsHtml}
     </div>`
 }
 
@@ -2243,19 +2229,6 @@ function render() {
     return
   }
   document.getElementById('content').innerHTML = entries.map(renderMatch).join('')
-  entries.forEach(entry => {
-    const listEl = document.getElementById('mkt-list-' + entry.matchId)
-    if (!listEl || typeof Sortable === 'undefined') return
-    Sortable.create(listEl, {
-      handle: '.mkt-drag-handle',
-      animation: 150,
-      onEnd() {
-        const order = [...listEl.querySelectorAll('.mkt-item')].map(el => el.dataset.mktName)
-        localStorage.setItem('mkt-order-' + entry.matchId, JSON.stringify(order))
-        requestAnimationFrame(updateMktTops)
-      }
-    })
-  })
   requestAnimationFrame(updateStickyOffsets)
 }
 
