@@ -2188,7 +2188,6 @@ function toggleMkt(matchId, mi) {
   const titleEl = document.getElementById('mkt-title-' + matchId + '-' + mi)
   const body    = document.getElementById('mkt-body-'  + matchId + '-' + mi)
   const isOpen  = body.style.display !== 'none'
-  const offsetBefore = titleEl.offsetTop
   const card = document.querySelector('[data-match-id="' + matchId + '"]')
   card.querySelectorAll('.mkt-body').forEach(b  => { b.style.display = 'none' })
   card.querySelectorAll('.mkt-title .chev').forEach(c => { c.textContent = '▶' })
