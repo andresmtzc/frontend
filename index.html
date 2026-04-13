@@ -757,6 +757,7 @@ const IMG_OVERRIDES = {
   'leonardo jimenez':      'leo jiménez',
   'peter crow armstrong':  'pete crow armstrong',
   'nasim nunez':           'nasim nuñez',
+  'cristopher sanchez':    'Cristopher Sánchez',
   'hye seong kim':         'hyeseong kim',
   'joshua douglas naylor': 'josh naylor',
   'ronal acuna jr':        'ronald acuna jr.',
@@ -2471,6 +2472,7 @@ function renderExpansionContent(key) {
   const isHitsMkt  = statKey === 'hitting_hits'
   const isRunsMkt  = propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles' || propType === 'hrr'
 
+
   // Exclude 0-AB games for hits, runs, and rbi markets
   const gamesFiltered = (isHitsMkt || isRunsMkt)
     ? games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
@@ -2568,7 +2570,7 @@ function renderExpansionContent(key) {
             ${ab != null && ab > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${ab}</span></div>` : ''}
             ${bf != null && bf > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${bf}</span></div>` : ''}
             ${barInner}
-            ${linePct != null ? `<div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>` : ''}
+            ${linePct    != null ? `<div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>` : ''}
           </div>
           <span class="text-[10px] font-mono leading-none truncate w-full text-center" style="color:var(--text)">${oppLabel}</span>
           <span class="text-[9px] mt-0.5 leading-none" style="color:var(--muted)">${dateStr}</span>
