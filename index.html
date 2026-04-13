@@ -469,11 +469,14 @@ const COLUMN_INFO = {
     ]
   },
   ab_avg_pitcher_outs: {
-    title: 'IP/G',
+    title: 'PC/G',
     rows: [
-      ['hi','AVG INNINGS PITCHED'],
+      ['hi','AVG PITCH COUNT'],
       ['','PER START'],
       ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','MORE PITCHES ='],
+      ['','MORE OUTS POSSIBLE'],
       ['sep'],
       ['','CONTEXT ONLY —'],
       ['','NOT USED IN THE'],
@@ -1476,12 +1479,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const hrr  = (Number(actual.stats?.hitting_hits ?? 0))
                    + (Number(actual.stats?.hitting_total_runs_scored ?? 0))
                    + (Number(actual.stats?.hitting_runs_batted_in ?? 0))
-        const po   = (() => {
-          const ipStr = actual.stats?.pitching_overall_innings_pitched_formatted
-          if (!ipStr) return 0
-          const parts = String(ipStr).split('.')
-          return (parseInt(parts[0]) || 0) * 3 + (parseInt(parts[1] ?? '0') || 0)
-        })()
+        const po   = Number(actual.stats?.pitcher_outs_computed ?? 0)
         gameResult = { hits, ab, so, r, rbi, tb, hr, s1, d2, po, hrr }
       }
     }
@@ -1956,7 +1954,7 @@ async function load(force = false) {
           : propType === 'runs'
           ? { hitting_total_runs_scored: g.r, hitting_at_bats: g.ab }
           : propType === 'pitcher_outs'
-          ? { pitcher_outs_computed: g.po, pitching_overall_games_started: g.gs ?? 1 }
+          ? { pitcher_outs_computed: g.po, pitching_overall_games_started: g.gs ?? 1, pitching_overall_pitch_count: g.pc }
           : propType === 'hrr'
           ? { hrr_computed: g.hrr, hitting_at_bats: g.ab }
           : propType === 'rbi'
@@ -2281,7 +2279,7 @@ function renderMatch(entry) {
               <th style="${thBase};text-align:left;cursor:pointer;width:120px" onclick="showInfoModal('player')">Player</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg','${mktPropType(mktName)}')">Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'IP/G' : 'AB/G'}</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'PC/G' : 'AB/G'}</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : mktPropType(mktName) === 'runs' ? 'Run Rate' : mktPropType(mktName) === 'rbi' ? 'RBI Rate' : mktPropType(mktName) === 'bases' ? 'TB Rate' : mktPropType(mktName) === 'hr' ? 'HR Rate' : mktPropType(mktName) === 'singles' ? '1B Rate' : mktPropType(mktName) === 'doubles' ? '2B Rate' : mktPropType(mktName) === 'pitcher_outs' ? 'Out Rate' : mktPropType(mktName) === 'hrr' ? 'HRR Rate' : 'Hit Rate'}</th>
               <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}','${mktPropType(mktName)}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
@@ -2574,9 +2572,10 @@ function renderExpansionContent(key) {
   const CHART_H  = 80
   const allVals  = barsData.map(g => statKey ? Number(g.stats?.[statKey] ?? 0) : 0)
   const maxAB    = (isHitsMkt || isRunsMkt) ? Math.max(...barsData.map(g => Number(g.stats?.hitting_at_bats ?? 0)), 1) : 0
-  const maxBF    = propType === 'strikeouts'  ? Math.max(...barsData.map(g => Number(g.stats?.pitching_overall_batters_faced ?? 0)), 1) : 0
+  const maxBF    = propType === 'strikeouts'   ? Math.max(...barsData.map(g => Number(g.stats?.pitching_overall_batters_faced  ?? 0)), 1) : 0
+  const maxPC    = propType === 'pitcher_outs' ? Math.max(...barsData.map(g => Number(g.stats?.pitching_overall_pitch_count   ?? 0)), 1) : 0
   // Scale computed against full dataset so bar height is consistent across pages
-  const maxVal   = Math.max(...allVals, propLine ?? 0, maxAB, maxBF, 0)
+  const maxVal   = Math.max(...allVals, propLine ?? 0, maxAB, maxBF, maxPC, 0)
   const maxChart = maxVal > 0 ? maxVal : 1
   const linePct  = (propLine != null && maxChart > 0) ? (propLine / maxChart * 100) : null
 
@@ -2609,8 +2608,10 @@ function renderExpansionContent(key) {
         const valColor = passes === true ? 'var(--green)' : passes === false ? 'var(--magenta)' : 'var(--muted)'
         const ab       = (isHitsMkt || isRunsMkt) && g.stats ? Number(g.stats.hitting_at_bats ?? 0) : null
         const abBarH   = ab != null && maxChart > 0 ? Math.round((ab / maxChart) * CHART_H) : 0
-        const bf       = propType === 'strikeouts' && g.stats ? Number(g.stats.pitching_overall_batters_faced ?? 0) : null
+        const bf       = propType === 'strikeouts'   && g.stats ? Number(g.stats.pitching_overall_batters_faced   ?? 0) : null
         const bfBarH   = bf != null && maxChart > 0 ? Math.round((bf / maxChart) * CHART_H) : 0
+        const pc       = propType === 'pitcher_outs' && g.stats ? Number(g.stats.pitching_overall_pitch_count    ?? 0) : null
+        const pcBarH   = pc != null && maxChart > 0 ? Math.round((pc / maxChart) * CHART_H) : 0
 
         let barInner
         if (value === 0) {
@@ -2630,6 +2631,7 @@ function renderExpansionContent(key) {
           <div class="relative w-full" style="height:${CHART_H}px">
             ${ab != null && ab > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${ab}</span></div>` : ''}
             ${bf != null && bf > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${bf}</span></div>` : ''}
+            ${pc != null && pc > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(pcBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pc}</span></div>` : ''}
             ${barInner}
             ${linePct    != null ? `<div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>` : ''}
           </div>
