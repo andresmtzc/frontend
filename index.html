@@ -304,10 +304,16 @@ const COLUMN_INFO = {
     ]
   },
   ab_avg_runs: {
-    title: 'AB/G',
+    title: 'OBP',
     rows: [
-      ['hi','AVG AT-BATS PER GAME'],
+      ['hi','ON-BASE PERCENTAGE'],
       ['','IN THIS WINDOW'],
+      ['sep'],
+      ['','HOW OFTEN HE REACHES'],
+      ['','BASE PER PLATE APP.'],
+      ['sep'],
+      ['','MORE OBP = MORE'],
+      ['','CHANCES TO SCORE'],
       ['sep'],
       ['','CONTEXT ONLY —'],
       ['','NOT USED IN THE'],
@@ -1189,7 +1195,7 @@ function binomCDF(k, n, p) {
   return Math.min(sum, 1)
 }
 
-function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType = 'hits') {
+function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType = 'hits', empiricalRate = null) {
   if (avg == null || line == null) return null
   if (overUs == null && underUs == null) return null
 
@@ -1203,7 +1209,11 @@ function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType
   const modelProb = direction === 'under' ? mktUnder : mktOver
 
   let trueProb
-  if (propType === 'strikeouts') {
+  if (propType === 'pitcher_outs') {
+    // Empirical model: use games_with_hit / games_count rate
+    if (empiricalRate == null) return null
+    trueProb = direction === 'under' ? 1 - empiricalRate : empiricalRate
+  } else if (propType === 'strikeouts') {
     // Binomial model: n = floor(BF/G), p = K rate per batter faced
     if (abAvgPerGame == null || abAvgPerGame <= 0) return null
     const n = Math.floor(abAvgPerGame)
@@ -1211,7 +1221,7 @@ function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType
     const kRate = Math.min(Math.max(avg / abAvgPerGame, 0), 1)
     const cdf = binomCDF(Math.floor(line), n, kRate)
     trueProb = direction === 'under' ? cdf : 1 - cdf
-  } else if (propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles' || propType === 'pitcher_outs' || propType === 'hrr') {
+  } else if (propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles' || propType === 'hrr') {
     // Poisson model: lambda = stat/game avg
     const pOver = poissonProb(avg, line)
     if (pOver == null) return null
@@ -1297,23 +1307,28 @@ function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = '
   }
 
   if (propType === 'pitcher_outs') {
-    const totalOuts = windowGames.reduce((s, g) => s + Number(g.stats?.pitcher_outs_computed ?? 0), 0)
+    const totalOuts = windowGames.reduce((s, g) => s + Number(g.stats?.pitcher_outs_computed        ?? 0), 0)
+    const totalPC   = windowGames.reduce((s, g) => s + Number(g.stats?.pitching_overall_pitch_count ?? 0), 0)
     const gwh       = windowGames.filter(g => Number(g.stats?.pitcher_outs_computed ?? 0) > line).length
     return {
       avg:             gc > 0 ? totalOuts / gc : null,
-      avg_ab_per_game: null,
+      avg_ab_per_game: gc > 0 ? totalPC   / gc : null,
       games_count:     gc,
       games_with_hit:  gwh,
     }
   }
 
   if (propType === 'runs') {
-    const totalRuns = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_total_runs_scored ?? 0), 0)
-    const totalAB   = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats    ?? 0), 0)
-    const gwh       = windowGames.filter(g => Number(g.stats?.hitting_total_runs_scored ?? 0) > line).length
+    const totalRuns   = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_total_runs_scored  ?? 0), 0)
+    const totalH      = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_hits               ?? 0), 0)
+    const totalBB     = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_walks              ?? 0), 0)
+    const totalHBP    = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_hit_by_pitch       ?? 0), 0)
+    const totalPA     = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_plate_appearances  ?? 0), 0)
+    const obp         = totalPA > 0 ? (totalH + totalBB + totalHBP) / totalPA : null
+    const gwh         = windowGames.filter(g => Number(g.stats?.hitting_total_runs_scored ?? 0) > line).length
     return {
       avg:             gc > 0 ? totalRuns / gc : null,
-      avg_ab_per_game: totalAB / gc,
+      avg_ab_per_game: obp,
       games_count:     gc,
       games_with_hit:  gwh,
     }
@@ -1514,8 +1529,9 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const vs     = activeVenue !== 'both' ? computeVenueStats(norm, f, cache, seasonId, entry, propType, lineVal) : null
         const effRow = vs ?? cRow
 
+        const empiricalRate = (effRow?.games_count > 0) ? effRow.games_with_hit / effRow.games_count : null
         const evRaw = activeVenue !== 'both'
-          ? computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds, propType)
+          ? computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds, propType, empiricalRate)
           : (activeDirection === 'under' ? cRow?.under_ev : cRow?.ev)
         const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
         const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
@@ -1539,12 +1555,17 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
             ? propType === 'hr' ? avgRaw.toFixed(2) : avgRaw.toFixed(1)
             : avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}`
           : '—'
-        const abStr = effRow?.avg_ab_per_game != null ? effRow.avg_ab_per_game.toFixed(1) : '—'
+        const abStr = effRow?.avg_ab_per_game != null
+          ? propType === 'runs'
+            ? effRow.avg_ab_per_game >= 1 ? '1.000' : `.${Math.round(effRow.avg_ab_per_game * 1000).toString().padStart(3,'0')}`
+            : effRow.avg_ab_per_game.toFixed(1)
+          : '—'
 
-        const gc  = effRow?.games_count    ?? 0
-        const gwh = effRow?.games_with_hit ?? 0
-        const pct = gc > 0 ? Math.round(gwh / gc * 100) : 0
-        const hStr = gc > 0 ? `${gwh}/${gc} <span style="color:var(--muted)">(${pct}%)</span>` : '—'
+        const gc    = effRow?.games_count    ?? 0
+        const gwhRaw = effRow?.games_with_hit ?? 0
+        const gwh   = activeDirection === 'under' ? gc - gwhRaw : gwhRaw
+        const pct   = gc > 0 ? Math.round(gwh / gc * 100) : 0
+        const hStr  = gc > 0 ? `${gwh}/${gc} <span style="color:var(--muted)">(${pct}%)</span>` : '—'
 
         const pcell     = idx === 0 ? playerCellHtml : ''
         const topBorder = idx === 0 ? 'border-top:1px solid #222;' : 'border-top:1px solid #1a1a1a;'
@@ -1952,7 +1973,7 @@ async function load(force = false) {
               pitching_overall_opponents_batting_average:  g.oba,
             }
           : propType === 'runs'
-          ? { hitting_total_runs_scored: g.r, hitting_at_bats: g.ab }
+          ? { hitting_total_runs_scored: g.r, hitting_at_bats: g.ab, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp, hitting_plate_appearances: g.pa }
           : propType === 'pitcher_outs'
           ? { pitcher_outs_computed: g.po, pitching_overall_games_started: g.gs ?? 1, pitching_overall_pitch_count: g.pc }
           : propType === 'hrr'
@@ -2279,7 +2300,7 @@ function renderMatch(entry) {
               <th style="${thBase};text-align:left;cursor:pointer;width:120px" onclick="showInfoModal('player')">Player</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg','${mktPropType(mktName)}')">Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'PC/G' : 'AB/G'}</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'PC/G' : mktPropType(mktName) === 'runs' ? 'OBP' : 'AB/G'}</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : mktPropType(mktName) === 'runs' ? 'Run Rate' : mktPropType(mktName) === 'rbi' ? 'RBI Rate' : mktPropType(mktName) === 'bases' ? 'TB Rate' : mktPropType(mktName) === 'hr' ? 'HR Rate' : mktPropType(mktName) === 'singles' ? '1B Rate' : mktPropType(mktName) === 'doubles' ? '2B Rate' : mktPropType(mktName) === 'pitcher_outs' ? 'Out Rate' : mktPropType(mktName) === 'hrr' ? 'HRR Rate' : 'Hit Rate'}</th>
               <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}','${mktPropType(mktName)}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
@@ -2566,7 +2587,7 @@ function renderExpansionContent(key) {
 
   const barsData = (isCS ? venueGames.filter(g => g.season_id === seasonId)
                   : isLS ? venueGames.filter(g => g.season_id === lastSeasonId)
-                  : isVS || isDB ? venueGames
+                  : isVS || isDB ? venueGames.slice()
                   : venueGames.slice(0, N)).reverse()
 
   const CHART_H  = 80
