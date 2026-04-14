@@ -38,8 +38,8 @@
 
     /* match pills */
     .match-pill-active   { background: var(--sport); color: #111; border-color: var(--sport); }
-    .match-pill-inactive { background: var(--surface); color: var(--muted); border-color: var(--border); border-radius: 0 !important; }
-    .match-pill-inactive:hover { border-color: var(--sport); }
+    .match-pill-inactive { background: transparent; color: var(--muted); border-color: var(--border); border-radius: 0 !important; }
+    .match-pill-inactive:hover { border-color: var(--sport); color: var(--text); }
 
     /* filter buttons */
     .filter-btn-active   { border-color: var(--gold) !important; color: var(--gold) !important; }
@@ -382,18 +382,11 @@ const COLUMN_INFO = {
   ab_avg_bases: {
     title: 'SLG',
     rows: [
-      ['hi','SLUGGING (SLG)'],
-      ['','TOTAL BASES / AT-BATS'],
+      ['hi','SLUGGING PERCENTAGE'],
+      ['hi','TOTAL BASES / AT-BATS'],
+      ['','IN THIS WINDOW'],
       ['sep'],
-      ['','1B = 1 BASE'],
-      ['','2B = 2 BASES'],
-      ['','3B = 3 BASES'],
-      ['','HR = 4 BASES'],
-      ['sep'],
-      ['','MEASURES POWER —'],
-      ['','HIGHER SLG MEANS'],
-      ['','MORE EXTRA-BASE HITS'],
-      ['sep'],
+      ['','HIGHER = MORE POWER'],
       ['','CONTEXT ONLY —'],
       ['','NOT USED IN THE'],
       ['','POISSON MODEL'],
@@ -629,10 +622,6 @@ const COLUMN_INFO = {
         ['','YOUR FAVOR'],
         ['','NEGATIVE = BOOK'],
         ['','HAS THE EDGE'],
-        ['sep'],
-        ['hi','COLOR'],
-        ['var(--green)','GREEN: MODEL ≥ 50%'],
-        ['var(--magenta)','RED: MODEL < 50%'],
       ],
     ]
   },
@@ -686,10 +675,6 @@ const COLUMN_INFO = {
         ['','YOUR FAVOR'],
         ['','NEGATIVE = BOOK'],
         ['','HAS THE EDGE'],
-        ['sep'],
-        ['hi','COLOR'],
-        ['var(--green)','GREEN: MODEL ≥ 50%'],
-        ['var(--magenta)','RED: MODEL < 50%'],
       ],
     ]
   },
@@ -746,10 +731,6 @@ const COLUMN_INFO = {
         ['','YOUR FAVOR'],
         ['','NEGATIVE = BOOK'],
         ['','HAS THE EDGE'],
-        ['sep'],
-        ['hi','COLOR'],
-        ['var(--green)','GREEN: MODEL ≥ 50%'],
-        ['var(--magenta)','RED: MODEL < 50%'],
       ],
     ]
   },
@@ -805,10 +786,6 @@ const COLUMN_INFO = {
         ['','YOUR FAVOR'],
         ['','NEGATIVE = BOOK'],
         ['','HAS THE EDGE'],
-        ['sep'],
-        ['hi','COLOR'],
-        ['var(--green)','GREEN: MODEL ≥ 50%'],
-        ['var(--magenta)','RED: MODEL < 50%'],
       ],
     ]
   },
@@ -864,10 +841,6 @@ const COLUMN_INFO = {
         ['','YOUR FAVOR'],
         ['','NEGATIVE = BOOK'],
         ['','HAS THE EDGE'],
-        ['sep'],
-        ['hi','COLOR'],
-        ['var(--green)','GREEN: MODEL ≥ 50%'],
-        ['var(--magenta)','RED: MODEL < 50%'],
       ],
     ]
   },
@@ -898,7 +871,7 @@ function _renderInfoModal() {
   const rows  = pages ? pages[_infoModalPage] : info.rows
   const rowsHtml = rows.map(r => r[0] === 'sep'
     ? `<div class="im-sep"></div>`
-    : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}"${r[0] && r[0] !== 'hi' && r[0] !== '' ? ` style="color:${r[0]}"` : ''}>${r[1]}</div>`
+    : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}">${r[1]}</div>`
   ).join('')
   const navHtml = pages ? `
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:4px">
@@ -1382,9 +1355,58 @@ function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType
   return trueProb - modelProb
 }
 
-// ── Pure stat aggregation from a pre-filtered game window ────────────────────
+// ── Venue-filtered stat computation (mirrors expansion bar logic) ────────────
 
-function computeStatsFromGames(windowGames, propType, line) {
+function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = 'hits', line = 0.5) {
+  const games         = cache?.normNameToGames?.[`${norm}__${propType}`] ?? []
+  const playerTeamUid = cache?.playerTeamUids?.[norm]  ?? null
+
+  // Exclude non-starts for strikeouts/pitcher_outs; exclude 0-AB games for hitting props
+  let filtered = (propType === 'strikeouts' || propType === 'pitcher_outs')
+    ? games.filter(g => {
+        const gs = g.stats?.pitching_overall_games_started
+        return gs != null ? gs === 1 : (g.stats?.pitching_overall_innings_pitched ?? 0) > 0
+      })
+    : games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
+
+  // VS: restrict to upcoming opponent
+  if (filterKey === 'VS') {
+    const mHomeUid   = entry?.match?.home_team_uid
+    const mAwayUid   = entry?.match?.away_team_uid
+    const upcomingOpp = playerTeamUid === mHomeUid ? mAwayUid
+                      : playerTeamUid === mAwayUid ? mHomeUid
+                      : mHomeUid ?? null
+    if (upcomingOpp != null) {
+      filtered = filtered.filter(g => {
+        const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+        const oppUid = gTeam === g.homeTeamUid ? g.awayTeamUid
+                     : gTeam === g.awayTeamUid ? g.homeTeamUid : null
+        return oppUid === upcomingOpp
+      })
+    }
+  }
+
+  // Venue filter
+  if (activeVenue !== 'both') {
+    filtered = filtered.filter(g => {
+      const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
+      const isHome = gTeam != null ? g.homeTeamUid === gTeam : null
+      if (isHome === null) return true
+      return activeVenue === 'home' ? isHome : !isHome
+    })
+  }
+
+  // Apply filter window
+  const allSeasonIds = [...new Set(filtered.map(g => g.season_id).filter(Boolean))].sort((a, b) => a - b)
+  const curSeasonIdx = allSeasonIds.indexOf(seasonId)
+  const lastSeasonId = curSeasonIdx > 0 ? allSeasonIds[curSeasonIdx - 1] : null
+
+  let windowGames
+  if      (filterKey === 'CS') windowGames = filtered.filter(g => g.season_id === seasonId)
+  else if (filterKey === 'LS') windowGames = filtered.filter(g => g.season_id === lastSeasonId)
+  else if (filterKey === 'VS' || filterKey === 'DB') windowGames = filtered
+  else { const N = parseInt(filterKey.slice(1)); windowGames = filtered.slice(0, N) }
+
   const gc = windowGames.length
   if (gc === 0) return { avg: null, avg_ab_per_game: null, games_count: 0, games_with_hit: 0 }
 
@@ -1516,57 +1538,6 @@ function computeStatsFromGames(windowGames, propType, line) {
   }
 }
 
-// ── Venue-filtered stat computation ──────────────────────────────────────────
-
-function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = 'hits', line = 0.5) {
-  const games         = cache?.normNameToGames?.[`${norm}__${propType}`] ?? []
-  const playerTeamUid = cache?.playerTeamUids?.[norm] ?? null
-
-  let filtered = (propType === 'strikeouts' || propType === 'pitcher_outs')
-    ? games.filter(g => {
-        const gs = g.stats?.pitching_overall_games_started
-        return gs != null ? gs === 1 : (g.stats?.pitching_overall_innings_pitched ?? 0) > 0
-      })
-    : games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
-
-  if (filterKey === 'VS') {
-    const mHomeUid    = entry?.match?.home_team_uid
-    const mAwayUid    = entry?.match?.away_team_uid
-    const upcomingOpp = playerTeamUid === mHomeUid ? mAwayUid
-                      : playerTeamUid === mAwayUid ? mHomeUid
-                      : mHomeUid ?? null
-    if (upcomingOpp != null) {
-      filtered = filtered.filter(g => {
-        const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
-        const oppUid = gTeam === g.homeTeamUid ? g.awayTeamUid
-                     : gTeam === g.awayTeamUid ? g.homeTeamUid : null
-        return oppUid === upcomingOpp
-      })
-    }
-  }
-
-  if (activeVenue !== 'both') {
-    filtered = filtered.filter(g => {
-      const gTeam  = g.gameTeamUid != null ? Number(g.gameTeamUid) : playerTeamUid
-      const isHome = gTeam != null ? g.homeTeamUid === gTeam : null
-      if (isHome === null) return true
-      return activeVenue === 'home' ? isHome : !isHome
-    })
-  }
-
-  const allSeasonIds = [...new Set(filtered.map(g => g.season_id).filter(Boolean))].sort((a, b) => a - b)
-  const curSeasonIdx = allSeasonIds.indexOf(seasonId)
-  const lastSeasonId = curSeasonIdx > 0 ? allSeasonIds[curSeasonIdx - 1] : null
-
-  let windowGames
-  if      (filterKey === 'CS') windowGames = filtered.filter(g => g.season_id === seasonId)
-  else if (filterKey === 'LS') windowGames = filtered.filter(g => g.season_id === lastSeasonId)
-  else if (filterKey === 'VS' || filterKey === 'DB') windowGames = filtered
-  else { const N = parseInt(filterKey.slice(1)); windowGames = filtered.slice(0, N) }
-
-  return computeStatsFromGames(windowGames, propType, line)
-}
-
 // ── Render market tbody — reads from player_prop_cache via filterCache ──────
 
 function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
@@ -1678,12 +1649,12 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const effRow = vs ?? cRow
 
         const empiricalRate = (effRow?.games_count > 0) ? effRow.games_with_hit / effRow.games_count : null
-        const evRaw = computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds, propType, empiricalRate)
-        const evPct    = evRaw == null ? null : Math.round(evRaw * 1000) / 10
-        const evStr    = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
-        const mktProb  = activeDirection === 'under' ? 1 - (dbRow.true_over_prob ?? 0.5) : (dbRow.true_over_prob ?? 0.5)
-        const modelProb = evRaw != null ? evRaw + mktProb : null
-        const evCol    = modelProb != null && modelProb >= 0.50 ? 'var(--green)' : 'var(--magenta)'
+        const evRaw = activeVenue !== 'both'
+          ? computeEV(effRow?.avg, effRow?.avg_ab_per_game, lineVal, activeDirection, dbRow.over_us_odds, dbRow.under_us_odds, propType, empiricalRate)
+          : (activeDirection === 'under' ? cRow?.under_ev : cRow?.ev)
+        const evPct = evRaw == null ? null : Math.round(evRaw * 1000) / 10
+        const evStr = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
+        const evCol = evPct == null ? 'var(--muted)' : evPct > 0 ? 'var(--green)' : 'var(--magenta)'
 
         // For past matches, determine HIT/MISS from actual result
         let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>`
@@ -1704,7 +1675,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
             : avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}`
           : '—'
         const abStr = effRow?.avg_ab_per_game != null
-          ? (propType === 'runs' || propType === 'bases' || propType === 'hrr' || propType === 'rbi')
+          ? (propType === 'runs' || propType === 'bases' || propType === 'hrr')
             ? effRow.avg_ab_per_game >= 1 ? '1.000' : `.${Math.round(effRow.avg_ab_per_game * 1000).toString().padStart(3,'0')}`
             : effRow.avg_ab_per_game.toFixed(1)
           : '—'
@@ -2033,24 +2004,122 @@ function dateLabel(dateStr) {
   return fmt(d).toUpperCase()
 }
 
-// ── Build filterCache + allMatches from a set of cache rows ──────────────────
+// ── 1-phase load from player_prop_cache ──────────────────────────────────────
 
-function buildFromCacheRows(cacheRows, matchMap, teamMap) {
+async function load(force = false) {
+  showLoader()
+
+  // Date window: today −3 … today +7 in Mexico City time
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
+  const fromDate = new Date(todayStr + 'T00:00:00Z'); fromDate.setUTCDate(fromDate.getUTCDate() - 3)
+  const toDate   = new Date(todayStr + 'T00:00:00Z'); toDate.setUTCDate(toDate.getUTCDate() + 7)
+  const fromStr  = fromDate.toISOString().slice(0, 10)
+  const toStr    = toDate.toISOString().slice(0, 10)
+
+  const cacheRows = await fetchAll((f, t) =>
+    db.from('player_prop_cache')
+      .select('*')
+      .gte('game_date', fromStr)
+      .lte('game_date', toStr)
+      .order('match_id').order('player_name').order('filter')
+      .range(f, t)
+  )
+
+  if (!cacheRows.length) {
+    document.getElementById('sport-switcher').innerHTML = ''
+    document.getElementById('match-pills').innerHTML = ''
+    document.getElementById('content').innerHTML = '<p class="text-xs mt-12 text-center" style="color:var(--muted)">No cached props in window.</p>'
+    hideLoader(); return
+  }
+
+  // Collect match IDs and team uids for metadata
+  const matchIds = [...new Set(cacheRows.map(r => r.match_id))]
+  const teamUids = [...new Set(cacheRows.flatMap(r => [r.home_team_uid, r.away_team_uid, r.player_team_uid]).filter(Boolean))]
+
+  // Fetch sr_matches for match times/dates
+  const matchRows = []
+  for (let i = 0; i < matchIds.length; i += 200) {
+    const { data } = await db.from('sr_matches')
+      .select('id, match_date, home_team_uid, away_team_uid, season_id')
+      .in('id', matchIds.slice(i, i + 200))
+    if (data) matchRows.push(...data)
+  }
+  const matchMap = Object.fromEntries(matchRows.map(m => [m.id, m]))
+
+  // Fetch sr_teams for display names / abbrs
+  const teamRows = []
+  for (let i = 0; i < teamUids.length; i += 200) {
+    const { data } = await db.from('sr_teams').select('uid, name, abbr').in('uid', teamUids.slice(i, i + 200))
+    if (data) teamRows.push(...data)
+  }
+  const teamMap = Object.fromEntries(teamRows.map(t => [t.uid, t]))
+  window._teamCache = teamMap
+
+  // Group cache rows by match
   const rowsByMatch = {}
   for (const r of cacheRows) {
     if (!rowsByMatch[r.match_id]) rowsByMatch[r.match_id] = []
     rowsByMatch[r.match_id].push(r)
   }
 
+  // Build filterCache for every match from cached rows
   filterCache = {}
   for (const [midStr, rows] of Object.entries(rowsByMatch)) {
     const mid    = Number(midStr)
     const dbRows = rows.filter(r => r.filter === 'DB')
 
-    // normNameToGames + teamsInfoByMid are populated lazily via fetchMatchGameLogs
+    // normNameToGames: game_logs from DB rows, compact → expanded format
     const normNameToGames = {}
-    const teamsInfoByMid  = {}
+    for (const r of dbRows) {
+      const norm     = normName(r.player_name)
+      const propType = r.prop_type ?? 'hits'
+      normNameToGames[`${norm}__${propType}`] = (r.game_logs ?? []).map(g => ({
+        match_date:  g.d,
+        gameTeamUid: g.t,
+        season_id:   g.s,
+        homeTeamUid: g.h,
+        awayTeamUid: g.a,
+        stats: propType === 'strikeouts'
+          ? {
+              pitching_overall_games_started:              g.gs,
+              pitching_overall_total_strikeouts:           g.so,
+              pitching_overall_innings_pitched:            g.ip,
+              pitching_overall_strikeouts_per_9_innings:   g.k9,
+              pitching_overall_pitch_count:                g.pc,
+              pitching_overall_strikeouts_swinging:        g.ks,
+              pitching_overall_batters_faced:              g.bf,
+              pitching_overall_not_in_play_strikes_swinging: g.sws,
+              pitching_overall_opponents_batting_average:  g.oba,
+            }
+          : propType === 'runs'
+          ? { hitting_total_runs_scored: g.r, hitting_at_bats: g.ab, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp, hitting_plate_appearances: g.pa }
+          : propType === 'pitcher_outs'
+          ? { pitcher_outs_computed: g.po, pitching_overall_games_started: g.gs ?? 1, pitching_overall_pitch_count: g.pc }
+          : propType === 'hrr'
+          ? { hrr_computed: g.hrr, hitting_at_bats: g.ab, hitting_plate_appearances: g.pa, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp }
+          : propType === 'rbi'
+          ? { hitting_runs_batted_in: g.rbi, hitting_at_bats: g.ab, hitting_at_bats_with_runners_in_scoring_position: g.risp }
+          : propType === 'bases'
+          ? { hitting_total_bases: g.tb, hitting_at_bats: g.ab }
+          : propType === 'hr'
+          ? { hitting_home_runs: g.hr, hitting_at_bats: g.ab }
+          : propType === 'singles'
+          ? { hitting_singles: g.s1, hitting_at_bats: g.ab }
+          : propType === 'doubles'
+          ? { hitting_doubles: g.d2, hitting_at_bats: g.ab }
+          : { hitting_hits: g.hi, hitting_at_bats: g.ab },
+      }))
+    }
 
+    // teamsInfoByMid: keyed by date string (max 1 game per player per day)
+    const teamsInfoByMid = {}
+    for (const r of dbRows) {
+      for (const g of r.game_logs ?? []) {
+        teamsInfoByMid[g.d] = { homeTeamUid: g.h, awayTeamUid: g.a }
+      }
+    }
+
+    // playerStats: normName → { propType → { filter → cacheRow } }
     const playerStats    = {}
     const playerTeamUids = {}
     for (const r of rows) {
@@ -2065,6 +2134,7 @@ function buildFromCacheRows(cacheRows, matchMap, teamMap) {
     filterCache[mid] = { normNameToGames, teamsInfoByMid, playerStats, playerTeamUids }
   }
 
+  // Build _playerNameCache for any legacy helpers
   window._playerNameCache    = {}
   window._playerTeamUidCache = {}
   for (const r of cacheRows) {
@@ -2074,181 +2144,58 @@ function buildFromCacheRows(cacheRows, matchMap, teamMap) {
     }
   }
 
+  // Build allMatches — one entry per match_id
   allMatches = Object.entries(rowsByMatch).map(([midStr, rows]) => {
     const mid  = Number(midStr)
     const m    = matchMap[mid]
     const home = teamMap[m?.home_team_uid]
     const away = teamMap[m?.away_team_uid]
     const info = (m && SEASON_INFO[m.season_id]) ?? { sport: 'MLB', league: 'MLB' }
+    // markets holds DB rows split by prop type; renderer reads from filterCache
     const markets = {}
-    const hitsDbRows        = rows.filter(r => r.filter === 'DB' && (r.prop_type == null || r.prop_type === 'hits'))
-    const soDbRows          = rows.filter(r => r.filter === 'DB' && r.prop_type === 'strikeouts')
-    const runsDbRows        = rows.filter(r => r.filter === 'DB' && r.prop_type === 'runs')
-    const rbiDbRows         = rows.filter(r => r.filter === 'DB' && r.prop_type === 'rbi')
-    const basesDbRows       = rows.filter(r => r.filter === 'DB' && r.prop_type === 'bases')
-    const hrDbRows          = rows.filter(r => r.filter === 'DB' && r.prop_type === 'hr')
-    const singlesDbRows     = rows.filter(r => r.filter === 'DB' && r.prop_type === 'singles')
-    const doublesDbRows     = rows.filter(r => r.filter === 'DB' && r.prop_type === 'doubles')
+    const hitsDbRows = rows.filter(r => r.filter === 'DB' && (r.prop_type == null || r.prop_type === 'hits'))
+    const soDbRows   = rows.filter(r => r.filter === 'DB' && r.prop_type === 'strikeouts')
+    const runsDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'runs')
+    const rbiDbRows   = rows.filter(r => r.filter === 'DB' && r.prop_type === 'rbi')
+    const basesDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'bases')
+    const hrDbRows      = rows.filter(r => r.filter === 'DB' && r.prop_type === 'hr')
+    const singlesDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'singles')
+    if (hitsDbRows.length)    markets[HITS_MKT]       = hitsDbRows
+    if (soDbRows.length)      markets[PITCHER_SO_MKT] = soDbRows
+    if (runsDbRows.length)    markets[RUNS_MKT]       = runsDbRows
+    if (rbiDbRows.length)     markets[RBI_MKT]        = rbiDbRows
+    if (basesDbRows.length)   markets[BASES_MKT]      = basesDbRows
+    if (hrDbRows.length)      markets[HR_MKT]         = hrDbRows
+    const doublesDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'doubles')
+    if (singlesDbRows.length) markets[SINGLES_MKT]    = singlesDbRows
     const pitcherOutsDbRows = rows.filter(r => r.filter === 'DB' && r.prop_type === 'pitcher_outs')
+    if (doublesDbRows.length)     markets[DOUBLES_MKT]      = doublesDbRows
     const hrrDbRows         = rows.filter(r => r.filter === 'DB' && r.prop_type === 'hrr')
-    if (hitsDbRows.length)        markets[HITS_MKT]        = hitsDbRows
-    if (soDbRows.length)          markets[PITCHER_SO_MKT]  = soDbRows
-    if (runsDbRows.length)        markets[RUNS_MKT]        = runsDbRows
-    if (rbiDbRows.length)         markets[RBI_MKT]         = rbiDbRows
-    if (basesDbRows.length)       markets[BASES_MKT]       = basesDbRows
-    if (hrDbRows.length)          markets[HR_MKT]          = hrDbRows
-    if (singlesDbRows.length)     markets[SINGLES_MKT]     = singlesDbRows
-    if (doublesDbRows.length)     markets[DOUBLES_MKT]     = doublesDbRows
-    if (pitcherOutsDbRows.length) markets[PITCHER_OUTS_MKT]= pitcherOutsDbRows
-    if (hrrDbRows.length)         markets[HRR_MKT]         = hrrDbRows
-    return { matchId: mid, match: m, home, away, abbr: `${away?.abbr ?? '?'} @ ${home?.abbr ?? '?'}`, sport: info.sport, league: info.league, markets }
+    if (pitcherOutsDbRows.length) markets[PITCHER_OUTS_MKT] = pitcherOutsDbRows
+    if (hrrDbRows.length)         markets[HRR_MKT]          = hrrDbRows
+    return {
+      matchId: mid, match: m, home, away,
+      abbr:   `${away?.abbr ?? '?'} @ ${home?.abbr ?? '?'}`,
+      sport:  info.sport, league: info.league, markets,
+    }
   }).sort((a, b) => new Date(a.match?.match_date) - new Date(b.match?.match_date))
-}
 
-function renderAfterBuild() {
   const sports = [...new Set(allMatches.map(e => e.sport))]
   if (!sports.includes(activeTab)) activeTab = sports[0] ?? 'MLB'
   renderSportSwitcher(sports)
+
   if (activeMatch !== null && !allMatches.find(e => e.matchId === activeMatch)) activeMatch = null
+
   renderPills()
   render()
-  applyFilters()
-}
-
-// ── Load: render first page immediately, stream remaining pages + game_logs ───
-
-async function load(force = false) {
-  showLoader()
-  _fetchingMatchLogs.clear()
-  _fetchedMatchLogs.clear()
-
-  // Date window: today −3 … today +7 in Mexico City time
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
-  const fromDate = new Date(todayStr + 'T00:00:00Z'); fromDate.setUTCDate(fromDate.getUTCDate() - 3)
-  const toDate   = new Date(todayStr + 'T00:00:00Z'); toDate.setUTCDate(toDate.getUTCDate() + 7)
-  const fromStr  = fromDate.toISOString().slice(0, 10)
-  const toStr    = toDate.toISOString().slice(0, 10)
-
-  // Single fetch from pre-built payload file
-  const res = await fetch('./payload.json')
-  if (!res.ok) throw new Error(`payload.json not found — generate it from the Props Cache section first`)
-  const { cacheRows, matchRows, teamRows } = await res.json()
-
-  if (!cacheRows?.length) {
-    document.getElementById('sport-switcher').innerHTML = ''
-    document.getElementById('match-pills').innerHTML = ''
-    document.getElementById('content').innerHTML = '<p class="text-xs mt-12 text-center" style="color:var(--muted)">No cached props in window.</p>'
-    hideLoader(); return
-  }
-
-  const matchMap = Object.fromEntries(matchRows.map(m => [m.id, m]))
-  const teamMap  = Object.fromEntries(teamRows.map(t => [t.uid, t]))
-  window._teamCache = teamMap
-  window._matchMap  = matchMap
-
-  buildFromCacheRows(cacheRows, matchMap, teamMap)
-  renderAfterBuild()
   hideLoader()
+  applyFilters()
   fetchGameOdds()
-
-  // Preload game_logs for the active match in the background
-  if (activeMatch != null) fetchMatchGameLogs(activeMatch)
-}
-
-// ── Lazy per-match game_logs fetch ───────────────────────────────────────────
-const _fetchingMatchLogs = new Set()
-const _fetchedMatchLogs  = new Set()
-
-function buildGameStats(propType, g) {
-  return propType === 'strikeouts'
-    ? { pitching_overall_games_started: g.gs, pitching_overall_total_strikeouts: g.so, pitching_overall_innings_pitched: g.ip, pitching_overall_strikeouts_per_9_innings: g.k9, pitching_overall_pitch_count: g.pc, pitching_overall_strikeouts_swinging: g.ks, pitching_overall_batters_faced: g.bf, pitching_overall_not_in_play_strikes_swinging: g.sws, pitching_overall_opponents_batting_average: g.oba }
-    : propType === 'runs'         ? { hitting_total_runs_scored: g.r, hitting_at_bats: g.ab, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp, hitting_plate_appearances: g.pa }
-    : propType === 'pitcher_outs' ? { pitcher_outs_computed: g.po, pitching_overall_games_started: g.gs ?? 1, pitching_overall_pitch_count: g.pc }
-    : propType === 'hrr'          ? { hrr_computed: g.hrr, hitting_at_bats: g.ab, hitting_plate_appearances: g.pa, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp }
-    : propType === 'rbi'          ? { hitting_runs_batted_in: g.rbi, hitting_at_bats: g.ab, hitting_at_bats_with_runners_in_scoring_position: g.risp }
-    : propType === 'bases'        ? { hitting_total_bases: g.tb, hitting_at_bats: g.ab }
-    : propType === 'hr'           ? { hitting_home_runs: g.hr, hitting_at_bats: g.ab }
-    : propType === 'singles'      ? { hitting_singles: g.s1, hitting_at_bats: g.ab }
-    : propType === 'doubles'      ? { hitting_doubles: g.d2, hitting_at_bats: g.ab }
-    : { hitting_hits: g.hi, hitting_at_bats: g.ab }
-}
-
-async function fetchMatchGameLogs(matchId) {
-  if (_fetchedMatchLogs.has(matchId) || _fetchingMatchLogs.has(matchId)) return
-  _fetchingMatchLogs.add(matchId)
-  try {
-    const { data } = await db
-      .from('player_prop_cache')
-      .select('match_id,player_name,prop_type,game_logs')
-      .eq('match_id', matchId)
-      .eq('filter', 'DB')
-
-    const cache = filterCache[matchId]
-    if (!cache || !data?.length) return
-
-    const m = window._matchMap?.[matchId]
-    const normNameToGames = {}
-    const teamsInfoByMid  = {}
-
-    for (const r of data) {
-      const norm     = normName(r.player_name)
-      const propType = r.prop_type ?? 'hits'
-      normNameToGames[`${norm}__${propType}`] = (r.game_logs ?? []).map(g => ({
-        match_date: g.d, gameTeamUid: g.t, season_id: g.s, homeTeamUid: g.h, awayTeamUid: g.a,
-        stats: buildGameStats(propType, g),
-      }))
-      for (const g of r.game_logs ?? []) teamsInfoByMid[g.d] = { homeTeamUid: g.h, awayTeamUid: g.a }
-    }
-
-    cache.normNameToGames = normNameToGames
-    cache.teamsInfoByMid  = teamsInfoByMid
-
-    // Recompute filter windows (L5/L10/L30/CS/LS/VS) for all players in this match
-    for (const [norm, propMap] of Object.entries(cache.playerStats)) {
-      for (const [pt, filterMap] of Object.entries(propMap)) {
-        const dbRow = filterMap['DB']
-        if (!dbRow) continue
-        const games = normNameToGames[`${norm}__${pt}`] ?? []
-        const line  = dbRow.line ?? 0.5
-        const sId   = dbRow.season_id ?? 0
-        const preFiltered = (pt === 'strikeouts' || pt === 'pitcher_outs')
-          ? games.filter(g => { const gs = g.stats?.pitching_overall_games_started; return gs != null ? gs === 1 : (g.stats?.pitching_overall_innings_pitched ?? 0) > 0 })
-          : games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
-        const allSids  = [...new Set(preFiltered.map(g => g.season_id).filter(Boolean))].sort((a, b) => a - b)
-        const sidIdx   = allSids.indexOf(sId)
-        const lastSid  = sidIdx > 0 ? allSids[sidIdx - 1] : null
-        const pTeamUid = dbRow.player_team_uid
-        const opp      = pTeamUid === m?.home_team_uid ? m?.away_team_uid : pTeamUid === m?.away_team_uid ? m?.home_team_uid : m?.home_team_uid ?? null
-        const vsGames  = opp != null ? preFiltered.filter(g => { const gTeam = g.gameTeamUid != null ? Number(g.gameTeamUid) : pTeamUid; const oppUid = gTeam === g.homeTeamUid ? g.awayTeamUid : gTeam === g.awayTeamUid ? g.homeTeamUid : null; return oppUid === opp }) : []
-        const windows  = { L5: preFiltered.slice(0,5), L10: preFiltered.slice(0,10), L30: preFiltered.slice(0,30), CS: preFiltered.filter(g => g.season_id === sId), LS: lastSid ? preFiltered.filter(g => g.season_id === lastSid) : [], VS: vsGames }
-        for (const [fk, wGames] of Object.entries(windows)) filterMap[fk] = { ...dbRow, filter: fk, ...computeStatsFromGames(wGames, pt, line), game_logs: null }
-      }
-    }
-
-    // Clear stale cached games for open expansions so they re-render with fresh data
-    for (const [key, exp] of expansions) {
-      if (exp.matchId === matchId) delete exp.games
-    }
-
-    // If this match is active, refresh the table (picks up WON/LOST + filter windows)
-    if (activeMatch === matchId) {
-      render(); applyFilters(); reinstateExpansion()
-    } else {
-      // Just update any open expansions for this match
-      for (const [key, exp] of expansions) {
-        if (exp.matchId === matchId) fetchExpansionData(key)
-      }
-    }
-  } finally {
-    _fetchingMatchLogs.delete(matchId)
-    _fetchedMatchLogs.add(matchId)
-  }
 }
 
 // ── Polymarket favorite dots (via Supabase Edge Function) ────────────────────
 const polymarketCache = {} // matchId → { awayProb, homeProb }
-const POLYMARKET_FN   = 'https://wxvjetgeiuzjuyzfhutv.supabase.co/functions/v1/polymarket'
-const PROPS_PAYLOAD_FN = 'https://wxvjetgeiuzjuyzfhutv.supabase.co/functions/v1/props-payload'
+const POLYMARKET_FN = 'https://wxvjetgeiuzjuyzfhutv.supabase.co/functions/v1/polymarket'
 
 function matchFavDots(entry, color = 'inherit') {
   const pm = polymarketCache[entry.matchId]
@@ -2420,7 +2367,6 @@ function renderSportSwitcher(sports) {
 function setMatch(matchId) {
   activeMatch = matchId
   renderPills(); render(); applyFilters()
-  fetchMatchGameLogs(matchId)
 }
 
 function renderMatch(entry) {
@@ -2473,7 +2419,7 @@ function renderMatch(entry) {
               <th style="${thBase};text-align:left;cursor:pointer;width:120px" onclick="showInfoModal('player')">Player</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg','${mktPropType(mktName)}')">Avg</th>
-              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'PC/G' : mktPropType(mktName) === 'runs' ? 'OBP' : mktPropType(mktName) === 'rbi' ? 'RISP' : mktPropType(mktName) === 'bases' ? 'SLG' : mktPropType(mktName) === 'hrr' ? 'OBP' : 'AB/G'}</th>
+              <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'PC/G' : mktPropType(mktName) === 'runs' ? 'OBP' : mktPropType(mktName) === 'rbi' ? 'RISP/G' : mktPropType(mktName) === 'bases' ? 'SLG' : mktPropType(mktName) === 'hrr' ? 'OBP' : 'AB/G'}</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : mktPropType(mktName) === 'runs' ? 'Run Rate' : mktPropType(mktName) === 'rbi' ? 'RBI Rate' : mktPropType(mktName) === 'bases' ? 'TB Rate' : mktPropType(mktName) === 'hr' ? 'HR Rate' : mktPropType(mktName) === 'singles' ? '1B Rate' : mktPropType(mktName) === 'doubles' ? '2B Rate' : mktPropType(mktName) === 'pitcher_outs' ? 'Out Rate' : mktPropType(mktName) === 'hrr' ? 'HRR Rate' : 'Hit Rate'}</th>
               <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}','${mktPropType(mktName)}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
@@ -2630,22 +2576,15 @@ function handleRowClick(tr, playerName, mktName, normMkt, propLine, matchId, sea
   fetchExpansionData(key)
 }
 
+// Synchronous — reads game_logs straight from filterCache
 function fetchExpansionData(key) {
   const exp = expansions.get(key)
   if (!exp) return
   const cache    = filterCache[exp.matchId]
   const norm     = normName(exp.playerName)
   const propType = mktPropType(exp.mktName ?? '')
-
-  if (!_fetchedMatchLogs.has(exp.matchId)) {
-    // Show loading spinner and kick off the fetch if not already in flight
-    renderExpansionContent(key) // renders "Loading…" since games === undefined
-    fetchMatchGameLogs(exp.matchId)
-    return
-  }
-
   exp.games         = cache?.normNameToGames?.[`${norm}__${propType}`] ?? []
-  exp.playerTeamUid = cache?.playerTeamUids?.[norm] ?? null
+  exp.playerTeamUid = cache?.playerTeamUids?.[norm]  ?? null
   renderExpansionContent(key)
 }
 
@@ -2836,21 +2775,11 @@ function renderExpansionContent(key) {
         const oppLabel = isHome === null ? (opp?.abbr ?? '?') : isHome ? `v${opp?.abbr ?? '?'}` : `@${opp?.abbr ?? '?'}`
         return `<div class="flex flex-col items-center gap-0.5" style="min-width:0">
           <div class="relative w-full" style="height:${CHART_H}px">
-            ${ab != null && ab > 0 ? abBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(abBarH, CHART_H) + 2}px;color:#666">${ab}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${ab}</span></div>` : ''}
-            ${pa != null && pa > 0 ? paBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(paBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(paBarH, CHART_H) + 2}px;color:#666">${pa}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(paBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pa}</span></div>` : ''}
-            ${risp != null && risp > 0 ? rispBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(rispBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(rispBarH, CHART_H) + 2}px;color:#666">${risp}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(rispBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${risp}</span></div>` : ''}
-            ${bf != null && bf > 0 ? bfBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(bfBarH, CHART_H) + 2}px;color:#666">${bf}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${bf}</span></div>` : ''}
-            ${pc != null && pc > 0 ? pcBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(pcBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(pcBarH, CHART_H) + 2}px;color:#666">${pc}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(pcBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pc}</span></div>` : ''}
+            ${ab != null && ab > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${ab}</span></div>` : ''}
+            ${pa != null && pa > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(paBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pa}</span></div>` : ''}
+            ${risp != null && risp > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(rispBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${risp}</span></div>` : ''}
+            ${bf != null && bf > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${bf}</span></div>` : ''}
+            ${pc != null && pc > 0 ? `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(pcBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pc}</span></div>` : ''}
             ${barInner}
             ${linePct    != null ? `<div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>` : ''}
           </div>
