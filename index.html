@@ -2230,14 +2230,9 @@ async function fetchMatchGameLogs(matchId) {
       if (exp.matchId === matchId) delete exp.games
     }
 
-    // If this match is active, refresh the table (picks up WON/LOST + filter windows)
-    if (activeMatch === matchId) {
-      render(); applyFilters(); reinstateExpansion()
-    } else {
-      // Just update any open expansions for this match
-      for (const [key, exp] of expansions) {
-        if (exp.matchId === matchId) fetchExpansionData(key)
-      }
+    // Refresh open expansions for this match — no full render() to avoid collapsing them
+    for (const [key, exp] of expansions) {
+      if (exp.matchId === matchId) fetchExpansionData(key)
     }
   } finally {
     _fetchingMatchLogs.delete(matchId)
