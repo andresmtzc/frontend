@@ -2429,7 +2429,7 @@ function renderMatch(entry) {
   const filterKeys = sortFilterKeys([...activeFilters])
 
   const isPastMatch = isMatchOld(match?.match_date)
-  const savedOrder  = JSON.parse(localStorage.getItem('mkt-order-' + matchId) || 'null')
+  const savedOrder  = JSON.parse(localStorage.getItem('mkt-order-global') || 'null')
   const mktsEntries = Object.entries(markets).sort(([a], [b]) => {
     if (!savedOrder) return 0
     const ia = savedOrder.indexOf(a), ib = savedOrder.indexOf(b)
@@ -2572,7 +2572,7 @@ function render() {
       animation: 150,
       onEnd() {
         const order = [...listEl.querySelectorAll('.mkt-item')].map(el => el.dataset.mktName)
-        localStorage.setItem('mkt-order-' + entry.matchId, JSON.stringify(order))
+        localStorage.setItem('mkt-order-global', JSON.stringify(order))
         requestAnimationFrame(updateMktTops)
       }
     })
@@ -2775,7 +2775,7 @@ function renderExpansionContent(key) {
   // Scale computed against full dataset so bar height is consistent across pages
   const maxVal   = Math.max(...allVals, propLine ?? 0, maxAB, maxBF, maxPC, maxPA, maxRISP, 0)
   const maxChart = maxVal > 0 ? maxVal : 1
-  const linePct  = (propLine != null && maxChart > 0) ? (propLine / maxChart * 100) : null
+  const linePct  = (propLine != null && maxChart > 0) ? (propLine / maxChart * (CHART_H - 12) / CHART_H * 100) : null
 
   const PAGE_SIZE  = 10
   const totalBars  = barsData.length
@@ -2797,7 +2797,7 @@ function renderExpansionContent(key) {
         const opp      = oppUid ? window._teamCache?.[oppUid] : null
         const passes   = propLine != null ? (lockedDirection === 'under' ? value < propLine : value > propLine) : null
         const dateStr  = g.match_date ? new Date(g.match_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: '2-digit' }) : '—'
-        const heightPx = maxChart > 0 ? Math.round((value / maxChart) * CHART_H) : 0
+        const heightPx = maxChart > 0 ? Math.round((value / maxChart) * (CHART_H - 12)) : 0
         const barH     = value > 0 ? Math.max(heightPx, 3) : 0
         const color    = passes === null ? 'var(--muted)' : passes ? 'var(--green)' : 'var(--magenta)'
         const dispVal  = value % 1 === 0 ? String(value) : value.toFixed(1)
@@ -2805,15 +2805,15 @@ function renderExpansionContent(key) {
         const haColor  = isHome === null ? 'var(--muted)' : isHome ? '#89b4fa' : '#fab387'
         const valColor = passes === true ? 'var(--green)' : passes === false ? 'var(--magenta)' : 'var(--muted)'
         const ab       = (isHitsMkt || (isRunsMkt && propType !== 'runs' && propType !== 'rbi' && propType !== 'hrr')) && g.stats ? Number(g.stats.hitting_at_bats ?? 0) : null
-        const abBarH   = ab != null && maxChart > 0 ? Math.round((ab / maxChart) * CHART_H) : 0
+        const abBarH   = ab != null && maxChart > 0 ? Math.round((ab / maxChart) * (CHART_H - 12)) : 0
         const pa       = (propType === 'runs' || propType === 'hrr') && g.stats ? Number(g.stats.hitting_plate_appearances ?? 0) : null
-        const paBarH   = pa != null && maxChart > 0 ? Math.round((pa / maxChart) * CHART_H) : 0
+        const paBarH   = pa != null && maxChart > 0 ? Math.round((pa / maxChart) * (CHART_H - 12)) : 0
         const risp     = propType === 'rbi' && g.stats ? Number(g.stats.hitting_at_bats_with_runners_in_scoring_position ?? 0) : null
-        const rispBarH = risp != null && maxChart > 0 ? Math.round((risp / maxChart) * CHART_H) : 0
+        const rispBarH = risp != null && maxChart > 0 ? Math.round((risp / maxChart) * (CHART_H - 12)) : 0
         const bf       = propType === 'strikeouts'   && g.stats ? Number(g.stats.pitching_overall_batters_faced   ?? 0) : null
-        const bfBarH   = bf != null && maxChart > 0 ? Math.round((bf / maxChart) * CHART_H) : 0
+        const bfBarH   = bf != null && maxChart > 0 ? Math.round((bf / maxChart) * (CHART_H - 12)) : 0
         const pc       = propType === 'pitcher_outs' && g.stats ? Number(g.stats.pitching_overall_pitch_count    ?? 0) : null
-        const pcBarH   = pc != null && maxChart > 0 ? Math.round((pc / maxChart) * CHART_H) : 0
+        const pcBarH   = pc != null && maxChart > 0 ? Math.round((pc / maxChart) * (CHART_H - 12)) : 0
 
         let barInner
         if (value === 0) {
@@ -2831,21 +2831,11 @@ function renderExpansionContent(key) {
         const oppLabel = isHome === null ? (opp?.abbr ?? '?') : isHome ? `v${opp?.abbr ?? '?'}` : `@${opp?.abbr ?? '?'}`
         return `<div class="flex flex-col items-center gap-0.5" style="min-width:0">
           <div class="relative w-full" style="height:${CHART_H}px">
-            ${ab != null && ab > 0 ? abBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(abBarH, CHART_H) + 2}px;color:#666">${ab}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(abBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${ab}</span></div>` : ''}
-            ${pa != null && pa > 0 ? paBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(paBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(paBarH, CHART_H) + 2}px;color:#666">${pa}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(paBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pa}</span></div>` : ''}
-            ${risp != null && risp > 0 ? rispBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(rispBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(rispBarH, CHART_H) + 2}px;color:#666">${risp}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(rispBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${risp}</span></div>` : ''}
-            ${bf != null && bf > 0 ? bfBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(bfBarH, CHART_H) + 2}px;color:#666">${bf}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(bfBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${bf}</span></div>` : ''}
-            ${pc != null && pc > 0 ? pcBarH < 14
-              ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(pcBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.min(pcBarH, CHART_H) + 2}px;color:#666">${pc}</span>`
-              : `<div class="absolute bottom-0 left-0 right-0 flex items-start justify-center pt-0.5" style="height:${Math.min(pcBarH, CHART_H)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"><span class="text-[9px] font-mono leading-none" style="color:#888">${pc}</span></div>` : ''}
+            ${ab   != null && ab   > 0 ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(abBarH,   CHART_H - 12)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.max(Math.min(abBarH,   CHART_H - 12), barH) + 2}px;color:#666">${ab}</span>`   : ''}
+            ${pa   != null && pa   > 0 ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(paBarH,   CHART_H - 12)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.max(Math.min(paBarH,   CHART_H - 12), barH) + 2}px;color:#666">${pa}</span>`   : ''}
+            ${risp != null && risp > 0 ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(rispBarH, CHART_H - 12)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.max(Math.min(rispBarH, CHART_H - 12), barH) + 2}px;color:#666">${risp}</span>` : ''}
+            ${bf   != null && bf   > 0 ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(bfBarH,   CHART_H - 12)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.max(Math.min(bfBarH,   CHART_H - 12), barH) + 2}px;color:#666">${bf}</span>`   : ''}
+            ${pc   != null && pc   > 0 ? `<div class="absolute bottom-0 left-0 right-0" style="height:${Math.min(pcBarH,   CHART_H - 12)}px;background:rgba(255,255,255,0.06);border-radius:1px 1px 0 0"></div><span class="absolute text-[9px] font-mono leading-none w-full text-center" style="bottom:${Math.max(Math.min(pcBarH,   CHART_H - 12), barH) + 2}px;color:#666">${pc}</span>`   : ''}
             ${barInner}
             ${linePct    != null ? `<div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${linePct.toFixed(1)}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>` : ''}
           </div>
