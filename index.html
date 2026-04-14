@@ -2521,6 +2521,7 @@ function updateStickyOffsets() {
   updateMktTops()
 }
 window.addEventListener('resize', updateStickyOffsets)
+window.addEventListener('scroll', updateStickyOffsets, { passive: true })
 
 function toggleMkt(matchId, mi) {
   for (const [key, exp] of [...expansions]) {
