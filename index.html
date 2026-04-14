@@ -107,7 +107,7 @@
     .mkt-body:last-child { margin-bottom: 0; }
   </style>
 </head>
-<body class="min-h-screen" style="background:var(--bg);color:var(--text)">
+<body style="min-height:100dvh;background:var(--bg);color:var(--text)">
 
 <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur" style="background:rgba(17,17,17,0.97);border-bottom:3px solid var(--sport)">
   <div style="height:4px;background:#222222"></div>
@@ -2521,11 +2521,6 @@ function updateStickyOffsets() {
   updateMktTops()
 }
 window.addEventListener('resize', updateStickyOffsets)
-const _stickyObserver = new ResizeObserver(updateStickyOffsets)
-;['header', 'match-pills-wrapper', 'filter-section'].forEach(id => {
-  const el = document.getElementById(id) || document.querySelector(id === 'header' ? 'header' : null)
-  if (el) _stickyObserver.observe(el)
-})
 
 function toggleMkt(matchId, mi) {
   for (const [key, exp] of [...expansions]) {
