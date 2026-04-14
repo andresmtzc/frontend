@@ -2521,6 +2521,11 @@ function updateStickyOffsets() {
   updateMktTops()
 }
 window.addEventListener('resize', updateStickyOffsets)
+const _stickyObserver = new ResizeObserver(updateStickyOffsets)
+;['header', 'match-pills-wrapper', 'filter-section'].forEach(id => {
+  const el = document.getElementById(id) || document.querySelector(id === 'header' ? 'header' : null)
+  if (el) _stickyObserver.observe(el)
+})
 
 function toggleMkt(matchId, mi) {
   for (const [key, exp] of [...expansions]) {
