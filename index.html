@@ -137,6 +137,10 @@
         style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer">
         US
       </button>
+      <button id="account-chip" onclick="openAccount()" style="display:none;align-items:center;gap:6px;background:var(--surface);border:2px solid var(--border);padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);">
+        <span id="chip-label"></span>
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;" id="chip-dot"></span>
+      </button>
     </div>
   </div>
 </header>
@@ -2137,10 +2141,20 @@ async function load(force = false) {
   const { data: { session } } = await db.auth.getSession()
   let res
   if (session?.access_token) {
+    // Fetch profile for account chip + panel
+    const { data: prof } = await db.from('profiles')
+      .select('premium_until, is_tipster, referral_code, cancel_at_period_end')
+      .eq('id', session.user.id).single()
+    _userProfile = { email: session.user.email, ...(prof ?? {}) }
+    updateAccountChip()
+
     res = await fetch('https://api.palo.mx/payload.json', {
       headers: { 'Authorization': `Bearer ${session.access_token}` }
     })
-    if (res.status === 403) res = null // not premium, fall through to free
+    if (res.status === 403) res = null // premium expired, fall through to free
+  } else {
+    _userProfile = null
+    updateAccountChip()
   }
   if (!res || !res.ok) {
     res = await fetch('./payload-free.json')
@@ -2363,13 +2377,16 @@ function renderPills() {
     }
   }
 
-  // Palo+ upsell pill — after regular matches, before 48h ago
-  parts.push(`
-    <button onclick="openPaloPlus()"
-      class="match-pill whitespace-nowrap shrink-0"
-      style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer;background:#1a1200;border-color:#f59e0b;color:#f59e0b;">
-      PALO+
-    </button>`)
+  // Palo+ upsell pill — hidden when premium is active, shown when logged out or expired
+  const _premiumActive = _userProfile?.premium_until && new Date(_userProfile.premium_until) > new Date()
+  if (!_premiumActive) {
+    parts.push(`
+      <button onclick="openPaloPlus()"
+        class="match-pill whitespace-nowrap shrink-0"
+        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer;background:#1a1200;border-color:#f59e0b;color:#f59e0b;">
+        PALO+
+      </button>`)
+  }
 
   if (past.length > 0) {
     parts.push(`
@@ -2405,10 +2422,6 @@ function renderPills() {
   requestAnimationFrame(updateStickyOffsets)
 }
 
-function openPaloPlus() {
-  // TODO: open subscription modal
-  alert('Palo+ modal coming soon')
-}
 
 function setTab(tab) {
   activeTab = tab; activeMatch = null; sportExpanded = false
@@ -2978,18 +2991,72 @@ function renderExpansionContent(key) {
     </div>
 
     <!-- step 3: success -->
-    <div id="pp-step3" style="display:none;flex-direction:column;gap:12px;align-items:flex-start;">
+    <div id="pp-step3" style="display:none;flex-direction:column;gap:14px;align-items:flex-start;">
       <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
-      <div style="height:1px;background:var(--border);width:100%;margin:4px 0;"></div>
-      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">BIENVENIDO</div>
-      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Revisa tu email para activar tu cuenta y acceder a todos los partidos.</div>
-      <div style="height:1px;background:var(--border);width:100%;margin:4px 0;"></div>
-      <button onclick="closePaloPlus()"
-        style="background:#f59e0b;border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
-        ENTENDIDO
+      <div style="height:1px;background:var(--border);width:100%;margin:2px 0;"></div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:#fff;letter-spacing:1px;">¡BIENVENIDO!</div>
+      <div id="pp-welcome-email" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);"></div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Tienes acceso completo a todos los partidos y props.</div>
+      <div style="height:1px;background:var(--border);width:100%;margin:2px 0;"></div>
+      <button onclick="ppEnter()"
+        style="background:#f59e0b;border:none;padding:10px 24px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        ENTRAR →
       </button>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Account panel ─────────────────────────────────────────────────── -->
+<div id="account-overlay" onclick="if(event.target===this)closeAccount()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface-2);border:3px solid var(--border);padding:24px 28px;min-width:320px;max-width:420px;width:90%;position:relative;display:flex;flex-direction:column;gap:0;">
+    <button onclick="closeAccount()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
+
+    <!-- header -->
+    <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;margin-bottom:16px;">PALO+</div>
+    <div style="height:1px;background:var(--border);width:100%;margin-bottom:20px;"></div>
+
+    <!-- CUENTA -->
+    <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;margin-bottom:12px;">CUENTA</div>
+    <div id="acct-email" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
+
+    <div id="pw-section" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
+      <button onclick="togglePwForm()" style="background:none;border:none;color:var(--sport);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">Cambiar contraseña</button>
+      <div id="pw-form" style="display:none;flex-direction:column;gap:8px;">
+        <input id="pw-new" type="password" placeholder="nueva contraseña"
+          style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;" />
+        <input id="pw-confirm" type="password" placeholder="confirmar contraseña"
+          style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;" />
+        <button onclick="savePassword()" style="background:var(--surface);border:2px solid var(--sport);padding:8px 16px;color:var(--sport);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Guardar</button>
+        <div id="pw-msg" style="font-family:'DM Sans',sans-serif;font-size:12px;display:none;"></div>
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
+
+    <!-- SUSCRIPCIÓN -->
+    <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;margin-bottom:12px;">SUSCRIPCIÓN</div>
+    <div id="acct-sub-status" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;"></div>
+    <div id="acct-sub-actions" style="display:flex;flex-direction:column;gap:8px;"></div>
+
+    <!-- TIPSTER (conditional) -->
+    <div id="acct-tipster-section" style="display:none;">
+      <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;margin-bottom:12px;">TIPSTER</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-bottom:8px;">
+        Código: <span id="acct-ref-code" style="font-family:'Geist Mono',monospace;color:#FFD700;"></span>
+      </div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-bottom:10px;">
+        Suscriptores activos: <span id="acct-ref-subs" style="color:#fff;font-weight:600;"></span>
+      </div>
+      <button onclick="copyTipsterLink()" style="background:var(--surface);border:2px solid var(--border);padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" id="acct-copy-btn">Copiar enlace</button>
+    </div>
+
+    <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
+
+    <!-- logout -->
+    <button onclick="doLogout()" style="background:none;border:none;color:var(--magenta);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-align:left;">Cerrar sesión</button>
   </div>
 </div>
 
@@ -3008,16 +3075,9 @@ let _cardNumber = null
 let _cardExpiry = null
 let _cardCvc = null
 let _clientSecret = null
+let _userProfile = null  // { email, premium_until, is_tipster, referral_code, cancel_at_period_end }
+let _isRenewal = false   // true when expired user opens Palo+ to renew
 
-function openPaloPlus() {
-  const overlay = document.getElementById('paloplus-overlay')
-  overlay.style.display = 'flex'
-  document.getElementById('pp-step1').style.display = 'flex'
-  document.getElementById('pp-step2').style.display = 'none'
-  document.getElementById('pp-step3').style.display = 'none'
-  document.getElementById('pp-email').value = ''
-  document.getElementById('pp-err1').style.display = 'none'
-}
 
 function _destroyCards() {
   if (_cardNumber) { _cardNumber.destroy(); _cardNumber = null }
@@ -3107,26 +3167,213 @@ async function ppPay() {
     })
     if (error) throw new Error(error.message)
 
-    // 2. Create account + grant premium (server verifies payment with Stripe)
-    const res = await fetch(`${API}/activate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, paymentIntentId: paymentIntent.id }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Error al activar cuenta')
+    // 2. Activate / renew (server verifies payment with Stripe)
+    let activateRes
+    if (_isRenewal) {
+      const { data: { session: s } } = await db.auth.getSession()
+      activateRes = await fetch(`${API}/renew`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.access_token}` },
+        body: JSON.stringify({ paymentIntentId: paymentIntent.id }),
+      })
+    } else {
+      activateRes = await fetch(`${API}/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, paymentIntentId: paymentIntent.id }),
+      })
+    }
+    const activateData = await activateRes.json()
+    if (!activateRes.ok) throw new Error(activateData.error ?? 'Error al activar cuenta')
 
-    // 3. Sign in with Supabase
-    const { data: session, error: signInErr } = await db.auth.signInWithPassword({ email, password })
-    if (signInErr) throw new Error(signInErr.message)
+    // 3. Sign in (only needed for new users; renewal already has session)
+    if (!_isRenewal) {
+      const { error: signInErr } = await db.auth.signInWithPassword({ email, password })
+      if (signInErr) throw new Error(signInErr.message)
+    }
 
-    // 4. Close modal and reload with full payload
-    closePaloPlus()
-    await load()
+    // 4. Show success screen
+    document.getElementById('pp-step2').style.display = 'none'
+    document.getElementById('pp-welcome-email').textContent = email
+    document.getElementById('pp-step3').style.display = 'flex'
 
   } catch(e) {
     ppErr(2, e.message)
     btn.textContent = 'PAGAR 99 MXN / MES'; btn.disabled = false
+  }
+}
+
+async function ppEnter() {
+  closePaloPlus()
+  await load()
+}
+
+// ── Account chip ─────────────────────────────────────────────────────────────
+function updateAccountChip() {
+  const chip = document.getElementById('account-chip')
+  const dot  = document.getElementById('chip-dot')
+  const lbl  = document.getElementById('chip-label')
+  if (!_userProfile) { chip.style.display = 'none'; return }
+  const premiumActive = _userProfile.premium_until && new Date(_userProfile.premium_until) > new Date()
+  lbl.textContent = _userProfile.email.split('@')[0]
+  dot.style.background = premiumActive ? 'var(--green)' : 'var(--magenta)'
+  chip.style.display = 'flex'
+}
+
+// ── Account panel ─────────────────────────────────────────────────────────────
+function openAccount() {
+  if (!_userProfile) return
+  const overlay = document.getElementById('account-overlay')
+  overlay.style.display = 'flex'
+
+  document.getElementById('acct-email').textContent = _userProfile.email
+
+  // Subscription status
+  const statusEl  = document.getElementById('acct-sub-status')
+  const actionsEl = document.getElementById('acct-sub-actions')
+  actionsEl.innerHTML = ''
+
+  const until = _userProfile.premium_until ? new Date(_userProfile.premium_until) : null
+  const active = until && until > new Date()
+  const fmtDate = d => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+
+  if (active) {
+    const days = Math.ceil((until - new Date()) / 86400000)
+    if (_userProfile.cancel_at_period_end) {
+      statusEl.innerHTML = `Cancelada · termina el <strong style="color:#fff">${fmtDate(until)}</strong>`
+    } else {
+      statusEl.innerHTML = `Activa · <strong style="color:var(--green)">${days} días restantes</strong><br><span style="font-size:11px;">Renueva el ${fmtDate(until)}</span>`
+      // Cancel button
+      const cancelBtn = document.createElement('button')
+      cancelBtn.textContent = 'Cancelar suscripción'
+      cancelBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;text-decoration:underline;'
+      cancelBtn.onclick = cancelSub
+      actionsEl.appendChild(cancelBtn)
+    }
+  } else {
+    const expiredStr = until ? `Venció el ${fmtDate(until)}` : 'Sin suscripción activa'
+    statusEl.innerHTML = `<span style="color:var(--magenta)">${expiredStr}</span>`
+    const renewBtn = document.createElement('button')
+    renewBtn.textContent = 'Renovar →'
+    renewBtn.style.cssText = 'background:#f59e0b;border:none;padding:10px 20px;font-family:\'Press Start 2P\',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;'
+    renewBtn.onclick = () => { closeAccount(); openPaloPlus(true) }
+    actionsEl.appendChild(renewBtn)
+  }
+
+  // Tipster section
+  const tipsterSec = document.getElementById('acct-tipster-section')
+  if (_userProfile.is_tipster && _userProfile.referral_code) {
+    tipsterSec.style.display = 'block'
+    document.getElementById('acct-ref-code').textContent = _userProfile.referral_code
+    loadTipsterSubs(_userProfile.referral_code)
+  } else {
+    tipsterSec.style.display = 'none'
+  }
+
+  // Reset pw form
+  document.getElementById('pw-form').style.display = 'none'
+  document.getElementById('pw-new').value = ''
+  document.getElementById('pw-confirm').value = ''
+  document.getElementById('pw-msg').style.display = 'none'
+}
+
+function closeAccount() {
+  document.getElementById('account-overlay').style.display = 'none'
+}
+
+function togglePwForm() {
+  const f = document.getElementById('pw-form')
+  f.style.display = f.style.display === 'none' ? 'flex' : 'none'
+}
+
+async function savePassword() {
+  const pw  = document.getElementById('pw-new').value.trim()
+  const pw2 = document.getElementById('pw-confirm').value.trim()
+  const msg = document.getElementById('pw-msg')
+  msg.style.display = 'none'
+  if (!pw || pw.length < 6) { msg.textContent = 'Mínimo 6 caracteres'; msg.style.color = 'var(--magenta)'; msg.style.display = 'block'; return }
+  if (pw !== pw2) { msg.textContent = 'Las contraseñas no coinciden'; msg.style.color = 'var(--magenta)'; msg.style.display = 'block'; return }
+  const { error } = await db.auth.updateUser({ password: pw })
+  if (error) { msg.textContent = error.message; msg.style.color = 'var(--magenta)'; msg.style.display = 'block'; return }
+  msg.textContent = '✓ Contraseña actualizada'
+  msg.style.color = 'var(--green)'
+  msg.style.display = 'block'
+  document.getElementById('pw-new').value = ''
+  document.getElementById('pw-confirm').value = ''
+}
+
+async function cancelSub() {
+  if (!confirm('¿Cancelar tu suscripción? Mantendrás acceso hasta que expire.')) return
+  const { data: { session } } = await db.auth.getSession()
+  const res = await fetch(`${API}/cancel`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+  })
+  if (res.ok) {
+    _userProfile.cancel_at_period_end = true
+    openAccount() // re-render panel
+  }
+}
+
+async function loadTipsterSubs(code) {
+  const { count } = await db.from('profiles').select('id', { count: 'exact', head: true })
+    .eq('referred_by', code).eq('is_premium', true)
+  document.getElementById('acct-ref-subs').textContent = count ?? 0
+}
+
+function copyTipsterLink() {
+  navigator.clipboard.writeText(`https://palo.mx?ref=${_userProfile.referral_code}`)
+  const btn = document.getElementById('acct-copy-btn')
+  btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = 'Copiar enlace' }, 2000)
+}
+
+async function doLogout() {
+  await db.auth.signOut()
+  _userProfile = null
+  updateAccountChip()
+  closeAccount()
+  await load()
+}
+
+// ── Renew flow: open Palo+ modal starting at card step (skip email) ───────────
+function openPaloPlus(renewal = false) {
+  _isRenewal = renewal
+  const overlay = document.getElementById('paloplus-overlay')
+  overlay.style.display = 'flex'
+  document.getElementById('pp-step3').style.display = 'none'
+  document.getElementById('pp-err1').style.display = 'none'
+
+  if (renewal && _userProfile) {
+    // Skip email step — go straight to card
+    document.getElementById('pp-step1').style.display = 'none'
+    document.getElementById('pp-step2').style.display = 'flex'
+    document.getElementById('pp-email-display').textContent = _userProfile.email
+    document.getElementById('pp-password').style.display = 'none' // no pw needed for renewal
+    document.getElementById('pp-err2').style.display = 'none'
+    if (!_stripe) _stripe = Stripe(STRIPE_PK)
+    // Get a new payment intent for this user
+    fetch(`${API}/create-payment-intent`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: _userProfile.email }),
+    }).then(r => r.json()).then(data => {
+      _clientSecret = data.clientSecret
+      const elements = _stripe.elements()
+      const style = { base: { color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: '14px', '::placeholder': { color: '#555' } }, invalid: { color: '#e63946' } }
+      _cardNumber = elements.create('cardNumber', { style })
+      _cardExpiry = elements.create('cardExpiry', { style })
+      _cardCvc    = elements.create('cardCvc',    { style })
+      setTimeout(() => {
+        _cardNumber.mount('#pp-card-number')
+        _cardExpiry.mount('#pp-card-expiry')
+        _cardCvc.mount('#pp-card-cvc')
+      }, 50)
+    })
+  } else {
+    document.getElementById('pp-password').style.display = ''
+    document.getElementById('pp-step1').style.display = 'flex'
+    document.getElementById('pp-step2').style.display = 'none'
+    document.getElementById('pp-email').value = ''
+    if (_cardNumber) { _cardNumber.destroy(); _cardNumber = null }
   }
 }
 </script>
