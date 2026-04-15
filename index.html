@@ -2219,12 +2219,13 @@ async function fetchMatchGameLogs(matchId) {
   if (_fetchedMatchLogs.has(matchId) || _fetchingMatchLogs.has(matchId)) return
   _fetchingMatchLogs.add(matchId)
   try {
-    const { data } = await db
+    const { data, error } = await db
       .from('player_prop_cache')
       .select('match_id,player_name,prop_type,game_logs')
       .eq('match_id', matchId)
       .eq('filter', 'DB')
 
+    console.log('[game_logs] matchId:', matchId, 'rows:', data?.length ?? 0, 'error:', error?.message ?? null)
     const cache = filterCache[matchId]
     if (!cache || !data?.length) return
 
@@ -2266,6 +2267,9 @@ async function fetchMatchGameLogs(matchId) {
         for (const [fk, wGames] of Object.entries(windows)) filterMap[fk] = { ...dbRow, filter: fk, ...computeStatsFromGames(wGames, pt, line), game_logs: null }
       }
     }
+
+    // Re-render table rows so L5/L10/L30/CS/LS/VS columns show computed stats
+    refreshMktTbodies([...activeFilters])
 
     // Clear stale cached games for open expansions so they re-render with fresh data
     for (const [key, exp] of expansions) {
