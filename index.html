@@ -3560,14 +3560,16 @@ async function openAccount() {
     tipsterSec.style.display = 'none'
   }
 
-  // Referral section (all users)
+  // Referral section (non-tipster users only)
   const referralSec = document.getElementById('acct-referral-section')
-  if (_userProfile.user_referral_code) {
+  if (_userProfile.is_tipster) {
+    referralSec.style.display = 'none'
+  } else if (_userProfile.user_referral_code) {
     referralSec.style.display = 'block'
     document.getElementById('acct-user-ref-code').textContent = _userProfile.user_referral_code
     loadReferralLog()
   } else {
-    // Generate code on-demand (e.g. tipsters created via admin, never went through /activate)
+    // Generate code on-demand (e.g. users created via admin, never went through /activate)
     referralSec.style.display = 'block'
     document.getElementById('acct-user-ref-code').textContent = '…'
     db.auth.getSession().then(({ data: { session } }) => {
