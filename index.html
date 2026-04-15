@@ -1697,7 +1697,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const evStr    = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
         const mktProb  = activeDirection === 'under' ? 1 - (dbRow.true_over_prob ?? 0.5) : (dbRow.true_over_prob ?? 0.5)
         const modelProb = evRaw != null ? evRaw + mktProb : null
-        const evCol    = modelProb != null && modelProb >= 0.50 ? 'var(--green)' : 'var(--magenta)'
+        const evCol    = evStr === '—' ? 'var(--text)' : modelProb != null && modelProb >= 0.50 ? 'var(--green)' : 'var(--magenta)'
 
         // For past matches, determine HIT/MISS from actual result
         let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>`
