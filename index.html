@@ -1126,8 +1126,8 @@ function punkImg(name) {
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#2a2a2a;border:1px solid #3a3a3a;flex-shrink:0;margin-right:6px;vertical-align:middle"><img src="mlb-punks/${first}.png" style="height:32px;width:32px;object-fit:contain;image-rendering:pixelated;display:block;" onerror="punkImgFallback(this,JSON.parse(this.dataset.alts))" data-alts="${altsJson}"></span>`
 }
 
-const SUPABASE_URL  = 'https://wxvjetgeiuzjuyzfhutv.supabase.co'
-const SUPABASE_ANON = 'sb_publishable_mXQB6BSxNpWyL0D3HG0gwA_fwdWoqVh'
+const SUPABASE_URL  = 'https://xiooucmfmftuqemhlmpd.supabase.co'
+const SUPABASE_ANON = 'sb_publishable_WnR9lmgM8CAFskD6TtWTZg_2Q0ACtaZ'
 const { createClient } = supabase
 const db = createClient(SUPABASE_URL, SUPABASE_ANON)
 
@@ -2759,6 +2759,56 @@ function renderExpansionContent(key) {
   const cell = getExpCell(key)
   if (!exp || !cell) return
 
+  // Teaser for non-premium / logged-out users
+  const isPremium = _userProfile &&
+    _userProfile.premium_until &&
+    new Date(_userProfile.premium_until) > new Date()
+
+  if (!isPremium) {
+    const _CHART_H = 80
+    // Fake bars: { v: value, h: heightPx, color, opp, date }
+    // maxChart=5, prop line=3 → linePct = 3/5*(80-12)/80*100 ≈ 51%
+    const _fakeBars = [
+      { v:3, h:41, color:'var(--green)',   opp:'vNYM', date:'4/2' },
+      { v:2, h:27, color:'var(--magenta)', opp:'@ATL', date:'4/3' },
+      { v:4, h:54, color:'var(--green)',   opp:'vCHC', date:'4/5' },
+      { v:1, h:14, color:'var(--magenta)', opp:'@MIL', date:'4/6' },
+      { v:3, h:41, color:'var(--green)',   opp:'vSTL', date:'4/8' },
+      { v:5, h:68, color:'var(--green)',   opp:'@SF',  date:'4/9' },
+      { v:2, h:27, color:'var(--magenta)', opp:'vARI', date:'4/11' },
+      { v:4, h:54, color:'var(--green)',   opp:'@LAD', date:'4/12' },
+      { v:3, h:41, color:'var(--green)',   opp:'vSD',  date:'4/13' },
+      { v:2, h:27, color:'var(--magenta)', opp:'@COL', date:'4/14' },
+    ]
+    const _linePct = (3/5 * (_CHART_H - 12) / _CHART_H * 100).toFixed(1)
+    const _fakeBarsHtml = _fakeBars.map(b => {
+      const barInner = b.h >= 18
+        ? `<div class="absolute bottom-0 left-0.5 right-0.5 flex items-center justify-center" style="height:${b.h}px;background:${b.color};border-radius:1px 1px 0 0"><span class="text-[10px] font-bold leading-none" style="color:var(--bg)">${b.v}</span></div>`
+        : `<span class="absolute text-[10px] font-bold leading-none text-center w-full" style="bottom:${b.h+3}px;color:${b.color}">${b.v}</span><div class="absolute bottom-0 left-0.5 right-0.5" style="height:${b.h}px;background:${b.color};border-radius:1px 1px 0 0"></div>`
+      return `<div class="flex flex-col items-center gap-0.5" style="min-width:0">
+        <div class="relative w-full" style="height:${_CHART_H}px">
+          ${barInner}
+          <div class="absolute pointer-events-none" style="left:-3px;right:-3px;bottom:${_linePct}%;z-index:10;border-top:1px solid rgba(255,255,255,0.7)"></div>
+        </div>
+        <span class="text-[10px] font-mono leading-none truncate w-full text-center" style="color:var(--text)">${b.opp}</span>
+        <span class="text-[9px] mt-0.5 leading-none" style="color:var(--muted)">${b.date}</span>
+      </div>`
+    }).join('')
+    cell.innerHTML = `
+      <div style="position:relative;overflow:hidden;">
+        <div style="display:flex;align-items:stretch;gap:0;width:100%;overflow:hidden;opacity:0.35;pointer-events:none;">
+          <div style="flex-shrink:0;width:22px;"></div>
+          <div style="flex:1;display:grid;grid-template-columns:repeat(10,1fr);gap:6px;min-width:0;">${_fakeBarsHtml}</div>
+          <div style="flex-shrink:0;width:22px;"></div>
+        </div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+          <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);text-shadow:0 1px 6px rgba(0,0,0,0.9),0 0 12px rgba(0,0,0,0.8);">Historial de juegos en</span>
+          <button onclick="closePaloPlus&&openPaloPlus()" style="background:#1a1200;border:2px solid #f59e0b;padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#f59e0b;cursor:pointer;">PALO+</button>
+        </div>
+      </div>`
+    return
+  }
+
   const { mktName, propLine, seasonId, lockedDirection, lockedFilter, games, playerTeamUid } = exp
 
   if (games === undefined) {
@@ -3102,7 +3152,7 @@ function renderExpansionContent(key) {
         Comparte tu link. Tu amigo obtiene <strong style="color:#fff">3 días extra</strong> y tú ganas <strong style="color:#fff">7 días gratis</strong> por cada referido que pague.
       </div>
       <button onclick="copyReferralLink()" style="background:var(--surface);border:2px solid var(--border);padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:14px;" id="acct-user-copy-btn">Copiar enlace</button>
-      <div id="acct-referral-log" style="display:flex;flex-direction:column;gap:4px;"></div>
+      <div id="acct-referral-log" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;"></div>
     </div>
 
     <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
@@ -3555,7 +3605,7 @@ async function openAccount() {
   if (_userProfile.is_tipster && _userProfile.referral_code) {
     tipsterSec.style.display = 'block'
     document.getElementById('acct-ref-code').textContent = _userProfile.referral_code
-    loadTipsterSubs(_userProfile.referral_code)
+    loadTipsterSubs()
   } else {
     tipsterSec.style.display = 'none'
   }
@@ -3663,9 +3713,14 @@ async function reactivateSub() {
   }
 }
 
-async function loadTipsterSubs(code) {
-  const { count } = await db.from('profiles').select('id', { count: 'exact', head: true })
-    .eq('referred_by', code).eq('is_premium', true)
+async function loadTipsterSubs() {
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) return
+  const res = await fetch(`${API}/tipster-subs`, {
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+  })
+  if (!res.ok) return
+  const { count } = await res.json()
   document.getElementById('acct-ref-subs').textContent = count ?? 0
 }
 
