@@ -3515,7 +3515,7 @@ async function openAccount() {
   if (active) {
     const days = Math.ceil((until - new Date()) / 86400000)
     if (_userProfile.cancel_at_period_end) {
-      statusEl.innerHTML = `Cancelada · termina el <strong style="color:#fff">${fmtDate(until)}</strong>`
+      statusEl.innerHTML = `Cancelada · termina el <strong style="color:#fff">${fmtDate(until)}</strong> <span style="color:var(--muted)">(${days} día${days !== 1 ? 's' : ''})</span>`
       const reactivateBtn = document.createElement('button')
       reactivateBtn.textContent = 'Reactivar renovación automática'
       reactivateBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;text-decoration:underline;'
