@@ -3116,20 +3116,43 @@ function renderExpansionContent(key) {
 const API = 'https://api.palo.mx'
 const STRIPE_PK = 'pk_test_51TMHRdPJZLeIUmxuhNzfPtkhGyYCbhJ50wZcS6cwIwHEUcrthBnMxdMjmHmMd7txN85N64J5cb6q37hx2GBEPU5100cc788388'
 
-// Capture referral code from URL and persist in localStorage (30-day TTL)
+// Capture referral code from URL — stored as ordered array, oldest first, 30-day TTL each
 ;(function() {
   const ref = new URLSearchParams(location.search).get('ref')
-  if (ref) localStorage.setItem('palo_ref', JSON.stringify({ code: ref, ts: Date.now() }))
+  if (!ref) return
+  const TTL = 30 * 24 * 60 * 60 * 1000
+  try {
+    // Migrate legacy single-value formats
+    let refs = []
+    const legacy = localStorage.getItem('palo_ref')
+    if (legacy) {
+      try {
+        const parsed = JSON.parse(legacy)
+        if (parsed.code && parsed.ts) refs = [parsed]
+        else refs = [{ code: legacy, ts: Date.now() }]
+      } catch { refs = [{ code: legacy, ts: Date.now() }] }
+      localStorage.removeItem('palo_ref')
+    } else {
+      const raw = localStorage.getItem('palo_refs')
+      if (raw) refs = JSON.parse(raw)
+    }
+    // Append only if code not already present (never reset TTL on re-click)
+    if (!refs.find(r => r.code === ref)) {
+      refs.push({ code: ref, ts: Date.now() })
+    }
+    localStorage.setItem('palo_refs', JSON.stringify(refs))
+  } catch { localStorage.setItem('palo_refs', JSON.stringify([{ code: ref, ts: Date.now() }])) }
 })()
 
+// Returns the oldest referral code still within its 30-day TTL
 function getPaloRef() {
   try {
-    const raw = localStorage.getItem('palo_ref')
+    const TTL = 30 * 24 * 60 * 60 * 1000
+    const raw = localStorage.getItem('palo_refs')
     if (!raw) return ''
-    if (!raw.startsWith('{')) return raw // legacy plain string
-    const { code, ts } = JSON.parse(raw)
-    if (Date.now() - ts > 30 * 24 * 60 * 60 * 1000) { localStorage.removeItem('palo_ref'); return '' }
-    return code
+    const refs = JSON.parse(raw)
+    const valid = refs.filter(r => Date.now() - r.ts <= TTL)
+    return valid.length ? valid[0].code : ''
   } catch { return '' }
 }
 
