@@ -149,8 +149,6 @@
   </div>
 </header>
 
-<div id="renewal-banner" style="display:none;position:fixed;left:0;right:0;z-index:48;padding:7px 16px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;text-align:center;"></div>
-
 <div id="match-pills-wrapper" style="position:fixed;left:0;right:0;z-index:45;background:var(--bg)">
   <div class="max-w-[960px] mx-auto px-4 py-2 flex flex-wrap items-center gap-1.5" id="match-pills"></div>
 </div>
@@ -2147,17 +2145,9 @@ async function load(force = false) {
   const { data: { session } } = await db.auth.getSession()
   let res
   if (session?.access_token) {
-    // Device check — block if wrong device
-    const dv = await verifyDevice(session.access_token)
-    if (!dv.ok) {
-      showDeviceBlock(dv.canSwitch, dv.daysLeft)
-      hideLoader()
-      return
-    }
-
     // Fetch profile for account chip + panel
     const { data: prof } = await db.from('profiles')
-      .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed')
+      .select('premium_until, is_tipster, referral_code, cancel_at_period_end')
       .eq('id', session.user.id).single()
     _userProfile = { email: session.user.email, ...(prof ?? {}) }
     updateAccountChip()
@@ -2553,12 +2543,10 @@ function renderMatch(entry) {
 
 function updateStickyOffsets() {
   const header        = document.querySelector('header')
-  const renewalBanner = document.getElementById('renewal-banner')
   const pillsWrapper  = document.getElementById('match-pills-wrapper')
   const filterSection = document.getElementById('filter-section')
   let offset = 0
   if (header)        { offset += header.offsetHeight - 1 }
-  if (renewalBanner && renewalBanner.style.display !== 'none') { renewalBanner.style.top = offset + 'px'; offset += renewalBanner.offsetHeight }
   if (pillsWrapper)  { pillsWrapper.style.top  = offset + 'px'; offset += pillsWrapper.offsetHeight - 1 }
   if (filterSection) { filterSection.style.top = offset + 'px'; offset += filterSection.offsetHeight - 1 }
   const matchTitle = document.querySelector('[data-match-title]')
@@ -2944,9 +2932,9 @@ function renderExpansionContent(key) {
 </script>
 
 <!-- ── Palo+ Modal ─────────────────────────────────────────────────────────── -->
-<div id="paloplus-overlay" onmousedown="if(event.target===this)closePaloPlus()"
+<div id="paloplus-overlay" onclick="if(event.target===this)closePaloPlus()"
   style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;">
-  <div onmousedown="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);width:100%;max-width:380px;margin:16px;padding:28px 32px;position:relative;display:flex;flex-direction:column;gap:12px;">
+  <div onclick="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);width:100%;max-width:380px;margin:16px;padding:28px 32px;position:relative;display:flex;flex-direction:column;gap:12px;">
 
     <!-- close -->
     <button onclick="closePaloPlus()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
@@ -2973,15 +2961,14 @@ function renderExpansionContent(key) {
         style="background:var(--surface);border:2px solid var(--border);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;"
         onkeydown="if(event.key==='Enter')ppModeAction()" />
 
-      <!-- login mode: password field + forgot (hidden by default) -->
+      <!-- login mode: password field (hidden by default) -->
       <input id="pp-login-pw" type="password" placeholder="contraseña"
         style="display:none;background:var(--surface);border:2px solid var(--border);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;"
         onkeydown="if(event.key==='Enter')ppModeAction()" />
-      <button id="pp-forgot" onclick="ppForgotPassword()" style="display:none;background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">¿Olvidaste tu contraseña?</button>
 
       <button onclick="ppModeAction()" id="pp-step1-btn"
         style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
-        CONTINUAR
+        CONTINUAR →
       </button>
 
       <button onclick="ppToggleLoginMode()" id="pp-toggle-mode"
@@ -3027,27 +3014,17 @@ function renderExpansionContent(key) {
       <div style="height:1px;background:var(--border);width:100%;margin:2px 0;"></div>
       <button onclick="ppEnter()"
         style="background:#f59e0b;border:none;padding:10px 24px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
-        ENTRAR
+        ENTRAR →
       </button>
     </div>
 
   </div>
 </div>
 
-<!-- ── Device block modal ───────────────────────────────────────────── -->
-<div id="device-overlay"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;align-items:center;justify-content:center;">
-  <div style="background:var(--surface-2);border:3px solid var(--border);padding:28px;max-width:380px;width:90%;display:flex;flex-direction:column;gap:16px;">
-    <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:#fff;letter-spacing:1px;">DISPOSITIVO</div>
-    <div id="device-msg" style="font-family:'DM Sans',sans-serif;font-size:14px;color:var(--muted);line-height:1.6;"></div>
-    <div id="device-actions" style="display:flex;flex-direction:column;gap:8px;"></div>
-  </div>
-</div>
-
 <!-- ── Account panel ─────────────────────────────────────────────────── -->
-<div id="account-overlay" onmousedown="if(event.target===this)closeAccount()"
+<div id="account-overlay" onclick="if(event.target===this)closeAccount()"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;">
-  <div onmousedown="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);padding:24px 28px;min-width:320px;max-width:420px;width:90%;position:relative;display:flex;flex-direction:column;gap:0;max-height:90vh;overflow-y:auto;">
+  <div onclick="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);padding:24px 28px;min-width:320px;max-width:420px;width:90%;position:relative;display:flex;flex-direction:column;gap:0;">
     <button onclick="closeAccount()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
 
     <!-- header -->
@@ -3059,15 +3036,14 @@ function renderExpansionContent(key) {
     <div id="acct-email" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
 
     <div id="pw-section" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
-      <button id="pw-toggle-btn" onclick="togglePwForm()" style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">Cambiar contraseña</button>
+      <button onclick="togglePwForm()" style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:left;width:100%;">Cambiar contraseña</button>
       <div id="pw-form" style="display:none;flex-direction:column;gap:8px;">
         <input id="pw-new" type="password" placeholder="nueva contraseña"
           style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;" />
         <input id="pw-confirm" type="password" placeholder="confirmar contraseña"
           style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;" />
-        <button onclick="savePassword()" style="background:var(--surface);border:2px solid var(--border);padding:8px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Guardar</button>
+        <button onclick="savePassword()" style="background:var(--surface);border:2px solid var(--sport);padding:8px 16px;color:var(--sport);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Guardar</button>
         <div id="pw-msg" style="font-family:'DM Sans',sans-serif;font-size:12px;display:none;"></div>
-        <button onclick="togglePwForm()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">← volver</button>
       </div>
     </div>
 
@@ -3091,20 +3067,6 @@ function renderExpansionContent(key) {
       <button onclick="copyTipsterLink()" style="background:var(--surface);border:2px solid var(--border);padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" id="acct-copy-btn">Copiar enlace</button>
     </div>
 
-    <!-- INVITAR AMIGOS (all users) -->
-    <div id="acct-referral-section" style="display:none;">
-      <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
-      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;margin-bottom:12px;">INVITAR AMIGOS</div>
-      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-bottom:8px;">
-        Tu código: <span id="acct-user-ref-code" style="font-family:'Geist Mono',monospace;color:#FFD700;"></span>
-      </div>
-      <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-        Comparte tu link. Tu amigo obtiene <strong style="color:#fff">3 días extra</strong> y tú ganas <strong style="color:#fff">7 días gratis</strong> por cada referido que pague.
-      </div>
-      <button onclick="copyReferralLink()" style="background:var(--surface);border:2px solid var(--border);padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:14px;" id="acct-user-copy-btn">Copiar enlace</button>
-      <div id="acct-referral-log" style="display:flex;flex-direction:column;gap:4px;"></div>
-    </div>
-
     <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
 
     <!-- logout -->
@@ -3116,76 +3078,11 @@ function renderExpansionContent(key) {
 const API = 'https://api.palo.mx'
 const STRIPE_PK = 'pk_test_51TMHRdPJZLeIUmxuhNzfPtkhGyYCbhJ50wZcS6cwIwHEUcrthBnMxdMjmHmMd7txN85N64J5cb6q37hx2GBEPU5100cc788388'
 
-// Capture referral code from URL and persist in localStorage (30-day TTL)
+// Capture referral code from URL and persist in localStorage
 ;(function() {
   const ref = new URLSearchParams(location.search).get('ref')
-  if (ref) localStorage.setItem('palo_ref', JSON.stringify({ code: ref, ts: Date.now() }))
+  if (ref) localStorage.setItem('palo_ref', ref)
 })()
-
-function getPaloRef() {
-  try {
-    const raw = localStorage.getItem('palo_ref')
-    if (!raw) return ''
-    if (!raw.startsWith('{')) return raw // legacy plain string
-    const { code, ts } = JSON.parse(raw)
-    if (Date.now() - ts > 30 * 24 * 60 * 60 * 1000) { localStorage.removeItem('palo_ref'); return '' }
-    return code
-  } catch { return '' }
-}
-
-// ── Device fingerprint ───────────────────────────────────────────────────────
-function getDeviceId() {
-  let id = localStorage.getItem('palo_device_id')
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem('palo_device_id', id) }
-  return id
-}
-
-async function verifyDevice(token) {
-  try {
-    const res = await fetch(`${API}/verify-device`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ deviceId: getDeviceId() }),
-    })
-    return await res.json()
-  } catch { return { ok: true } } // fail open if server unreachable
-}
-
-async function switchDevice() {
-  const { data: { session } } = await db.auth.getSession()
-  if (!session) return
-  const res = await fetch(`${API}/switch-device`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({ deviceId: getDeviceId() }),
-  })
-  const data = await res.json()
-  if (data.ok) {
-    document.getElementById('device-overlay').style.display = 'none'
-    load()
-  } else {
-    alert(`No puedes cambiar dispositivo por ${data.daysLeft} días más.`)
-  }
-}
-
-function showDeviceBlock(canSwitch, daysLeft) {
-  const overlay = document.getElementById('device-overlay')
-  const msg     = document.getElementById('device-msg')
-  const actions = document.getElementById('device-actions')
-
-  if (canSwitch) {
-    msg.innerHTML = `Tu cuenta está activa en <strong style="color:#fff">otro dispositivo</strong>.<br><br>¿Quieres cambiar a este? Solo puedes cambiar una vez cada 5 días.`
-    actions.innerHTML = `
-      <button onclick="switchDevice()" style="background:#f59e0b;border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">CAMBIAR DISPOSITIVO</button>
-      <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;padding:4px 0;text-decoration:underline;">Cerrar sesión</button>`
-  } else {
-    msg.innerHTML = `Este dispositivo no está autorizado.<br><br>Podrás cambiar en <strong style="color:#fff">${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong>.`
-    actions.innerHTML = `
-      <button onclick="doLogout()" style="background:none;border:2px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;">Cerrar sesión</button>`
-  }
-
-  overlay.style.display = 'flex'
-}
 
 let _stripe = null
 let _cardNumber = null
@@ -3223,25 +3120,11 @@ async function ppContinue() {
   const email = document.getElementById('pp-email').value.trim()
   if (!email || !email.includes('@')) { ppErr(1, 'Ingresa un email válido'); return }
 
-  const btn = document.getElementById('pp-step1-btn')
+  const btn = document.querySelector('#pp-step1 button:last-of-type')
   btn.textContent = 'Cargando…'; btn.disabled = true
 
   try {
-    // Check if email already has an account → redirect to login instead of payment
-    const checkRes = await fetch(`${API}/check-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
-    const { exists } = await checkRes.json()
-    if (exists) {
-      ppErr(1, 'Ya tienes una cuenta. Inicia sesión.')
-      if (!_ppLoginMode) ppToggleLoginMode()
-      btn.textContent = 'CONTINUAR'; btn.disabled = false
-      return
-    }
-
-    const ref = getPaloRef()
+    const ref = localStorage.getItem('palo_ref') ?? ''
     const res = await fetch(`${API}/create-payment-intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3277,7 +3160,7 @@ async function ppContinue() {
   } catch(e) {
     ppErr(1, e.message)
   } finally {
-    btn.textContent = 'CONTINUAR'; btn.disabled = false
+    btn.textContent = 'Continuar →'; btn.disabled = false
   }
 }
 
@@ -3340,25 +3223,10 @@ function ppToggleLoginMode() {
   _ppLoginMode = !_ppLoginMode
   document.getElementById('pp-upsell').style.display    = _ppLoginMode ? 'none' : 'flex'
   document.getElementById('pp-login-pw').style.display  = _ppLoginMode ? 'block' : 'none'
-  document.getElementById('pp-forgot').style.display    = _ppLoginMode ? 'block' : 'none'
-  document.getElementById('pp-step1-btn').textContent   = _ppLoginMode ? 'ENTRAR' : 'CONTINUAR'
+  document.getElementById('pp-step1-btn').textContent   = _ppLoginMode ? 'ENTRAR →' : 'CONTINUAR →'
   document.getElementById('pp-toggle-mode').textContent = _ppLoginMode ? '¿Usuario nuevo? Suscríbete' : '¿Ya tienes cuenta? Inicia sesión'
   document.getElementById('pp-toggle-mode').style.color = _ppLoginMode ? '#f59e0b' : 'var(--muted)'
   document.getElementById('pp-err1').style.display = 'none'
-}
-
-async function ppForgotPassword() {
-  const email = document.getElementById('pp-email').value.trim()
-  if (!email || !email.includes('@')) { ppErr(1, 'Ingresa tu email primero'); return }
-  const btn = document.getElementById('pp-forgot')
-  btn.textContent = 'Enviando…'; btn.disabled = true
-  const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://palo.mx',
-  })
-  if (error) { ppErr(1, error.message); btn.textContent = '¿Olvidaste tu contraseña?'; btn.disabled = false; return }
-  ppErr(1, 'Si ese email está registrado, recibirás un enlace en breve.')
-  document.getElementById('pp-err1').style.color = 'var(--green)'
-  btn.textContent = '¿Olvidaste tu contraseña?'; btn.disabled = false
 }
 
 async function ppModeAction() {
@@ -3380,19 +3248,27 @@ async function ppLogin() {
 
   try {
     const { error } = await db.auth.signInWithPassword({ email, password: pw })
-    if (error) throw new Error(error.message.toLowerCase().includes('invalid') ? 'Email o contraseña incorrectos' : error.message)
+    if (error) throw new Error(error.message)
     closePaloPlus()
     await load()
   } catch(e) {
     ppErr(1, e.message)
   } finally {
-    btn.textContent = 'ENTRAR'; btn.disabled = false
+    btn.textContent = 'ENTRAR →'; btn.disabled = false
   }
 }
 
 function openLogin() {
-  openPaloPlus(false)   // resets _ppLoginMode = false, opens modal in signup mode
-  ppToggleLoginMode()   // immediately flip to login mode (sets _ppLoginMode = true + updates UI)
+  _ppLoginMode = true
+  openPaloPlus(false)
+  // switch step 1 to login mode after modal opens
+  setTimeout(() => {
+    document.getElementById('pp-upsell').style.display    = 'none'
+    document.getElementById('pp-login-pw').style.display  = 'block'
+    document.getElementById('pp-step1-btn').textContent   = 'ENTRAR →'
+    document.getElementById('pp-toggle-mode').textContent = '¿Usuario nuevo? Suscríbete'
+    document.getElementById('pp-toggle-mode').style.color  = '#f59e0b'
+  }, 10)
 }
 
 async function ppEnter() {
@@ -3409,7 +3285,6 @@ function updateAccountChip() {
   if (!_userProfile) {
     chip.style.display = 'none'
     loginBtn.style.display = 'flex'
-    updateRenewalBanner()
     return
   }
   loginBtn.style.display = 'none'
@@ -3417,66 +3292,13 @@ function updateAccountChip() {
   lbl.textContent = _userProfile.email.split('@')[0]
   dot.style.background = premiumActive ? 'var(--green)' : 'var(--magenta)'
   chip.style.display = 'flex'
-  updateRenewalBanner()
-}
-
-function updateRenewalBanner() {
-  const banner = document.getElementById('renewal-banner')
-  if (!banner) return
-
-  const until = _userProfile?.premium_until ? new Date(_userProfile.premium_until) : null
-  const now = new Date()
-  const active = until && until > now
-  const daysLeft = active ? Math.ceil((until - now) / 86400000) : 0
-  const paymentFailed = _userProfile?.payment_failed
-
-  // Payment failed — highest priority, show regardless of days left
-  if (paymentFailed && active) {
-    banner.style.display = 'block'
-    banner.style.background = '#7c2d12'
-    banner.style.color = '#fca5a5'
-    banner.innerHTML = `No pudimos cobrar tu tarjeta. Tu acceso vence en <strong>${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong>. <button onclick="closeAccount();openPaloPlus(true)" style="margin-left:8px;background:#ef4444;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:2px 10px;cursor:pointer;">Actualizar tarjeta</button>`
-    updateStickyOffsets()
-    return
-  }
-
-  if (!active || daysLeft > 5) {
-    banner.style.display = 'none'
-    updateStickyOffsets()
-    return
-  }
-
-  const cancelled = _userProfile?.cancel_at_period_end
-
-  if (cancelled) {
-    banner.style.display = 'block'
-    banner.style.background = '#7c2d12'
-    banner.style.color = '#fca5a5'
-    banner.innerHTML = `Tu acceso vence en <strong>${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong> y no se renovará. <button onclick="closeAccount();openPaloPlus(true)" style="margin-left:8px;background:#ef4444;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:2px 10px;cursor:pointer;">Renovar</button>`
-  } else {
-    banner.style.display = 'block'
-    banner.style.background = '#713f12'
-    banner.style.color = '#fde68a'
-    banner.innerHTML = `Tu acceso se renueva automáticamente en <strong>${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong>.`
-  }
-
-  updateStickyOffsets()
 }
 
 // ── Account panel ─────────────────────────────────────────────────────────────
-async function openAccount() {
+function openAccount() {
   if (!_userProfile) return
   const overlay = document.getElementById('account-overlay')
   overlay.style.display = 'flex'
-
-  // Re-fetch profile so premium_until is always fresh
-  const { data: { session } } = await db.auth.getSession()
-  if (session) {
-    const { data: fresh } = await db.from('profiles')
-      .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed')
-      .eq('id', session.user.id).single()
-    if (fresh) Object.assign(_userProfile, fresh)
-  }
 
   document.getElementById('acct-email').textContent = _userProfile.email
 
@@ -3493,28 +3315,13 @@ async function openAccount() {
     const days = Math.ceil((until - new Date()) / 86400000)
     if (_userProfile.cancel_at_period_end) {
       statusEl.innerHTML = `Cancelada · termina el <strong style="color:#fff">${fmtDate(until)}</strong>`
-      const reactivateBtn = document.createElement('button')
-      reactivateBtn.textContent = 'Reactivar renovación automática'
-      reactivateBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;text-decoration:underline;'
-      reactivateBtn.onclick = reactivateSub
-      actionsEl.appendChild(reactivateBtn)
     } else {
       statusEl.innerHTML = `Activa · <strong style="color:var(--green)">${days} días restantes</strong><br><span style="font-size:11px;">Renueva el ${fmtDate(until)}</span>`
-      // Cancel button — inline two-tap, no confirm() dialog
+      // Cancel button
       const cancelBtn = document.createElement('button')
       cancelBtn.textContent = 'Cancelar suscripción'
       cancelBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;text-decoration:underline;'
-      cancelBtn.onclick = () => {
-        // Replace with inline confirmation showing expiry date
-        actionsEl.innerHTML = `
-          <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.5;">
-            Tu acceso estará disponible hasta el <strong style="color:#fff">${fmtDate(until)}</strong>.<br>No se renovará automáticamente.
-          </div>
-          <div style="display:flex;gap:8px;margin-top:4px;">
-            <button onclick="cancelSub()" style="background:#ef4444;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:6px 14px;cursor:pointer;">Confirmar</button>
-            <button onclick="openAccount()" style="background:none;border:2px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;">No, mantener</button>
-          </div>`
-      }
+      cancelBtn.onclick = cancelSub
       actionsEl.appendChild(cancelBtn)
     }
   } else {
@@ -3537,33 +3344,8 @@ async function openAccount() {
     tipsterSec.style.display = 'none'
   }
 
-  // Referral section (all users)
-  const referralSec = document.getElementById('acct-referral-section')
-  if (_userProfile.user_referral_code) {
-    referralSec.style.display = 'block'
-    document.getElementById('acct-user-ref-code').textContent = _userProfile.user_referral_code
-    loadReferralLog()
-  } else {
-    // Generate code on-demand (e.g. tipsters created via admin, never went through /activate)
-    referralSec.style.display = 'block'
-    document.getElementById('acct-user-ref-code').textContent = '…'
-    db.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return
-      fetch(`${API}/ensure-referral-code`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      }).then(r => r.json()).then(({ code }) => {
-        if (!code) return
-        _userProfile.user_referral_code = code
-        document.getElementById('acct-user-ref-code').textContent = code
-        loadReferralLog()
-      })
-    })
-  }
-
   // Reset pw form
-  document.getElementById('pw-form').style.display      = 'none'
-  document.getElementById('pw-toggle-btn').style.display = 'block'
+  document.getElementById('pw-form').style.display = 'none'
   document.getElementById('pw-new').value = ''
   document.getElementById('pw-confirm').value = ''
   document.getElementById('pw-msg').style.display = 'none'
@@ -3574,12 +3356,8 @@ function closeAccount() {
 }
 
 function togglePwForm() {
-  const form    = document.getElementById('pw-form')
-  const toggleBtn = document.getElementById('pw-toggle-btn')
-  const open    = form.style.display === 'none'
-  form.style.display      = open ? 'flex' : 'none'
-  toggleBtn.style.display = open ? 'none' : 'block'
-  if (!open) { document.getElementById('pw-msg').style.display = 'none' }
+  const f = document.getElementById('pw-form')
+  f.style.display = f.style.display === 'none' ? 'flex' : 'none'
 }
 
 async function savePassword() {
@@ -3599,42 +3377,15 @@ async function savePassword() {
 }
 
 async function cancelSub() {
-  try {
-    const { data: { session } } = await db.auth.getSession()
-    if (!session) { alert('Sesión expirada, vuelve a iniciar sesión.'); return }
-    const res = await fetch(`${API}/cancel`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session.access_token}` },
-    })
-    if (res.ok) {
-      _userProfile.cancel_at_period_end = true
-      openAccount()
-    } else {
-      const err = await res.json().catch(() => ({}))
-      alert('Error al cancelar: ' + (err.error ?? res.status))
-    }
-  } catch (e) {
-    alert('Error: ' + e.message)
-  }
-}
-
-async function reactivateSub() {
-  try {
-    const { data: { session } } = await db.auth.getSession()
-    if (!session) { alert('Sesión expirada, vuelve a iniciar sesión.'); return }
-    const res = await fetch(`${API}/reactivate`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session.access_token}` },
-    })
-    if (res.ok) {
-      _userProfile.cancel_at_period_end = false
-      openAccount()
-    } else {
-      const err = await res.json().catch(() => ({}))
-      alert('Error al reactivar: ' + (err.error ?? res.status))
-    }
-  } catch (e) {
-    alert('Error: ' + e.message)
+  if (!confirm('¿Cancelar tu suscripción? Mantendrás acceso hasta que expire.')) return
+  const { data: { session } } = await db.auth.getSession()
+  const res = await fetch(`${API}/cancel`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+  })
+  if (res.ok) {
+    _userProfile.cancel_at_period_end = true
+    openAccount() // re-render panel
   }
 }
 
@@ -3650,38 +3401,9 @@ function copyTipsterLink() {
   btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = 'Copiar enlace' }, 2000)
 }
 
-function copyReferralLink() {
-  navigator.clipboard.writeText(`https://palo.mx?ref=${_userProfile.user_referral_code}`)
-  const btn = document.getElementById('acct-user-copy-btn')
-  btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = 'Copiar enlace' }, 2000)
-}
-
-async function loadReferralLog() {
-  const { data: { session } } = await db.auth.getSession()
-  if (!session) return
-  const res = await fetch(`${API}/referral-log`, {
-    headers: { 'Authorization': `Bearer ${session.access_token}` },
-  })
-  if (!res.ok) return
-  const { rewards } = await res.json()
-  const el = document.getElementById('acct-referral-log')
-  const fmt = d => new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-  if (!rewards || rewards.length === 0) {
-    el.innerHTML = '<span style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:var(--muted);">Aún no has referido a nadie</span>'
-    return
-  }
-  el.innerHTML = rewards.map(r =>
-    `<div style="font-family:'DM Sans',sans-serif;font-size:12px;">` +
-    `<span style="color:var(--green)">+${r.days_added} días</span>` +
-    ` <span style="color:var(--muted)">— ${fmt(r.premium_until_after)}</span>` +
-    `</div>`
-  ).join('')
-}
-
 async function doLogout() {
   await db.auth.signOut()
   _userProfile = null
-  document.getElementById('device-overlay').style.display = 'none'
   updateAccountChip()
   closeAccount()
   await load()
@@ -3694,10 +3416,8 @@ function openPaloPlus(renewal = false) {
     _ppLoginMode = false
     document.getElementById('pp-upsell').style.display    = 'flex'
     document.getElementById('pp-login-pw').style.display  = 'none'
-    document.getElementById('pp-forgot').style.display    = 'none'
-    document.getElementById('pp-step1-btn').textContent   = 'CONTINUAR'
+    document.getElementById('pp-step1-btn').textContent   = 'CONTINUAR →'
     document.getElementById('pp-toggle-mode').textContent = '¿Ya tienes cuenta? Inicia sesión'
-    document.getElementById('pp-toggle-mode').style.color = 'var(--muted)'
   }
   const overlay = document.getElementById('paloplus-overlay')
   overlay.style.display = 'flex'
