@@ -3025,7 +3025,7 @@ async function ppContinue() {
 
   try {
     const ref = localStorage.getItem('palo_ref') ?? ''
-    const res = await fetch(`${API}/create-subscription`, {
+    const res = await fetch(`${API}/create-payment-intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, ref }),
