@@ -2133,9 +2133,19 @@ async function load(force = false) {
   const fromStr  = fromDate.toISOString().slice(0, 10)
   const toStr    = toDate.toISOString().slice(0, 10)
 
-  // Single fetch from pre-built payload file
-  const res = await fetch('./payload-free.json')
-  if (!res.ok) throw new Error(`payload-free.json not found — generate it from the Props Cache section first`)
+  // Check if user is logged in — fetch full payload if premium, free otherwise
+  const { data: { session } } = await db.auth.getSession()
+  let res
+  if (session?.access_token) {
+    res = await fetch('https://api.palo.mx/payload.json', {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    })
+    if (res.status === 403) res = null // not premium, fall through to free
+  }
+  if (!res || !res.ok) {
+    res = await fetch('./payload-free.json')
+    if (!res.ok) throw new Error(`payload-free.json not found — generate it from the Props Cache section first`)
+  }
   const { cacheRows, matchRows, teamRows } = await res.json()
 
   if (!cacheRows?.length) {
@@ -2907,13 +2917,13 @@ function renderExpansionContent(key) {
 <!-- ── Palo+ Modal ─────────────────────────────────────────────────────────── -->
 <div id="paloplus-overlay" onclick="if(event.target===this)closePaloPlus()"
   style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;">
-  <div style="background:var(--surface-2);border:3px solid var(--border);width:100%;max-width:380px;margin:16px;padding:28px 32px;position:relative;display:flex;flex-direction:column;gap:20px;">
+  <div style="background:var(--surface-2);border:3px solid var(--border);width:100%;max-width:380px;margin:16px;padding:28px 32px;position:relative;display:flex;flex-direction:column;gap:12px;">
 
     <!-- close -->
     <button onclick="closePaloPlus()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
 
     <!-- step 1: info + email -->
-    <div id="pp-step1" style="display:flex;flex-direction:column;gap:20px;">
+    <div id="pp-step1" style="display:flex;flex-direction:column;gap:12px;">
       <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
       <div style="height:1px;background:var(--border);margin:4px 0;"></div>
 
@@ -2943,12 +2953,22 @@ function renderExpansionContent(key) {
     </div>
 
     <!-- step 2: card form -->
-    <div id="pp-step2" style="display:none;flex-direction:column;gap:20px;">
+    <div id="pp-step2" style="display:none;flex-direction:column;gap:12px;">
       <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
       <div style="height:1px;background:var(--border);margin:4px 0;"></div>
       <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">DATOS DE PAGO</div>
       <div id="pp-email-display" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);"></div>
-      <div id="pp-card-element" style="background:var(--surface);border:2px solid var(--border);padding:12px;"></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div id="pp-card-number" style="background:var(--surface);border:2px solid var(--border);padding:12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <div id="pp-card-expiry" style="flex:1;background:var(--surface);border:2px solid var(--border);padding:12px;"></div>
+          <div id="pp-card-cvc" style="flex:1;background:var(--surface);border:2px solid var(--border);padding:12px;"></div>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">CREA TU CONTRASEÑA</div>
+      <input id="pp-password" type="password" placeholder="contraseña"
+        style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;" />
       <button id="pp-pay-btn" onclick="ppPay()"
         style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         PAGAR 99 MXN / MES
@@ -2958,12 +2978,12 @@ function renderExpansionContent(key) {
     </div>
 
     <!-- step 3: success -->
-    <div id="pp-step3" style="display:none;flex-direction:column;gap:20px;align-items:flex-start;">
+    <div id="pp-step3" style="display:none;flex-direction:column;gap:12px;align-items:flex-start;">
       <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
-      <div style="height:1px;background:var(--border);width:100%;"></div>
+      <div style="height:1px;background:var(--border);width:100%;margin:4px 0;"></div>
       <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">BIENVENIDO</div>
       <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Revisa tu email para activar tu cuenta y acceder a todos los partidos.</div>
-      <div style="height:1px;background:var(--border);width:100%;"></div>
+      <div style="height:1px;background:var(--border);width:100%;margin:4px 0;"></div>
       <button onclick="closePaloPlus()"
         style="background:#f59e0b;border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         ENTENDIDO
@@ -2984,30 +3004,36 @@ const STRIPE_PK = 'pk_test_51TMHRdPJZLeIUmxuhNzfPtkhGyYCbhJ50wZcS6cwIwHEUcrthBnM
 })()
 
 let _stripe = null
-let _cardElement = null
+let _cardNumber = null
+let _cardExpiry = null
+let _cardCvc = null
 let _clientSecret = null
 
 function openPaloPlus() {
   const overlay = document.getElementById('paloplus-overlay')
   overlay.style.display = 'flex'
-  document.getElementById('pp-step1').style.display = 'block'
+  document.getElementById('pp-step1').style.display = 'flex'
   document.getElementById('pp-step2').style.display = 'none'
   document.getElementById('pp-step3').style.display = 'none'
   document.getElementById('pp-email').value = ''
   document.getElementById('pp-err1').style.display = 'none'
 }
 
+function _destroyCards() {
+  if (_cardNumber) { _cardNumber.destroy(); _cardNumber = null }
+  if (_cardExpiry) { _cardExpiry.destroy(); _cardExpiry = null }
+  if (_cardCvc)    { _cardCvc.destroy();    _cardCvc    = null }
+}
+
 function closePaloPlus() {
   document.getElementById('paloplus-overlay').style.display = 'none'
-  if (_cardElement) { _cardElement.destroy(); _cardElement = null }
-  _clientSecret = null
+  _destroyCards(); _clientSecret = null
 }
 
 function ppBack() {
   document.getElementById('pp-step2').style.display = 'none'
-  document.getElementById('pp-step1').style.display = 'block'
-  if (_cardElement) { _cardElement.destroy(); _cardElement = null }
-  _clientSecret = null
+  document.getElementById('pp-step1').style.display = 'flex'
+  _destroyCards(); _clientSecret = null
 }
 
 function ppErr(step, msg) {
@@ -3038,19 +3064,24 @@ async function ppContinue() {
     // Mount Stripe Elements
     if (!_stripe) _stripe = Stripe(STRIPE_PK)
     const elements = _stripe.elements()
-    _cardElement = elements.create('card', {
-      style: {
-        base: { color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: '14px', '::placeholder': { color: '#555' } },
-        invalid: { color: '#e63946' },
-      }
-    })
+    const style = {
+      base: { color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: '14px', '::placeholder': { color: '#555' } },
+      invalid: { color: '#e63946' },
+    }
+    _cardNumber = elements.create('cardNumber', { style })
+    _cardExpiry = elements.create('cardExpiry', { style })
+    _cardCvc    = elements.create('cardCvc',    { style })
 
     document.getElementById('pp-step1').style.display = 'none'
-    document.getElementById('pp-step2').style.display = 'block'
+    document.getElementById('pp-step2').style.display = 'flex'
     document.getElementById('pp-email-display').textContent = email
     document.getElementById('pp-err2').style.display = 'none'
 
-    setTimeout(() => _cardElement.mount('#pp-card-element'), 50)
+    setTimeout(() => {
+      _cardNumber.mount('#pp-card-number')
+      _cardExpiry.mount('#pp-card-expiry')
+      _cardCvc.mount('#pp-card-cvc')
+    }, 50)
 
   } catch(e) {
     ppErr(1, e.message)
@@ -3060,33 +3091,42 @@ async function ppContinue() {
 }
 
 async function ppPay() {
-  if (!_stripe || !_cardElement || !_clientSecret) return
-  const email = document.getElementById('pp-email-display').textContent
+  if (!_stripe || !_cardNumber || !_clientSecret) return
+  const email    = document.getElementById('pp-email-display').textContent
+  const password = document.getElementById('pp-password').value.trim()
+  if (!password || password.length < 6) { ppErr(2, 'Contraseña mínimo 6 caracteres'); return }
+
   const btn = document.getElementById('pp-pay-btn')
   btn.textContent = 'Procesando…'; btn.disabled = true
   document.getElementById('pp-err2').style.display = 'none'
 
   try {
+    // 1. Confirm payment
     const { error, paymentIntent } = await _stripe.confirmCardPayment(_clientSecret, {
-      payment_method: { card: _cardElement, billing_details: { email } }
+      payment_method: { card: _cardNumber, billing_details: { email } }
     })
-
     if (error) throw new Error(error.message)
 
-    // Payment confirmed — activate Supabase account
-    await fetch(`${API}/activate`, {
+    // 2. Create account + grant premium (server verifies payment with Stripe)
+    const res = await fetch(`${API}/activate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password, paymentIntentId: paymentIntent.id }),
     })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Error al activar cuenta')
 
-    // Show success
-    document.getElementById('pp-step2').style.display = 'none'
-    document.getElementById('pp-step3').style.display = 'block'
+    // 3. Sign in with Supabase
+    const { data: session, error: signInErr } = await db.auth.signInWithPassword({ email, password })
+    if (signInErr) throw new Error(signInErr.message)
+
+    // 4. Close modal and reload with full payload
+    closePaloPlus()
+    await load()
 
   } catch(e) {
     ppErr(2, e.message)
-    btn.textContent = 'Pagar 99 MXN / mes'; btn.disabled = false
+    btn.textContent = 'PAGAR 99 MXN / MES'; btn.disabled = false
   }
 }
 </script>
