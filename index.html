@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Clash+Grotesk:wght@600;700&family=Geist+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://js.stripe.com/v3/"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
@@ -20,7 +21,7 @@
       --border-2:  #2a2a2a;
       --magenta:   #e63946;
       --sport:     #8BE9FD;
-      --gold:      #ffd60a;
+      --gold:      #FFD700;
       --green:     #4ade80;
       --muted:     #555555;
       --text:      #ffffff;
@@ -86,7 +87,7 @@
       transform: translate(-50%,-50%); z-index: 999;
       background: var(--surface-2); border: 3px solid var(--border);
       padding: 20px 28px; flex-direction: column; align-items: flex-start; gap: 12px;
-      min-width: 300px; max-width: 420px;
+      min-width: 360px; max-width: 500px;
     }
     #info-modal.visible { display: flex; }
     #info-modal .im-title {
@@ -94,10 +95,10 @@
       font-size: 9px; color: #fff; letter-spacing: 1px;
     }
     #info-modal .im-line {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 7px; color: var(--muted); letter-spacing: 1px; line-height: 1.9;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; color: var(--muted); line-height: 1.7;
     }
-    #info-modal .im-line.hi { color: #fff; }
+    #info-modal .im-line.hi { color: #fff; font-family: 'Press Start 2P', monospace; font-size: 8px; letter-spacing: 1px; }
     #info-modal .im-sep {
       width: 100%; height: 1px; background: var(--border);
     }
@@ -896,17 +897,20 @@ function _renderInfoModal() {
   const modal = document.getElementById('info-modal')
   const pages = info.pages
   const rows  = pages ? pages[_infoModalPage] : info.rows
+  const toTitle = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
   const rowsHtml = rows.map(r => r[0] === 'sep'
     ? `<div class="im-sep"></div>`
-    : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}"${r[0] && r[0] !== 'hi' && r[0] !== '' ? ` style="color:${r[0]}"` : ''}>${r[1]}</div>`
+    : `<div class="im-line${r[0] === 'hi' ? ' hi' : ''}"${r[0] && r[0] !== 'hi' && r[0] !== '' ? ` style="color:${r[0]}"` : ''}>${r[0] === 'hi' ? r[1] : toTitle(r[1])}</div>`
   ).join('')
   const navHtml = pages ? `
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:4px">
-      <button onclick="stepInfoModal(-1)" style="font-family:'Press Start 2P',monospace;font-size:8px;background:none;border:2px solid var(--border);color:${_infoModalPage === 0 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === 0 ? 'default' : 'pointer'}">◀</button>
-      <span style="font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted)">${_infoModalPage + 1} / ${pages.length}</span>
-      <button onclick="stepInfoModal(1)" style="font-family:'Press Start 2P',monospace;font-size:8px;background:none;border:2px solid var(--border);color:${_infoModalPage === pages.length - 1 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === pages.length - 1 ? 'default' : 'pointer'}">▶</button>
+      <button onclick="stepInfoModal(-1)" style="font-family:'DM Sans',sans-serif;font-size:11px;background:none;border:2px solid var(--border);color:${_infoModalPage === 0 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === 0 ? 'default' : 'pointer'}">◀</button>
+      <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted)">${_infoModalPage + 1} / ${pages.length}</span>
+      <button onclick="stepInfoModal(1)" style="font-family:'DM Sans',sans-serif;font-size:11px;background:none;border:2px solid var(--border);color:${_infoModalPage === pages.length - 1 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === pages.length - 1 ? 'default' : 'pointer'}">▶</button>
     </div>` : ''
-  modal.innerHTML = `<div class="im-title">${info.title}</div>${rowsHtml}${navHtml}`
+  modal.innerHTML = `
+    <button onclick="closeInfoModal()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
+    <div class="im-title">${info.title}</div>${rowsHtml}${navHtml}`
 }
 
 function showInfoModal(col, propType) {
@@ -2130,8 +2134,8 @@ async function load(force = false) {
   const toStr    = toDate.toISOString().slice(0, 10)
 
   // Single fetch from pre-built payload file
-  const res = await fetch('./payload.json')
-  if (!res.ok) throw new Error(`payload.json not found — generate it from the Props Cache section first`)
+  const res = await fetch('./payload-free.json')
+  if (!res.ok) throw new Error(`payload-free.json not found — generate it from the Props Cache section first`)
   const { cacheRows, matchRows, teamRows } = await res.json()
 
   if (!cacheRows?.length) {
@@ -2349,6 +2353,14 @@ function renderPills() {
     }
   }
 
+  // Palo+ upsell pill — after regular matches, before 48h ago
+  parts.push(`
+    <button onclick="openPaloPlus()"
+      class="match-pill whitespace-nowrap shrink-0"
+      style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer;background:#1a1200;border-color:#f59e0b;color:#f59e0b;">
+      PALO+
+    </button>`)
+
   if (past.length > 0) {
     parts.push(`
       <button onclick="togglePastExpanded()"
@@ -2381,6 +2393,11 @@ function renderPills() {
 
   pillsEl.innerHTML = parts.join('')
   requestAnimationFrame(updateStickyOffsets)
+}
+
+function openPaloPlus() {
+  // TODO: open subscription modal
+  alert('Palo+ modal coming soon')
 }
 
 function setTab(tab) {
@@ -2884,6 +2901,193 @@ function renderExpansionContent(key) {
     ? '<p class="text-[11px] py-2" style="color:var(--muted)">No stat mapping for this market</p>'
     : `<div style="margin-bottom:6px;font-size:9px;font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.1em">${fullLabelHtml}</div>
        <div style="display:flex;align-items:stretch;gap:0;width:100%;overflow:hidden">${prevBtn}<div style="flex:1;display:grid;grid-template-columns:repeat(${PAGE_SIZE},1fr);gap:6px;min-width:0">${'<div></div>'.repeat(PAGE_SIZE - pageBars.length)}${barsHtml}</div>${nextBtn}</div>`
+}
+</script>
+
+<!-- ── Palo+ Modal ─────────────────────────────────────────────────────────── -->
+<div id="paloplus-overlay" onclick="if(event.target===this)closePaloPlus()"
+  style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;">
+  <div style="background:var(--surface-2);border:3px solid var(--border);width:100%;max-width:380px;margin:16px;padding:28px 32px;position:relative;display:flex;flex-direction:column;gap:20px;">
+
+    <!-- close -->
+    <button onclick="closePaloPlus()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
+
+    <!-- step 1: info + email -->
+    <div id="pp-step1" style="display:flex;flex-direction:column;gap:20px;">
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
+      <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">TODOS LOS PARTIDOS</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Accede a todos los partidos del día, todas las props, historial completo y modelo EV actualizado diario.</div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">99 MXN / MES</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);">Cancela cuando quieras. Sin compromisos.</div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+      <input id="pp-email" type="email" placeholder="tu@email.com"
+        style="background:var(--surface);border:2px solid var(--border);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;"
+        onkeydown="if(event.key==='Enter')ppContinue()" />
+
+      <button onclick="ppContinue()"
+        style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        CONTINUAR →
+      </button>
+      <div id="pp-err1" style="font-family:'DM Sans',sans-serif;font-size:12px;color:#e63946;display:none;"></div>
+    </div>
+
+    <!-- step 2: card form -->
+    <div id="pp-step2" style="display:none;flex-direction:column;gap:20px;">
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
+      <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">DATOS DE PAGO</div>
+      <div id="pp-email-display" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);"></div>
+      <div id="pp-card-element" style="background:var(--surface);border:2px solid var(--border);padding:12px;"></div>
+      <button id="pp-pay-btn" onclick="ppPay()"
+        style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        PAGAR 99 MXN / MES
+      </button>
+      <button onclick="ppBack()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">← volver</button>
+      <div id="pp-err2" style="font-family:'DM Sans',sans-serif;font-size:12px;color:#e63946;display:none;"></div>
+    </div>
+
+    <!-- step 3: success -->
+    <div id="pp-step3" style="display:none;flex-direction:column;gap:20px;align-items:flex-start;">
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
+      <div style="height:1px;background:var(--border);width:100%;"></div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">BIENVENIDO</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Revisa tu email para activar tu cuenta y acceder a todos los partidos.</div>
+      <div style="height:1px;background:var(--border);width:100%;"></div>
+      <button onclick="closePaloPlus()"
+        style="background:#f59e0b;border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        ENTENDIDO
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'https://api.palo.mx'
+const STRIPE_PK = 'pk_test_51TMHRdPJZLeIUmxuhNzfPtkhGyYCbhJ50wZcS6cwIwHEUcrthBnMxdMjmHmMd7txN85N64J5cb6q37hx2GBEPU5100cc788388'
+
+// Capture referral code from URL and persist in localStorage
+;(function() {
+  const ref = new URLSearchParams(location.search).get('ref')
+  if (ref) localStorage.setItem('palo_ref', ref)
+})()
+
+let _stripe = null
+let _cardElement = null
+let _clientSecret = null
+
+function openPaloPlus() {
+  const overlay = document.getElementById('paloplus-overlay')
+  overlay.style.display = 'flex'
+  document.getElementById('pp-step1').style.display = 'block'
+  document.getElementById('pp-step2').style.display = 'none'
+  document.getElementById('pp-step3').style.display = 'none'
+  document.getElementById('pp-email').value = ''
+  document.getElementById('pp-err1').style.display = 'none'
+}
+
+function closePaloPlus() {
+  document.getElementById('paloplus-overlay').style.display = 'none'
+  if (_cardElement) { _cardElement.destroy(); _cardElement = null }
+  _clientSecret = null
+}
+
+function ppBack() {
+  document.getElementById('pp-step2').style.display = 'none'
+  document.getElementById('pp-step1').style.display = 'block'
+  if (_cardElement) { _cardElement.destroy(); _cardElement = null }
+  _clientSecret = null
+}
+
+function ppErr(step, msg) {
+  const el = document.getElementById(`pp-err${step}`)
+  el.textContent = msg
+  el.style.display = 'block'
+}
+
+async function ppContinue() {
+  const email = document.getElementById('pp-email').value.trim()
+  if (!email || !email.includes('@')) { ppErr(1, 'Ingresa un email válido'); return }
+
+  const btn = document.querySelector('#pp-step1 button:last-of-type')
+  btn.textContent = 'Cargando…'; btn.disabled = true
+
+  try {
+    const ref = localStorage.getItem('palo_ref') ?? ''
+    const res = await fetch(`${API}/create-subscription`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, ref }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Error al crear suscripción')
+
+    _clientSecret = data.clientSecret
+
+    // Mount Stripe Elements
+    if (!_stripe) _stripe = Stripe(STRIPE_PK)
+    const elements = _stripe.elements()
+    _cardElement = elements.create('card', {
+      style: {
+        base: { color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: '14px', '::placeholder': { color: '#555' } },
+        invalid: { color: '#e63946' },
+      }
+    })
+
+    document.getElementById('pp-step1').style.display = 'none'
+    document.getElementById('pp-step2').style.display = 'block'
+    document.getElementById('pp-email-display').textContent = email
+    document.getElementById('pp-err2').style.display = 'none'
+
+    setTimeout(() => _cardElement.mount('#pp-card-element'), 50)
+
+  } catch(e) {
+    ppErr(1, e.message)
+  } finally {
+    btn.textContent = 'Continuar →'; btn.disabled = false
+  }
+}
+
+async function ppPay() {
+  if (!_stripe || !_cardElement || !_clientSecret) return
+  const email = document.getElementById('pp-email-display').textContent
+  const btn = document.getElementById('pp-pay-btn')
+  btn.textContent = 'Procesando…'; btn.disabled = true
+  document.getElementById('pp-err2').style.display = 'none'
+
+  try {
+    const { error, paymentIntent } = await _stripe.confirmCardPayment(_clientSecret, {
+      payment_method: { card: _cardElement, billing_details: { email } }
+    })
+
+    if (error) throw new Error(error.message)
+
+    // Payment confirmed — activate Supabase account
+    await fetch(`${API}/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+
+    // Show success
+    document.getElementById('pp-step2').style.display = 'none'
+    document.getElementById('pp-step3').style.display = 'block'
+
+  } catch(e) {
+    ppErr(2, e.message)
+    btn.textContent = 'Pagar 99 MXN / mes'; btn.disabled = false
+  }
 }
 </script>
 </body>
