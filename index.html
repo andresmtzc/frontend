@@ -994,7 +994,7 @@ function imgCandidates(name) {
   }
 
   // 0. Naive slug — matches files named without NFD (accented chars → underscore)
-  const naiveSlug = (n) => (n || '').replace(/[^a-z0-9]/gi, '_')
+  const naiveSlug = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '_')
   const ns = naiveSlug(name); if (ns && !seen.has(ns)) { seen.add(ns); candidates.unshift(ns) }
   const nsl = ns?.toLowerCase(); if (nsl && !seen.has(nsl)) { seen.add(nsl); candidates.splice(1, 0, nsl) }
   // 1. Original as-is (preserves Codere casing)
