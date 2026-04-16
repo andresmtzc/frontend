@@ -27,8 +27,7 @@
       --muted:     #555555;
       --text:      #ffffff;
     }
-    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; --col-h: 39px; }
-    @media (min-width: 640px) { :root { --col-h: 27px; } }
+    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; --col-h: 33px; }
     * { box-sizing: border-box; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
     .pixel { font-family: 'Press Start 2P', monospace; }
@@ -188,7 +187,13 @@
 
 <script>
 function showLoader() { document.getElementById('retro-loader').classList.add('visible') }
-function hideLoader() { document.getElementById('retro-loader').classList.remove('visible') }
+function hideLoader() {
+  document.getElementById('retro-loader').classList.remove('visible')
+  requestAnimationFrame(() => {
+    const th = document.querySelector('th[style*="sticky"]')
+    if (th) document.documentElement.style.setProperty('--col-h', th.offsetHeight + 'px')
+  })
+}
 
 const COLUMN_INFO = {
   player: {
@@ -930,6 +935,8 @@ const IMG_OVERRIDES = {
   'german rosario':        'amed rosario',
   'harrison holmes':       'grant holmes',
   'john ober':             'bailey ober',
+  'randy marcelino vasquez': 'randy vasquez',
+  'clayton holmes':          'clay holmes',
 }
 const IMG_ALIASES = {
   'frederick': ['freddie', 'fred'],

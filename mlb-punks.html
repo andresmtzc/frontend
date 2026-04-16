@@ -553,7 +553,7 @@ async function downloadAll() {
         }
 
         try {
-            const name = (card.dataset.playerName || `player_${i}`).replace(/[^a-z0-9]/gi, '_');
+            const name = sanitizeFilename(card.dataset.playerName || `player_${i}`);
             const base64 = canvas.toDataURL('image/png').split(',')[1];
             folder.file(`${name}.png`, base64, { base64: true });
             count++;
@@ -566,6 +566,15 @@ async function downloadAll() {
     a.download = 'mlb-punks.zip';
     a.click();
     statusEl.textContent = `Downloaded ${count} images!`;
+}
+
+function sanitizeFilename(name) {
+    return name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
 }
 
 function loadScript(src) {
