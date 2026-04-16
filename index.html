@@ -27,7 +27,7 @@
       --muted:     #555555;
       --text:      #ffffff;
     }
-    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; --col-h: 33px; }
+    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; --col-h: 27px; }
     * { box-sizing: border-box; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
     .pixel { font-family: 'Press Start 2P', monospace; }
@@ -187,13 +187,7 @@
 
 <script>
 function showLoader() { document.getElementById('retro-loader').classList.add('visible') }
-function hideLoader() {
-  document.getElementById('retro-loader').classList.remove('visible')
-  requestAnimationFrame(() => {
-    const th = document.querySelector('th[style*="sticky"]')
-    if (th) document.documentElement.style.setProperty('--col-h', th.offsetHeight + 'px')
-  })
-}
+function hideLoader() { document.getElementById('retro-loader').classList.remove('visible') }
 
 const COLUMN_INFO = {
   player: {
@@ -2471,7 +2465,7 @@ function renderMatch(entry) {
               <th style="${thBase};text-align:center;cursor:pointer;width:44px" onclick="showInfoModal('filter')">FLTR</th>
               <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('avg','${mktPropType(mktName)}')">Avg</th>
               <th style="${thBase};text-align:center;cursor:pointer;width:44px;white-space:nowrap" onclick="showInfoModal('ab_avg','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'BF/G' : mktPropType(mktName) === 'pitcher_outs' ? 'PC/G' : mktPropType(mktName) === 'runs' ? 'OBP' : mktPropType(mktName) === 'rbi' ? 'RISP' : mktPropType(mktName) === 'bases' ? 'SLG' : mktPropType(mktName) === 'hrr' ? 'OBP' : 'AB/G'}</th>
-              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">${mktPropType(mktName) === 'strikeouts' ? 'K Rate' : mktPropType(mktName) === 'runs' ? 'Run Rate' : mktPropType(mktName) === 'rbi' ? 'RBI Rate' : mktPropType(mktName) === 'bases' ? 'TB Rate' : mktPropType(mktName) === 'hr' ? 'HR Rate' : mktPropType(mktName) === 'singles' ? '1B Rate' : mktPropType(mktName) === 'doubles' ? '2B Rate' : mktPropType(mktName) === 'pitcher_outs' ? 'Out Rate' : mktPropType(mktName) === 'hrr' ? 'HRR Rate' : 'Hit Rate'}</th>
+              <th style="${thBase};text-align:center;cursor:pointer" onclick="showInfoModal('hit_rate','${mktPropType(mktName)}')">RATE</th>
               <th style="${thBase};text-align:right;cursor:pointer;width:80px" onclick="showInfoModal('${isPastMatch ? 'result' : 'ev'}','${mktPropType(mktName)}')">${isPastMatch ? 'Result' : 'EV'}</th>
             </tr>
           </thead>
