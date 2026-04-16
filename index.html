@@ -125,7 +125,7 @@
         </div>
       </div>
       <div id="sport-switcher" class="flex items-center gap-1.5"></div>
-      <span id="sim-header-btn" onclick="openSimRanking()" style="display:none;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:0.08em;cursor:pointer;text-transform:uppercase;padding:0 4px;">SIM</span>
+      <span id="sim-header-btn" onclick="openSimLastTab()" style="display:none;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:0.08em;cursor:pointer;text-transform:uppercase;padding:0 4px;">SIM</span>
     </div>
     <div class="flex items-center gap-2 ml-auto">
       <div id="bet-wrapper" class="flex items-center gap-1" style="display:none!important">
@@ -3136,14 +3136,17 @@ function renderExpansionContent(key) {
       <button onclick="saveSimUsername()" id="sim-save-btn"
         style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:9px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>
     </div>
-    <div id="sim-apodo-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);min-height:16px;margin-bottom:12px;flex-shrink:0"></div>
+    <div id="sim-apodo-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);min-height:16px;margin-bottom:4px;flex-shrink:0"></div>
+    <div id="sim-week-progress" style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:12px;flex-shrink:0"></div>
     <div id="sim-modal-tabs" style="display:flex;gap:0;margin-bottom:16px;flex-shrink:0">
+      <button id="sim-tab-reglas" onclick="openSimReglas()"
+        style="flex:1;background:var(--surface);border:2px solid var(--border);padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">REGLAS</button>
       <button id="sim-tab-picks" onclick="closeSimModal();toggleSimMode()"
-        style="flex:1;background:var(--surface);border:2px solid var(--border);padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">PICKS</button>
+        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">PICKS</button>
       <button id="sim-tab-rslt" onclick="openSimResultados()"
-        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">RESULT</button>
+        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">RESULTS</button>
       <button id="sim-tab-rank" onclick="openSimRanking()"
-        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">RANK</button>
+        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:7px 6px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">LEADERBOARD</button>
     </div>
     <div style="height:1px;background:var(--border);width:100%;margin-bottom:16px;flex-shrink:0"></div>
     <div id="sim-modal-body" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div>
@@ -4090,6 +4093,7 @@ async function loadSimPicks() {
   const { data } = await db.from('simulation_picks')
     .select('id, match_id, player_norm, prop_type, direction, stake, odds, line, result, profit, game_date, sim_username')
     .eq('user_id', session.user.id)
+    .eq('week_start', weekStartMX())
   simPicks = {}
   for (const p of (data ?? [])) {
     simPicks[`${p.match_id}_${p.player_norm}_${p.prop_type}`] = p
@@ -4118,6 +4122,7 @@ async function togglePick(matchId, norm, propType, line, odds, playerDisplay) {
     sim_username:   _userProfile?.sim_username ?? null,
     match_id:       Number(matchId),
     game_date:      match.match_date?.slice(0, 10),
+    week_start:     weekStartMX(),
     home_team_uid:  match.home_team_uid,
     away_team_uid:  match.away_team_uid,
     player_norm:    norm,
@@ -4158,6 +4163,16 @@ function toggleSimMode() {
   applyFilters()
 }
 
+// Returns YYYY-MM-DD of the most recent Thursday in MX time (UTC-6)
+function weekStartMX() {
+  const now = new Date()
+  const mx  = new Date(now.getTime() - 6 * 3600000) // UTC-6, no DST
+  const day = mx.getUTCDay() // 0=Sun … 4=Thu
+  const diff = (day - 4 + 7) % 7
+  mx.setUTCDate(mx.getUTCDate() - diff)
+  return mx.toISOString().slice(0, 10)
+}
+
 function generateSimUsername() {
   const adj  = ['Clutch','Iron','Slider','Hammer','Rogue','Swift','Wild','Sticky','Grand','Frozen']
   const noun = ['Slugger','Pitcher','Closer','Rook','Ace','Cannon','Glove','Batter','Homer','Catcher']
@@ -4172,9 +4187,9 @@ async function saveSimUsername() {
   const btn  = document.getElementById('sim-save-btn')
   if (!val) { msg.style.color = 'var(--magenta)'; msg.textContent = 'Escribe un apodo primero'; return }
 
-  // 30-day cooldown check
+  // 7-day cooldown check
   if (_userProfile.sim_username && _userProfile.sim_username_updated_at) {
-    const daysLeft = 30 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
+    const daysLeft = 7 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
     if (daysLeft > 0) { msg.style.color = 'var(--magenta)'; msg.textContent = `Espera ${daysLeft} día${daysLeft !== 1 ? 's' : ''} para cambiar`; return }
   }
 
@@ -4198,7 +4213,7 @@ async function saveSimUsername() {
   msg.style.color = 'var(--green)'; msg.textContent = '✓ Apodo guardado'
   btn.disabled = true; btn.textContent = 'Guardar'; btn.style.opacity = '1'
   btn.style.background = '#111'; btn.style.color = '#444'; btn.style.cursor = 'default'; btn.style.textDecoration = 'line-through'
-  setTimeout(() => { msg.textContent = `Puedes cambiar en 30 días` }, 2000)
+  setTimeout(() => { msg.textContent = `Puedes cambiar en 7 días` }, 2000)
 }
 
 function _openSimModal(title) {
@@ -4211,7 +4226,7 @@ function _openSimModal(title) {
     const _sb = document.getElementById('sim-save-btn')
     const _hasApodo = !!_userProfile.sim_username
     if (_hasApodo && _userProfile.sim_username_updated_at) {
-      const _daysLeft = 30 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
+      const _daysLeft = 7 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
       if (_daysLeft > 0) {
         _msgEl.textContent = `Puedes cambiar tu apodo en ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''}`
         _sb.disabled = true; _sb.textContent = 'Guardar'; _sb.style.opacity = '1'
@@ -4226,13 +4241,32 @@ function _openSimModal(title) {
       _sb.disabled = false; _sb.textContent = 'Guardar'; _sb.style.opacity = '1'
       _sb.style.background = 'var(--surface)'; _sb.style.color = 'var(--text)'; _sb.style.cursor = 'pointer'
     }
+    // x/35 live count
+    const _progEl = document.getElementById('sim-week-progress')
+    if (_progEl) {
+      _progEl.textContent = '…/35'
+      db.auth.getSession().then(({ data: { session } }) => {
+        if (!session) { _progEl.textContent = ''; return }
+        db.from('simulation_picks')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', session.user.id)
+          .eq('week_start', weekStartMX())
+          .not('result', 'is', null)
+          .then(({ count }) => {
+            const n = count ?? 0
+            const col = n >= 35 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
+            _progEl.textContent = `${n}/35 picks esta semana`
+            _progEl.style.color = col
+          })
+      })
+    }
   }
   document.getElementById('sim-modal-body').innerHTML =
     '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:var(--muted)">Cargando…</div>'
   document.getElementById('sim-overlay').style.display = 'flex'
-  const tabMap = { RESULTADOS: 'rslt', RANKING: 'rank' }
+  const tabMap = { REGLAS: 'reglas', RESULTS: 'rslt', LEADERBOARD: 'rank' }
   const active = tabMap[title]
-  ;['picks','rslt','rank'].forEach(t => {
+  ;['reglas','picks','rslt','rank'].forEach(t => {
     const el = document.getElementById(`sim-tab-${t}`)
     if (!el) return
     if (t === 'picks') {
@@ -4240,6 +4274,7 @@ function _openSimModal(title) {
       el.style.background   = 'var(--surface)'
       el.style.color        = picksOn ? '#ff6600' : 'var(--text)'
       el.style.borderColor  = picksOn ? '#ff6600' : 'var(--border)'
+      el.style.borderLeft   = picksOn ? '2px solid #ff6600' : 'none'
     } else {
       const on = t === active
       el.style.background  = on ? '#ff6600' : 'var(--surface)'
@@ -4291,23 +4326,66 @@ function _skeletonRank() {
     <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:14px;text-align:center">Sin datos suficientes aún</div>`
 }
 
-async function openSimResultados(username = null) {
-  _openSimModal('RESULTADOS')
+function openSimLastTab() {
+  const last = localStorage.getItem('sim_last_tab')
+  if (!last || last === 'reglas') return openSimReglas()
+  if (last === 'rslt')           return openSimResultados()
+  if (last === 'rank')           return openSimRanking()
+  openSimReglas()
+}
+
+function openSimReglas() {
+  localStorage.setItem('sim_last_tab', 'reglas')
+  _openSimModal('REGLAS')
+  const body = document.getElementById('sim-modal-body')
+  body.innerHTML = `
+    <div style="flex:1;min-height:0;overflow-y:auto;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);display:flex;flex-direction:column;gap:14px;line-height:1.6">
+      <p style="color:var(--muted);font-size:12px;margin:0">Elige props de jugadores y compite contra todos sin apostar dinero real.</p>
+      <div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">SEMANA</div>
+        <div style="color:var(--text)">Jueves a miércoles. El <strong>miércoles</strong> es tu último día para hacer picks — úsalo bien.</div>
+      </div>
+      <div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">CUOTA</div>
+        <div style="color:var(--text)">Necesitas <strong>35 picks resueltos</strong> en la semana para calificar — lo fácil es meter 5 al día. Si no llegas, quedas <span style="color:var(--magenta);font-weight:700">DQ</span> y te mandamos al fondo del leaderboard.</div>
+      </div>
+      <div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">JUEVES</div>
+        <div style="color:var(--text)">Se resuelven los juegos del miércoles, se congela el leaderboard y empieza la nueva semana.</div>
+      </div>
+      <div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">LEADERBOARD</div>
+        <div style="color:var(--text)">Por <strong>ROI</strong> entre los que cumplieron la cuota. Puedes ver los picks de cualquier jugador.</div>
+      </div>
+      <div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">PICKS</div>
+        <div style="color:var(--text)">Activa el modo picks con el botón de arriba, elige <strong>OVER</strong> o <strong>UNDER</strong>, ingresa tu apuesta y selecciona el jugador que quieras.</div>
+      </div>
+      <button onclick="closeSimModal();toggleSimMode()" style="margin-top:4px;background:#ff6600;border:none;padding:10px;color:#fff;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.08em;cursor:pointer;">EMPEZAR A PICKEAR →</button>
+    </div>`
+}
+
+async function openSimResultados(username = null, weekStart = null) {
+  if (!username) localStorage.setItem('sim_last_tab', 'rslt')
+  _openSimModal('RESULTS')
   const body = document.getElementById('sim-modal-body')
 
   const { data: { session } } = await db.auth.getSession()
   if (!session) { body.innerHTML = _skeletonRslt(); return }
 
+  const week = weekStart ?? weekStartMX()
+
   let picks
   if (username) {
     const { data } = await db.from('simulation_picks')
-      .select('*').eq('sim_username', username)
+      .select('*').eq('sim_username', username).eq('week_start', week)
       .not('result', 'is', null)
       .order('game_date', { ascending: false })
     picks = data
   } else {
     const { data } = await db.from('simulation_picks')
-      .select('*').eq('user_id', session.user.id).order('game_date', { ascending: false })
+      .select('*').eq('user_id', session.user.id).eq('week_start', week)
+      .order('game_date', { ascending: false })
     picks = data
   }
 
@@ -4359,72 +4437,117 @@ async function openSimResultados(username = null) {
     <div style="flex:1;min-height:0;overflow-y:auto">${rowsHtml}</div>`
 }
 
-async function openSimRanking() {
-  _openSimModal('RANKING')
+async function openSimRanking(weekStart = null) {
+  if (!weekStart) localStorage.setItem('sim_last_tab', 'rank')
+  _openSimModal('LEADERBOARD')
   const body = document.getElementById('sim-modal-body')
+
+  const thisWeek = weekStartMX()
+  const prevWeek = (() => {
+    const d = new Date(thisWeek)
+    d.setUTCDate(d.getUTCDate() - 7)
+    return d.toISOString().slice(0, 10)
+  })()
+
+  // Show last week if within 48hrs of week start (Thu/Fri) and no explicit week passed
+  const mxNow       = new Date(new Date().getTime() - 6 * 3600000)
+  const mxThursday  = new Date(thisWeek)
+  const hrsElapsed  = (mxNow - mxThursday) / 3600000
+  const showLastWeekToggle = hrsElapsed >= 0 && hrsElapsed < 48
+
+  const activeWeek  = weekStart ?? thisWeek
+  const isLastWeek  = activeWeek === prevWeek
+  const weekOver    = activeWeek < thisWeek
 
   const myUsername = _userProfile?.sim_username ?? null
 
-  const [{ data: rows, error }, { data: { session } }] = await Promise.all([
-    db.from('sim_ranking').select('*'),
+  const [{ data: rows }, { data: { session } }] = await Promise.all([
+    db.from('sim_ranking').select('*').eq('week_start', activeWeek),
     db.auth.getSession()
   ])
 
-  // Fetch user's own picks to build pinned row even with 0 resolved picks
+  // Fetch user's own current-week picks to build pinned row even with 0 resolved
   let myRow = null
-  if (myUsername && session) {
+  if (myUsername && session && !isLastWeek) {
     const { data: myPicks } = await db.from('simulation_picks')
-      .select('result, stake, profit').eq('user_id', session.user.id)
-    const resolved = (myPicks ?? []).filter(p => p.result === 'won' || p.result === 'lost')
-    const won      = (myPicks ?? []).filter(p => p.result === 'won').length
-    const lost     = (myPicks ?? []).filter(p => p.result === 'lost').length
-    const pending  = (myPicks ?? []).filter(p => !p.result).length
-    const staked   = resolved.reduce((s, p) => s + (p.stake ?? 0), 0)
-    const profit   = resolved.reduce((s, p) => s + (p.profit ?? 0), 0)
-    const roi      = staked > 0 ? profit / staked * 100 : 0
-    myRow = { sim_username: myUsername, won, lost, pending, total_staked: staked, total_profit: profit, roi }
+      .select('result, stake, profit')
+      .eq('user_id', session.user.id)
+      .eq('week_start', activeWeek)
+    const resolved       = (myPicks ?? []).filter(p => p.result === 'won' || p.result === 'lost')
+    const won            = resolved.filter(p => p.result === 'won').length
+    const lost           = resolved.filter(p => p.result === 'lost').length
+    const staked         = resolved.reduce((s, p) => s + (p.stake ?? 0), 0)
+    const profit         = resolved.reduce((s, p) => s + (p.profit ?? 0), 0)
+    const roi            = staked > 0 ? profit / staked * 100 : 0
+    const resolved_count = resolved.length
+    myRow = { sim_username: myUsername, won, lost, total_staked: staked, total_profit: profit, roi, resolved_count }
   }
 
-  const sorted = rows?.length
-    ? [...rows].map(r => ({ ...r, roi: r.total_staked > 0 ? r.total_profit / r.total_staked * 100 : 0 }))
-               .sort((a, b) => b.roi - a.roi)
-    : []
+  const _nc2 = v => v > 0 ? 'var(--green)' : v < 0 ? 'var(--magenta)' : 'var(--text)'
 
-  const myIdx = myUsername ? sorted.findIndex(u => u.sim_username === myUsername) : -1
-
-  const _nc2    = v => v > 0 ? 'var(--green)' : v < 0 ? 'var(--magenta)' : 'var(--text)'
   const _rankRow = (u, i, highlight = false) => {
-    const rankLbl = i >= 0 ? `#${i+1}` : '—'
-    const pendLbl = u.pending ? ` ${u.pending} PEND.` : ''
-    const roi     = Number(u.roi ?? 0)
-    const pnl     = Number(u.total_profit ?? 0)
-    return `<div onclick="openSimResultados('${u.sim_username}')" style="cursor:pointer;padding:8px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px">
+    const rc       = u.resolved_count ?? 0
+    const dq       = weekOver && rc < 35
+    const warn     = !weekOver && rc < 15 && hrsElapsed >= 72
+    const roi      = Number(u.roi ?? (u.total_staked > 0 ? u.total_profit / u.total_staked * 100 : 0))
+    const pnl      = Number(u.total_profit ?? 0)
+    const rankLbl  = dq ? 'DQ' : i >= 0 ? `#${i+1}` : '—'
+    const rankCol  = dq ? 'var(--magenta)' : 'var(--muted)'
+    const nameCol  = dq ? '#555' : highlight ? '#ff6600' : 'var(--text)'
+    const opacity  = dq ? '0.5' : '1'
+    const quota    = `<span style="color:${rc >= 35 ? 'var(--green)' : warn ? 'var(--magenta)' : 'var(--muted)'}">${rc}/35${warn ? ' ⚠' : ''}</span>`
+    return `<div onclick="openSimResultados('${u.sim_username}','${activeWeek}')" style="cursor:pointer;padding:8px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px;opacity:${opacity}">
       <div style="display:flex;align-items:center;gap:8px;min-width:0">
-        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted);flex-shrink:0">${rankLbl}</span>
-        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${highlight ? '#ff6600' : 'var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.sim_username}</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:${rankCol};flex-shrink:0;font-weight:700">${rankLbl}</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.sim_username}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;font-family:'Geist Mono',monospace;font-size:10px">
-        <span style="color:var(--text)">${u.won}W-${u.lost}L${pendLbl}</span>
+        <span style="color:var(--text)">${u.won}W-${u.lost}L</span>
         <span style="color:var(--muted)">·</span>
         <span style="color:var(--text)">ROI <span style="font-weight:700;color:${_nc2(roi)}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span></span>
         <span style="color:var(--muted)">·</span>
-        <span style="color:var(--text)">P&L <span style="color:${_nc2(pnl)}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(0)}</span></span>
+        ${quota}
       </div>
     </div>`
   }
 
-  const mePinned = myRow ? `
+  // Sort: non-DQ by ROI desc, DQ pushed to bottom
+  const withRoi = (rows ?? []).map(r => ({ ...r, roi: r.total_staked > 0 ? r.total_profit / r.total_staked * 100 : 0 }))
+  const active  = withRoi.filter(r => !weekOver || (r.resolved_count ?? 0) >= 35).sort((a, b) => b.roi - a.roi)
+  const dqd     = withRoi.filter(r => weekOver && (r.resolved_count ?? 0) < 35)
+
+  const myIdx = myUsername ? active.findIndex(u => u.sim_username === myUsername) : -1
+
+  const mePinned = (myRow && myIdx === -1) ? `
     <div style="flex-shrink:0">
       <div style="height:1px;background:var(--border);width:100%"></div>
-      ${_rankRow(myRow, myIdx, true)}
-      <div style="height:1px;background:var(--border);width:100%;margin-bottom:12px"></div>
+      ${_rankRow(myRow, -1, true)}
+      <div style="height:1px;background:var(--border);width:100%;margin-bottom:4px"></div>
     </div>` : ''
 
-  if (!sorted.length && !myRow) { body.innerHTML = _skeletonRank(); return }
+  const weekToggle = showLastWeekToggle ? `
+    <div style="flex-shrink:0;margin-bottom:10px">
+      ${isLastWeek
+        ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;">← ESTA SEMANA</button>`
+        : `<button onclick="openSimRanking('${prevWeek}')" style="background:none;border:none;color:#ff6600;font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;">ÚLTIMA SEMANA →</button>`
+      }
+    </div>` : ''
 
-  const listHtml = sorted.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('')
+  const dqdHtml = dqd.length ? `
+    <div style="height:1px;background:#222;width:100%;margin:4px 0"></div>
+    ${dqd.map(u => _rankRow(u, -1, u.sim_username === myUsername)).join('')}` : ''
 
-  body.innerHTML = `${mePinned}<div style="flex:1;min-height:0;overflow-y:auto">${listHtml || _skeletonRank()}</div>`
+  const listHtml = active.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('')
+
+  if (!active.length && !dqd.length && !myRow) { body.innerHTML = _skeletonRank(); return }
+
+  body.innerHTML = `
+    ${weekToggle}
+    ${mePinned}
+    <div style="flex:1;min-height:0;overflow-y:auto">
+      ${listHtml || _skeletonRank()}
+      ${dqdHtml}
+    </div>`
 }
 </script>
 </body>
