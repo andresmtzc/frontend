@@ -931,6 +931,7 @@ const IMG_OVERRIDES = {
   'john ober':             'bailey ober',
   'randy marcelino vasquez': 'randy vasquez',
   'clayton holmes':          'clay holmes',
+  'jacob seth lugo':         'seth lugo',
 }
 const IMG_ALIASES = {
   'frederick': ['freddie', 'fred'],
@@ -1630,8 +1631,20 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const modelProb = evRaw != null ? evRaw + mktProb : null
         const evCol    = evStr === '—' ? 'var(--text)' : modelProb != null && modelProb >= 0.50 ? 'var(--green)' : 'var(--magenta)'
 
+        // PICK button — simMode, non-past, DB row only
+        let pickBtnHtml = ''
+        if (simMode && !isPast && f === 'DB' && idx === 0 && _userProfile) {
+          const _pickKey  = `${matchId}_${norm}_${propType}`
+          const _picked   = !!simPicks[_pickKey]
+          const _started  = isMatchStarted(entry?.match?.match_date)
+          if (!_started || _picked) {
+            pickBtnHtml = `<button id="pick-btn-${matchId}-${norm}-${propType}"
+              onclick="event.stopPropagation();togglePick(${matchId},'${norm}','${propType}',${lineVal},${usOdds ?? 'null'},'${safeName}')"
+              style="display:block;margin:4px 0 0;padding:2px 8px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.08em;cursor:${_started ? 'default' : 'pointer'};border:2px solid ${_picked ? '#ff6600' : 'var(--border)'};background:${_picked ? '#ff6600' : 'transparent'};color:${_picked ? '#fff' : 'var(--muted)'}">PICK</button>`
+          }
+        }
         // For past matches, determine HIT/MISS from actual result
-        let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}</td>`
+        let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}${pickBtnHtml}</td>`
         if (isPast && gameResult) {
           const actual = propType === 'strikeouts' ? gameResult.so : propType === 'runs' ? gameResult.r : propType === 'rbi' ? gameResult.rbi : propType === 'bases' ? gameResult.tb : propType === 'hr' ? gameResult.hr : propType === 'singles' ? gameResult.s1 : propType === 'doubles' ? gameResult.d2 : propType === 'pitcher_outs' ? gameResult.po : propType === 'hrr' ? gameResult.hrr : gameResult.hits
           const won = activeDirection === 'under' ? actual < lineVal : actual > lineVal
@@ -2092,10 +2105,11 @@ async function load(force = false) {
 
     // Fetch profile for account chip + panel
     const { data: prof } = await db.from('profiles')
-      .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed')
+      .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed, sim_username')
       .eq('id', session.user.id).single()
     _userProfile = { email: session.user.email, ...(prof ?? {}) }
     updateAccountChip()
+    loadSimPicks()
 
     const isPremiumActive = prof?.premium_until && new Date(prof.premium_until) > new Date()
     if (isPremiumActive) {
@@ -3170,6 +3184,23 @@ function renderExpansionContent(key) {
 
     <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
 
+    <!-- SIMULADOR -->
+    <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#ff6600;letter-spacing:1px;margin-bottom:12px;">SIMULADOR</div>
+    <input id="sim-username" type="text" placeholder="tu apodo en el ranking" maxlength="24"
+      style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;box-sizing:border-box;margin-bottom:8px;" />
+    <button onclick="saveSimUsername()" style="background:var(--surface);border:2px solid var(--border);padding:8px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:14px;">Guardar apodo</button>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button id="sim-elegir-btn" onclick="toggleSimMode()"
+        style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">ELEGIR PICKS</button>
+      <button onclick="openSimResultados()"
+        style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">RESULTADOS</button>
+      <button onclick="openSimRanking()"
+        style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">RANKING</button>
+    </div>
+    <div id="sim-panel" style="display:none;margin-top:14px;"></div>
+
+    <div style="height:1px;background:var(--border);width:100%;margin:20px 0;"></div>
+
     <!-- logout -->
     <button onclick="doLogout()" style="background:none;border:none;color:var(--magenta);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-align:left;">Cerrar sesión</button>
   </div>
@@ -3280,6 +3311,10 @@ let _cardCvc = null
 let _clientSecret = null
 let _userProfile = null  // { email, premium_until, is_tipster, referral_code, cancel_at_period_end }
 let _isRenewal = false   // true when expired user opens Palo+ to renew
+
+// ── Simulation state ──────────────────────────────────────────────────────────
+let simMode  = false
+let simPicks = {} // key: `${matchId}_${norm}_${propType}` → pick row from DB
 
 
 function _destroyCards() {
@@ -3847,6 +3882,14 @@ async function openAccount() {
   document.getElementById('pw-new').value = ''
   document.getElementById('pw-confirm').value = ''
   document.getElementById('pw-msg').style.display = 'none'
+
+  // Sim panel
+  document.getElementById('sim-username').value = _userProfile.sim_username ?? ''
+  const _simBtn = document.getElementById('sim-elegir-btn')
+  _simBtn.style.background   = simMode ? '#ff6600' : 'var(--surface)'
+  _simBtn.style.color        = simMode ? '#fff'    : 'var(--text)'
+  _simBtn.style.borderColor  = simMode ? '#ff6600' : 'var(--border)'
+  document.getElementById('sim-panel').style.display = 'none'
 }
 
 function closeAccount() {
@@ -4025,6 +4068,187 @@ function openPaloPlus(renewal = false) {
     document.getElementById('pp-email').value = ''
     if (_cardNumber) { _cardNumber.destroy(); _cardNumber = null }
   }
+}
+
+// ── Simulation ────────────────────────────────────────────────────────────────
+
+function isMatchStarted(dateStr) {
+  if (!dateStr) return false
+  return new Date() >= new Date(dateStr)
+}
+
+async function loadSimPicks() {
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) return
+  const { data } = await db.from('simulation_picks')
+    .select('id, match_id, player_norm, prop_type, direction, stake, odds, line, result, profit, game_date, sim_username')
+    .eq('user_id', session.user.id)
+  simPicks = {}
+  for (const p of (data ?? [])) {
+    simPicks[`${p.match_id}_${p.player_norm}_${p.prop_type}`] = p
+  }
+}
+
+async function togglePick(matchId, norm, propType, line, odds, playerDisplay) {
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) return
+  const pickKey = `${matchId}_${norm}_${propType}`
+  const existing = simPicks[pickKey]
+
+  if (existing) {
+    const { error } = await db.from('simulation_picks').delete().eq('id', existing.id)
+    if (!error) { delete simPicks[pickKey]; _updatePickBtn(matchId, norm, propType, false) }
+    return
+  }
+
+  const entry = allMatches.find(e => e.matchId === Number(matchId))
+  const match = entry?.match
+  if (!match) return
+
+  const { data, error } = await db.from('simulation_picks').insert({
+    user_id:        session.user.id,
+    sim_username:   _userProfile?.sim_username ?? null,
+    match_id:       Number(matchId),
+    game_date:      match.match_date?.slice(0, 10),
+    home_team_uid:  match.home_team_uid,
+    away_team_uid:  match.away_team_uid,
+    player_norm:    norm,
+    player_display: playerDisplay,
+    prop_type:      propType,
+    line:           parseFloat(line),
+    direction:      activeDirection,
+    odds:           odds != null ? parseInt(odds) : null,
+    stake:          getBetAmt(),
+  }).select().single()
+
+  if (!error && data) { simPicks[pickKey] = data; _updatePickBtn(matchId, norm, propType, true) }
+}
+
+function _updatePickBtn(matchId, norm, propType, picked) {
+  const btn = document.getElementById(`pick-btn-${matchId}-${norm}-${propType}`)
+  if (!btn) return
+  btn.style.border     = `2px solid ${picked ? '#ff6600' : 'var(--border)'}`
+  btn.style.background = picked ? '#ff6600' : 'transparent'
+  btn.style.color      = picked ? '#fff'    : 'var(--muted)'
+}
+
+function toggleSimMode() {
+  simMode = !simMode
+  const btn = document.getElementById('sim-elegir-btn')
+  btn.style.background  = simMode ? '#ff6600' : 'var(--surface)'
+  btn.style.color       = simMode ? '#fff'    : 'var(--text)'
+  btn.style.borderColor = simMode ? '#ff6600' : 'var(--border)'
+  if (simMode) {
+    // Switch to $ mode so bet-amt box is visible
+    const dollarIdx = MODES.findIndex(m => m.id === '$')
+    if (modeIdx !== dollarIdx) {
+      modeIdx = dollarIdx
+      document.getElementById('mode-btn').textContent = MODES[modeIdx].label
+      document.getElementById('bet-wrapper').style.display = 'flex'
+      updateOddsInPlace()
+    }
+    closeAccount()
+  }
+  renderPills()
+}
+
+async function saveSimUsername() {
+  const val = document.getElementById('sim-username').value.trim()
+  if (!val) return
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) return
+  await db.from('profiles').update({ sim_username: val }).eq('id', session.user.id)
+  // Also propagate to all pending picks so they show up in ranking
+  await db.from('simulation_picks').update({ sim_username: val })
+    .eq('user_id', session.user.id).is('result', null)
+  _userProfile.sim_username = val
+}
+
+async function openSimResultados() {
+  const panel = document.getElementById('sim-panel')
+  panel.style.display = 'block'
+  panel.innerHTML = '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:var(--muted)">Cargando…</div>'
+
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) return
+  const { data: picks } = await db.from('simulation_picks')
+    .select('*').eq('user_id', session.user.id).order('game_date', { ascending: false })
+
+  if (!picks?.length) {
+    panel.innerHTML = '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;color:var(--muted)">Sin picks aún. Activa ELEGIR PICKS para comenzar.</div>'
+    return
+  }
+
+  const resolved = picks.filter(p => p.result === 'won' || p.result === 'lost')
+  const won      = resolved.filter(p => p.result === 'won').length
+  const lost     = resolved.filter(p => p.result === 'lost').length
+  const pending  = picks.filter(p => !p.result).length
+  const staked   = resolved.reduce((s, p) => s + (p.stake ?? 0), 0)
+  const profit   = resolved.reduce((s, p) => s + (p.profit ?? 0), 0)
+  const roi      = staked > 0 ? (profit / staked * 100).toFixed(1) : '—'
+  const roiCol   = profit >= 0 ? 'var(--green)' : 'var(--magenta)'
+
+  const PROP_LABELS = { hits:'H', strikeouts:'K', runs:'R', rbi:'RBI', bases:'TB', hr:'HR', singles:'1B', doubles:'2B', pitcher_outs:'OUT', hrr:'HRR' }
+
+  const rowsHtml = picks.map(p => {
+    const dir     = p.direction === 'under' ? '<' : '>'
+    const res     = p.result === 'won' ? 'WON' : p.result === 'lost' ? 'LOST' : p.result === 'push' ? 'PUSH' : '·'
+    const resCol  = p.result === 'won' ? 'var(--green)' : p.result === 'lost' ? 'var(--magenta)' : 'var(--muted)'
+    const pnl     = p.profit != null ? (p.profit >= 0 ? `+$${Math.abs(p.profit).toFixed(0)}` : `-$${Math.abs(p.profit).toFixed(0)}`) : ''
+    const pnlCol  = (p.profit ?? 0) >= 0 ? 'var(--green)' : 'var(--magenta)'
+    const propLbl = PROP_LABELS[p.prop_type] ?? p.prop_type
+    return `<div style="padding:7px 0;border-bottom:1px solid #222;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.player_display}</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;color:${resCol};white-space:nowrap;flex-shrink:0">${res}${pnl ? ` <span style="color:${pnlCol}">${pnl}</span>` : ''}</span>
+      </div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · $${p.stake} · ${p.game_date ?? ''}</div>
+    </div>`
+  }).join('')
+
+  panel.innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--green)">${won}W</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--magenta)">${lost}L</span>
+      ${pending ? `<span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted)">${pending} pendiente${pending !== 1 ? 's' : ''}</span>` : ''}
+      <span style="font-family:'Geist Mono',monospace;font-size:11px;color:${roiCol}">ROI ${roi}%</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:11px;color:${profit >= 0 ? 'var(--green)' : 'var(--magenta)'}">P&L ${profit >= 0 ? '+' : ''}$${profit.toFixed(0)}</span>
+    </div>
+    <div style="max-height:280px;overflow-y:auto">${rowsHtml}</div>`
+}
+
+async function openSimRanking() {
+  const panel = document.getElementById('sim-panel')
+  panel.style.display = 'block'
+  panel.innerHTML = '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:var(--muted)">Cargando…</div>'
+
+  const { data: rows, error } = await db.from('sim_ranking').select('*')
+  if (error || !rows?.length) {
+    panel.innerHTML = '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;color:var(--muted)">Sin suficientes datos aún.</div>'
+    return
+  }
+
+  const sorted = [...rows]
+    .map(r => ({ ...r, roi: r.total_staked > 0 ? r.total_profit / r.total_staked * 100 : 0 }))
+    .sort((a, b) => b.roi - a.roi)
+
+  const rowsHtml = sorted.map((u, i) => {
+    const roiCol = u.roi >= 0 ? 'var(--green)' : 'var(--magenta)'
+    const pnlCol = u.total_profit >= 0 ? 'var(--green)' : 'var(--magenta)'
+    return `<div style="padding:8px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted);flex-shrink:0">#${i+1}</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.sim_username}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--text)">${u.won}W-${u.lost}L</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;color:${roiCol}">${u.roi >= 0 ? '+' : ''}${u.roi.toFixed(1)}%</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:${pnlCol}">${u.total_profit >= 0 ? '+' : ''}$${Number(u.total_profit).toFixed(0)}</span>
+      </div>
+    </div>`
+  }).join('')
+
+  panel.innerHTML = `<div style="max-height:320px;overflow-y:auto">${rowsHtml}</div>`
 }
 </script>
 </body>
