@@ -27,7 +27,8 @@
       --muted:     #555555;
       --text:      #ffffff;
     }
-    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; }
+    :root { --nav-h: 0px; --match-title-h: 32px; --mkt-title-h: 33px; --col-h: 39px; }
+    @media (min-width: 640px) { :root { --col-h: 27px; } }
     * { box-sizing: border-box; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
     .pixel { font-family: 'Press Start 2P', monospace; }
@@ -179,7 +180,7 @@
 <main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content"></main>
 
 <div style="height:3px;background:#222222"></div>
-<footer class="max-w-[960px] mx-auto px-4 pb-6 mono" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase;display:flex;align-items:center;justify-content:center;position:relative;">
+<footer class="max-w-[960px] mx-auto px-4 pb-6 mono justify-start sm:justify-center" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase;display:flex;align-items:center;position:relative;">
   <span style="color:var(--muted)">¡Dale, dale, dale, no pierdas el tino!</span>
   <button onclick="openSugerencias()" style="position:absolute;right:16px;background:none;border:none;padding:0;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;color:#444;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap;">CONTACTO</button>
 </footer>
@@ -214,8 +215,7 @@ const COLUMN_INFO = {
       ["","'24, '25, '26"],
       ['sep'],
       ['hi','L5 / L10 / L30'],
-      ['','LAST N GAMES'],
-      ['','PLAYED BY THIS PLAYER'],
+      ['','LAST N GAMES PLAYED BY THIS PLAYER'],
       ['sep'],
       ['hi','CS — CURRENT SEASON'],
       ["","'26"],
@@ -263,8 +263,7 @@ const COLUMN_INFO = {
       ['','MORE AB = MORE'],
       ['','CHANCES TO HIT'],
       ['sep'],
-      ['','USED IN THE BINOMIAL'],
-      ['','MODEL AS N (FLOORED)'],
+      ['','USED IN THE BINOMIAL MODEL AS N (FLOORED)'],
     ]
   },
   ab_avg_strikeouts: {
@@ -274,12 +273,9 @@ const COLUMN_INFO = {
       ['','PER START'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','MORE BATTERS ='],
-      ['','MORE K OPPORTUNITIES'],
+      ['','MORE BATTERS = MORE K OPPORTUNITIES'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   hit_rate: {
@@ -310,9 +306,7 @@ const COLUMN_INFO = {
       ['hi','RUNS PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED RUNS'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED RUNS PER GAME'],
     ]
   },
   ab_avg_runs: {
@@ -324,12 +318,9 @@ const COLUMN_INFO = {
       ['','HOW OFTEN HE REACHES'],
       ['','BASE PER PLATE APP.'],
       ['sep'],
-      ['','MORE OBP = MORE'],
-      ['','CHANCES TO SCORE'],
+      ['','MORE OBP = MORE CHANCES TO SCORE'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   hit_rate_runs: {
@@ -349,9 +340,7 @@ const COLUMN_INFO = {
       ['hi','RBI PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED RBI'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED RBI PER GAME'],
     ]
   },
   ab_avg_rbi: {
@@ -362,11 +351,8 @@ const COLUMN_INFO = {
       ['hi','POSITION PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','HIGHER = MORE RBI'],
-      ['','OPPORTUNITIES'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','HIGHER = MORE RBI OPPORTUNITIES'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   hit_rate_rbi: {
@@ -386,9 +372,7 @@ const COLUMN_INFO = {
       ['hi','TOTAL BASES PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED BASES'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED BASES PER GAME'],
     ]
   },
   ab_avg_bases: {
@@ -406,9 +390,7 @@ const COLUMN_INFO = {
       ['','HIGHER SLG MEANS'],
       ['','MORE EXTRA-BASE HITS'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   hit_rate_bases: {
@@ -428,9 +410,7 @@ const COLUMN_INFO = {
       ['hi','HOME RUNS PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED HR'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED HR PER GAME'],
     ]
   },
   ab_avg_hr: {
@@ -439,9 +419,7 @@ const COLUMN_INFO = {
       ['hi','AVG AT-BATS PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   avg_singles: {
@@ -450,9 +428,7 @@ const COLUMN_INFO = {
       ['hi','SINGLES PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED SINGLES'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED SINGLES PER GAME'],
     ]
   },
   ab_avg_singles: {
@@ -461,9 +437,7 @@ const COLUMN_INFO = {
       ['hi','AVG AT-BATS PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   avg_doubles: {
@@ -472,9 +446,7 @@ const COLUMN_INFO = {
       ['hi','DOUBLES PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED DOUBLES'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED DOUBLES PER GAME'],
     ]
   },
   ab_avg_doubles: {
@@ -483,9 +455,7 @@ const COLUMN_INFO = {
       ['hi','AVG AT-BATS PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   avg_pitcher_outs: {
@@ -506,12 +476,9 @@ const COLUMN_INFO = {
       ['','PER START'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','MORE PITCHES ='],
-      ['','MORE OUTS POSSIBLE'],
+      ['','MORE PITCHES = MORE OUTS POSSIBLE'],
       ['sep'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','EMPIRICAL MODEL'],
+      ['','CONTEXT ONLY — NOT USED IN THE EMPIRICAL MODEL'],
     ]
   },
   avg_hrr: {
@@ -520,9 +487,7 @@ const COLUMN_INFO = {
       ['hi','H+R+RBI PER GAME'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','POISSON LAMBDA —'],
-      ['','EXPECTED H+R+RBI'],
-      ['','PER GAME'],
+      ['','POISSON LAMBDA — EXPECTED H+R+RBI PER GAME'],
     ]
   },
   ab_avg_hrr: {
@@ -532,11 +497,8 @@ const COLUMN_INFO = {
       ['hi','(H + BB + HBP) / PA'],
       ['','IN THIS WINDOW'],
       ['sep'],
-      ['','GETTING ON BASE DRIVES'],
-      ['','THE RUNS COMPONENT'],
-      ['','CONTEXT ONLY —'],
-      ['','NOT USED IN THE'],
-      ['','POISSON MODEL'],
+      ['','GETTING ON BASE DRIVES THE RUNS COMPONENT'],
+      ['','CONTEXT ONLY — NOT USED IN THE POISSON MODEL'],
     ]
   },
   hit_rate_hrr: {
@@ -602,8 +564,7 @@ const COLUMN_INFO = {
         ['sep'],
         ['hi','⚠ HISTORICAL MODEL'],
         ['','BASED ON PAST STATS.'],
-        ['','DOES NOT PREDICT'],
-        ['','FUTURE RESULTS.'],
+        ['','DOES NOT PREDICT FUTURE RESULTS.'],
       ],
       [
         ['hi','STEP 1: IMPLIED PROB'],
@@ -617,12 +578,10 @@ const COLUMN_INFO = {
       ],
       [
         ['hi','STEP 2: REMOVE VIG'],
-        ['','BOOK PRICES BOTH SIDES'],
-        ['','TO SUM OVER 100%'],
+        ['','BOOK PRICES BOTH SIDES TO SUM OVER 100%'],
         ['','WE NORMALIZE:'],
         ['sep'],
-        ['','FAIR% = SIDE%'],
-        ['','  / (OVER% + UNDER%)'],
+        ['','FAIR% = SIDE% / (OVER% + UNDER%)'],
       ],
       [
         ['hi','STEP 3: POISSON'],
@@ -637,10 +596,8 @@ const COLUMN_INFO = {
         ['hi','STEP 4: EV'],
         ['','EV = MODEL% - FAIR%'],
         ['sep'],
-        ['','POSITIVE = EDGE IN'],
-        ['','YOUR FAVOR'],
-        ['','NEGATIVE = BOOK'],
-        ['','HAS THE EDGE'],
+        ['','POSITIVE = EDGE IN YOUR FAVOR'],
+        ['','NEGATIVE = BOOK HAS THE EDGE'],
         ['sep'],
         ['hi','COLOR'],
         ['var(--green)','GREEN: MODEL ≥ 50%'],
@@ -659,8 +616,7 @@ const COLUMN_INFO = {
         ['sep'],
         ['hi','⚠ HISTORICAL MODEL'],
         ['','BASED ON PAST STATS.'],
-        ['','DOES NOT PREDICT'],
-        ['','FUTURE RESULTS.'],
+        ['','DOES NOT PREDICT FUTURE RESULTS.'],
       ],
       [
         ['hi','STEP 1: IMPLIED PROB'],
@@ -674,12 +630,10 @@ const COLUMN_INFO = {
       ],
       [
         ['hi','STEP 2: REMOVE VIG'],
-        ['','BOOK PRICES BOTH SIDES'],
-        ['','TO SUM OVER 100%'],
+        ['','BOOK PRICES BOTH SIDES TO SUM OVER 100%'],
         ['','WE NORMALIZE:'],
         ['sep'],
-        ['','FAIR% = SIDE%'],
-        ['','  / (OVER% + UNDER%)'],
+        ['','FAIR% = SIDE% / (OVER% + UNDER%)'],
       ],
       [
         ['hi','STEP 3: POISSON'],
@@ -694,10 +648,8 @@ const COLUMN_INFO = {
         ['hi','STEP 4: EV'],
         ['','EV = MODEL% - FAIR%'],
         ['sep'],
-        ['','POSITIVE = EDGE IN'],
-        ['','YOUR FAVOR'],
-        ['','NEGATIVE = BOOK'],
-        ['','HAS THE EDGE'],
+        ['','POSITIVE = EDGE IN YOUR FAVOR'],
+        ['','NEGATIVE = BOOK HAS THE EDGE'],
         ['sep'],
         ['hi','COLOR'],
         ['var(--green)','GREEN: MODEL ≥ 50%'],
@@ -716,8 +668,7 @@ const COLUMN_INFO = {
         ['sep'],
         ['hi','⚠ HISTORICAL MODEL'],
         ['','BASED ON PAST STATS.'],
-        ['','DOES NOT PREDICT'],
-        ['','FUTURE RESULTS.'],
+        ['','DOES NOT PREDICT FUTURE RESULTS.'],
       ],
       [
         ['hi','STEP 1: IMPLIED PROB'],
@@ -731,33 +682,25 @@ const COLUMN_INFO = {
       ],
       [
         ['hi','STEP 2: REMOVE VIG'],
-        ['','BOOK PRICES BOTH SIDES'],
-        ['','TO SUM OVER 100%'],
+        ['','BOOK PRICES BOTH SIDES TO SUM OVER 100%'],
         ['','WE NORMALIZE:'],
         ['sep'],
-        ['','FAIR% = SIDE%'],
-        ['','  / (OVER% + UNDER%)'],
+        ['','FAIR% = SIDE% / (OVER% + UNDER%)'],
       ],
       [
         ['hi','STEP 3: EMPIRICAL'],
-        ['','USE ACTUAL HISTORICAL'],
-        ['','OUT RATE AS MODEL%'],
+        ['','USE ACTUAL HISTORICAL OUT RATE AS MODEL%'],
         ['sep'],
-        ['','MODEL% = OUTS EXCEEDED'],
-        ['','  / GAMES IN WINDOW'],
+        ['','MODEL% = OUTS EXCEEDED / GAMES IN WINDOW'],
         ['sep'],
-        ['','CAPTURES MANAGER'],
-        ['','DECISIONS + PITCH'],
-        ['','COUNT LIMITS'],
+        ['','CAPTURES MANAGER DECISIONS + PITCH COUNT LIMITS'],
       ],
       [
         ['hi','STEP 4: EV'],
         ['','EV = MODEL% - FAIR%'],
         ['sep'],
-        ['','POSITIVE = EDGE IN'],
-        ['','YOUR FAVOR'],
-        ['','NEGATIVE = BOOK'],
-        ['','HAS THE EDGE'],
+        ['','POSITIVE = EDGE IN YOUR FAVOR'],
+        ['','NEGATIVE = BOOK HAS THE EDGE'],
         ['sep'],
         ['hi','COLOR'],
         ['var(--green)','GREEN: MODEL ≥ 50%'],
@@ -776,8 +719,7 @@ const COLUMN_INFO = {
         ['sep'],
         ['hi','⚠ HISTORICAL MODEL'],
         ['','BASED ON PAST STATS.'],
-        ['','DOES NOT PREDICT'],
-        ['','FUTURE RESULTS.'],
+        ['','DOES NOT PREDICT FUTURE RESULTS.'],
       ],
       [
         ['hi','STEP 1: IMPLIED PROB'],
@@ -791,17 +733,14 @@ const COLUMN_INFO = {
       ],
       [
         ['hi','STEP 2: REMOVE VIG'],
-        ['','BOOK PRICES BOTH SIDES'],
-        ['','TO SUM OVER 100%'],
+        ['','BOOK PRICES BOTH SIDES TO SUM OVER 100%'],
         ['','WE NORMALIZE:'],
         ['sep'],
-        ['','FAIR% = SIDE%'],
-        ['','  / (OVER% + UNDER%)'],
+        ['','FAIR% = SIDE% / (OVER% + UNDER%)'],
       ],
       [
         ['hi','STEP 3: BINOMIAL'],
-        ['','MODEL EACH BATTER AS'],
-        ['','AN INDEPENDENT K TRIAL'],
+        ['','MODEL EACH BATTER AS AN INDEPENDENT K TRIAL'],
         ['sep'],
         ['','N = FLOOR(BF/G)'],
         ['','P = K AVG / BF AVG'],
@@ -813,10 +752,8 @@ const COLUMN_INFO = {
         ['hi','STEP 4: EV'],
         ['','EV = MODEL% - FAIR%'],
         ['sep'],
-        ['','POSITIVE = EDGE IN'],
-        ['','YOUR FAVOR'],
-        ['','NEGATIVE = BOOK'],
-        ['','HAS THE EDGE'],
+        ['','POSITIVE = EDGE IN YOUR FAVOR'],
+        ['','NEGATIVE = BOOK HAS THE EDGE'],
         ['sep'],
         ['hi','COLOR'],
         ['var(--green)','GREEN: MODEL ≥ 50%'],
@@ -835,8 +772,7 @@ const COLUMN_INFO = {
         ['sep'],
         ['hi','⚠ HISTORICAL MODEL'],
         ['','BASED ON PAST STATS.'],
-        ['','DOES NOT PREDICT'],
-        ['','FUTURE RESULTS.'],
+        ['','DOES NOT PREDICT FUTURE RESULTS.'],
       ],
       [
         ['hi','STEP 1: IMPLIED PROB'],
@@ -850,17 +786,14 @@ const COLUMN_INFO = {
       ],
       [
         ['hi','STEP 2: REMOVE VIG'],
-        ['','BOOK PRICES BOTH SIDES'],
-        ['','TO SUM OVER 100%'],
+        ['','BOOK PRICES BOTH SIDES TO SUM OVER 100%'],
         ['','WE NORMALIZE:'],
         ['sep'],
-        ['','FAIR% = SIDE%'],
-        ['','  / (OVER% + UNDER%)'],
+        ['','FAIR% = SIDE% / (OVER% + UNDER%)'],
       ],
       [
         ['hi','STEP 3: BINOMIAL'],
-        ['','MODEL EACH AB AS AN'],
-        ['','INDEPENDENT TRIAL'],
+        ['','MODEL EACH AB AS AN INDEPENDENT TRIAL'],
         ['sep'],
         ['','N = FLOOR(AB AVG)'],
         ['','P = BATTING AVG'],
@@ -872,10 +805,8 @@ const COLUMN_INFO = {
         ['hi','STEP 4: EV'],
         ['','EV = MODEL% - FAIR%'],
         ['sep'],
-        ['','POSITIVE = EDGE IN'],
-        ['','YOUR FAVOR'],
-        ['','NEGATIVE = BOOK'],
-        ['','HAS THE EDGE'],
+        ['','POSITIVE = EDGE IN YOUR FAVOR'],
+        ['','NEGATIVE = BOOK HAS THE EDGE'],
         ['sep'],
         ['hi','COLOR'],
         ['var(--green)','GREEN: MODEL ≥ 50%'],
@@ -889,12 +820,10 @@ const COLUMN_INFO = {
       ['hi','OUTCOME OF THIS PROP'],
       ['sep'],
       ['hi','WON'],
-      ['','PLAYER EXCEEDED'],
-      ['','THE LINE'],
+      ['','PLAYER EXCEEDED THE LINE'],
       ['sep'],
       ['hi','LOST'],
-      ['','PLAYER DID NOT'],
-      ['','EXCEED THE LINE'],
+      ['','PLAYER DID NOT EXCEED THE LINE'],
     ]
   },
 }
@@ -1793,7 +1722,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     tbodys += `<tbody>`
     if (teamLabel) {
       tbodys += `<tr>
-        <td colspan="6" class="team-hdr" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h) + 39px);z-index:10;background:#0a0a0a;padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}${key === 'home' || key === 'away' ? ` · ${key === 'home' ? 'HOME' : 'AWAY'}` : ''}</td>
+        <td colspan="6" class="team-hdr" style="position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h) + var(--col-h));z-index:10;background:#0a0a0a;padding:6px 10px 2px;font-size:9px;color:var(--muted);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:0.12em">${teamLabel}${key === 'home' || key === 'away' ? ` · ${key === 'home' ? 'HOME' : 'AWAY'}` : ''}</td>
       </tr>`
     }
     tbodys += entries.map(e => e.trows).join('')
