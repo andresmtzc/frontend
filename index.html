@@ -179,8 +179,9 @@
 <main class="max-w-[960px] mx-auto px-4 pb-5 space-y-3" id="content"></main>
 
 <div style="height:3px;background:#222222"></div>
-<footer class="max-w-[960px] mx-auto px-4 pb-6 text-center mono" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase">
+<footer class="max-w-[960px] mx-auto px-4 pb-6 mono" style="font-size:10px;font-weight:700;letter-spacing:2px;line-height:2.5;text-transform:uppercase;display:flex;align-items:center;justify-content:center;position:relative;">
   <span style="color:var(--muted)">¡Dale, dale, dale, no pierdas el tino!</span>
+  <button onclick="openSugerencias()" style="position:absolute;right:16px;background:none;border:none;padding:0;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;color:#444;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap;">CONTACTO</button>
 </footer>
 
 
@@ -3139,6 +3140,43 @@ function renderExpansionContent(key) {
   </div>
 </div>
 
+<!-- ── Sugerencias modal ──────────────────────────────────────────────── -->
+<div id="sugerencias-overlay" onmousedown="if(event.target===this)closeSugerencias()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;">
+  <div onmousedown="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);width:100%;max-width:360px;margin:16px;padding:28px 32px;position:relative;display:flex;flex-direction:column;gap:14px;">
+    <button onclick="closeSugerencias()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
+    <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:#fff;letter-spacing:1px;">CONTACTO</div>
+    <div style="height:1px;background:var(--border);"></div>
+
+    <!-- tipo checkboxes -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="sg-bug" style="accent-color:var(--gold);width:14px;height:14px;">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);">Bug</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="sg-sug" style="accent-color:var(--gold);width:14px;height:14px;">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);">Sugerencia</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="sg-preg" style="accent-color:var(--gold);width:14px;height:14px;">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);">Pregunta</span>
+      </label>
+    </div>
+
+    <div style="height:1px;background:var(--border);"></div>
+
+    <textarea id="sg-msg" placeholder="Tu mensaje..." rows="4"
+      style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;resize:none;"></textarea>
+
+    <button onclick="enviarSugerencia()" id="sg-btn"
+      style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+      ENVIAR
+    </button>
+    <div id="sg-err" style="font-family:'DM Sans',sans-serif;font-size:12px;color:#e63946;display:none;"></div>
+  </div>
+</div>
+
 <!-- ── Account panel ─────────────────────────────────────────────────── -->
 <div id="account-overlay" onmousedown="if(event.target===this)closeAccount()"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;">
@@ -3650,6 +3688,54 @@ async function ppLogin() {
   } finally {
     btn.textContent = 'ENTRAR'; btn.disabled = false
   }
+}
+
+// ── Sugerencias ──────────────────────────────────────────────────────────────
+function openSugerencias() {
+  document.getElementById('sugerencias-overlay').style.display = 'flex'
+  document.getElementById('sg-err').style.display = 'none'
+  document.getElementById('sg-msg').value = ''
+  document.getElementById('sg-bug').checked  = false
+  document.getElementById('sg-sug').checked  = false
+  document.getElementById('sg-preg').checked = false
+  document.getElementById('sg-btn').textContent = 'ENVIAR'
+  document.getElementById('sg-btn').disabled = false
+}
+
+function closeSugerencias() {
+  document.getElementById('sugerencias-overlay').style.display = 'none'
+}
+
+async function enviarSugerencia() {
+  const tipos = []
+  if (document.getElementById('sg-bug').checked)  tipos.push('bug')
+  if (document.getElementById('sg-sug').checked)  tipos.push('sugerencia')
+  if (document.getElementById('sg-preg').checked) tipos.push('pregunta')
+  const mensaje = document.getElementById('sg-msg').value.trim()
+
+  const err = document.getElementById('sg-err')
+  if (!tipos.length) { err.textContent = 'Selecciona al menos una opción.'; err.style.display = 'block'; return }
+  if (!mensaje)      { err.textContent = 'Escribe tu mensaje.';             err.style.display = 'block'; return }
+
+  const btn = document.getElementById('sg-btn')
+  btn.textContent = 'Enviando…'; btn.disabled = true; err.style.display = 'none'
+
+  const { data: { session } } = await db.auth.getSession()
+  const { error } = await db.from('sugerencias').insert({
+    tipos,
+    mensaje,
+    user_id: session?.user?.id ?? null,
+    email:   session?.user?.email ?? null,
+  })
+
+  if (error) {
+    err.textContent = 'Error al enviar. Intenta de nuevo.'; err.style.display = 'block'
+    btn.textContent = 'ENVIAR'; btn.disabled = false
+    return
+  }
+
+  btn.textContent = '¡GRACIAS!'
+  setTimeout(closeSugerencias, 1500)
 }
 
 function openLogin() {
