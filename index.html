@@ -2105,7 +2105,7 @@ async function load(force = false) {
 
     // Fetch profile for account chip + panel
     const { data: prof } = await db.from('profiles')
-      .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed, sim_username')
+      .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed, sim_username, sim_username_updated_at')
       .eq('id', session.user.id).single()
     _userProfile = { email: session.user.email, ...(prof ?? {}) }
     updateAccountChip()
@@ -3186,16 +3186,20 @@ function renderExpansionContent(key) {
 
     <!-- SIMULADOR -->
     <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#ff6600;letter-spacing:1px;margin-bottom:12px;">SIMULADOR</div>
-    <input id="sim-username" type="text" placeholder="tu apodo en el ranking" maxlength="24"
-      style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;box-sizing:border-box;margin-bottom:8px;" />
-    <button onclick="saveSimUsername()" style="background:var(--surface);border:2px solid var(--border);padding:8px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:14px;">Guardar apodo</button>
-    <div style="display:flex;flex-direction:column;gap:8px;">
+    <div style="display:flex;gap:0;margin-bottom:4px;">
+      <input id="sim-username" type="text" placeholder="tu apodo" maxlength="24"
+        style="flex:2;background:var(--surface);border:2px solid var(--border);padding:9px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:0;" />
+      <button onclick="saveSimUsername()" id="sim-save-btn"
+        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:9px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>
+    </div>
+    <div id="sim-apodo-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);min-height:16px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:0;">
       <button id="sim-elegir-btn" onclick="toggleSimMode()"
-        style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">ELEGIR PICKS</button>
+        style="flex:1;background:var(--surface);border:2px solid var(--border);padding:9px 6px;color:var(--text);font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">PICKS</button>
       <button onclick="openSimResultados()"
-        style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">RESULTADOS</button>
+        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:9px 6px;color:var(--text);font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">RSLT</button>
       <button onclick="openSimRanking()"
-        style="background:var(--surface);border:2px solid var(--border);padding:9px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;width:100%;">RANKING</button>
+        style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:9px 6px;color:var(--text);font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-align:center;">RANK</button>
     </div>
     <div id="sim-panel" style="display:none;margin-top:14px;"></div>
 
@@ -3884,12 +3888,34 @@ async function openAccount() {
   document.getElementById('pw-msg').style.display = 'none'
 
   // Sim panel
-  document.getElementById('sim-username').value = _userProfile.sim_username ?? ''
+  const _hasApodo = !!_userProfile.sim_username
+  document.getElementById('sim-username').value = _userProfile.sim_username ?? generateSimUsername()
   const _simBtn = document.getElementById('sim-elegir-btn')
   _simBtn.style.background   = simMode ? '#ff6600' : 'var(--surface)'
   _simBtn.style.color        = simMode ? '#fff'    : 'var(--text)'
   _simBtn.style.borderColor  = simMode ? '#ff6600' : 'var(--border)'
   document.getElementById('sim-panel').style.display = 'none'
+  // Cooldown hint
+  const _msgEl = document.getElementById('sim-apodo-msg')
+  if (_hasApodo && _userProfile.sim_username_updated_at) {
+    const _daysLeft = 30 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
+    if (_daysLeft > 0) {
+      _msgEl.textContent = `Puedes cambiar tu apodo en ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''}`
+      document.getElementById('sim-save-btn').disabled = true
+      document.getElementById('sim-save-btn').style.opacity = '0.4'
+      document.getElementById('sim-save-btn').style.cursor = 'default'
+    } else {
+      _msgEl.textContent = ''
+      document.getElementById('sim-save-btn').disabled = false
+      document.getElementById('sim-save-btn').style.opacity = '1'
+      document.getElementById('sim-save-btn').style.cursor = 'pointer'
+    }
+  } else {
+    _msgEl.textContent = ''
+    document.getElementById('sim-save-btn').disabled = false
+    document.getElementById('sim-save-btn').style.opacity = '1'
+    document.getElementById('sim-save-btn').style.cursor = 'pointer'
+  }
 }
 
 function closeAccount() {
@@ -4152,16 +4178,46 @@ function toggleSimMode() {
   renderPills()
 }
 
+function generateSimUsername() {
+  const adj  = ['Clutch','Iron','Slider','Hammer','Rogue','Swift','Wild','Sticky','Grand','Frozen']
+  const noun = ['Slugger','Pitcher','Closer','Rook','Ace','Cannon','Glove','Batter','Homer','Catcher']
+  const a = adj[Math.floor(Math.random() * adj.length)]
+  const n = noun[Math.floor(Math.random() * noun.length)]
+  return `${a}${n}${Math.floor(Math.random() * 99) + 1}`
+}
+
 async function saveSimUsername() {
-  const val = document.getElementById('sim-username').value.trim()
-  if (!val) return
+  const val  = document.getElementById('sim-username').value.trim()
+  const msg  = document.getElementById('sim-apodo-msg')
+  const btn  = document.getElementById('sim-save-btn')
+  if (!val) { msg.style.color = 'var(--magenta)'; msg.textContent = 'Escribe un apodo primero'; return }
+
+  // 30-day cooldown check
+  if (_userProfile.sim_username && _userProfile.sim_username_updated_at) {
+    const daysLeft = 30 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
+    if (daysLeft > 0) { msg.style.color = 'var(--magenta)'; msg.textContent = `Espera ${daysLeft} día${daysLeft !== 1 ? 's' : ''} para cambiar`; return }
+  }
+
+  btn.disabled = true; btn.style.opacity = '0.5'
   const { data: { session } } = await db.auth.getSession()
   if (!session) return
-  await db.from('profiles').update({ sim_username: val }).eq('id', session.user.id)
-  // Also propagate to all pending picks so they show up in ranking
+  const now = new Date().toISOString()
+  const { error } = await db.from('profiles')
+    .update({ sim_username: val, sim_username_updated_at: now })
+    .eq('id', session.user.id)
+  if (error) {
+    msg.style.color = 'var(--magenta)'; msg.textContent = 'Error al guardar'
+    btn.disabled = false; btn.style.opacity = '1'
+    return
+  }
+  // Propagate to pending picks for ranking
   await db.from('simulation_picks').update({ sim_username: val })
     .eq('user_id', session.user.id).is('result', null)
   _userProfile.sim_username = val
+  _userProfile.sim_username_updated_at = now
+  msg.style.color = 'var(--green)'; msg.textContent = '✓ Apodo guardado'
+  btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'default'
+  setTimeout(() => { msg.textContent = `Puedes cambiar en 30 días` }, 2000)
 }
 
 async function openSimResultados() {
