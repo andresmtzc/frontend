@@ -135,11 +135,11 @@
       </div>
       <button id="mode-btn" onclick="cycleMode()"
         class="mono shrink-0"
-        style="font-size:11px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer">
+        style="font-size:9px;font-weight:700;padding:4px 10px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer;letter-spacing:0.08em">
         US
       </button>
-      <button id="login-btn" onclick="openLogin()" style="display:none;background:none;border:2px solid var(--border);padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--muted);">
-        Login
+      <button id="login-btn" onclick="openLogin()" style="display:none;background:none;border:2px solid var(--border);padding:4px 10px;cursor:pointer;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;">
+        LOGIN
       </button>
       <button id="account-chip" onclick="openAccount()" style="display:none;align-items:center;gap:6px;background:var(--surface);border:2px solid var(--border);padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);">
         <span id="chip-label"></span>
@@ -919,7 +919,7 @@ function _renderInfoModal() {
       <button onclick="stepInfoModal(1)" style="font-family:'DM Sans',sans-serif;font-size:11px;background:none;border:2px solid var(--border);color:${_infoModalPage === pages.length - 1 ? 'var(--border)' : 'var(--muted)'};padding:4px 8px;cursor:${_infoModalPage === pages.length - 1 ? 'default' : 'pointer'}">▶</button>
     </div>` : ''
   modal.innerHTML = `
-    <button onclick="closeInfoModal()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
+    <button onclick="hideInfoModal()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
     <div class="im-title">${info.title}</div>${rowsHtml}${navHtml}`
 }
 
@@ -1162,7 +1162,7 @@ const SEASON_INFO = {
 
 const MODES = [
   { id: 'US',  label: 'US',  },
-  { id: 'Dec', label: 'Dec', },
+  { id: 'Dec', label: 'DEC', },
   { id: 'Pct', label: '%',   },
   { id: '$',   label: '$',   },
 ]
@@ -1663,7 +1663,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     const rowspan  = 1 + sortedFKs.length
 
     // Closure — colors assigned after sort so A/B matches final position
-    const buildTrows = (normalBg, expandedBg) => {
+    const buildTrows = (normalBg, expandedBg, isFirstPlayer = false) => {
       const playerCellHtml = `<td class="align-top select-none" rowspan="${rowspan}"
            style="padding:7px 10px;color:var(--text);vertical-align:top"
            data-player-exp="${norm}_${matchId}_${normMkt}"
@@ -1709,7 +1709,10 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           const suffix = propType === 'strikeouts' ? 'K' : propType === 'runs' ? 'R' : propType === 'rbi' ? 'RBI' : propType === 'bases' ? 'TB' : propType === 'hr' ? 'HR' : propType === 'singles' ? '1B' : propType === 'doubles' ? '2B' : propType === 'pitcher_outs' ? 'OUT' : propType === 'hrr' ? 'HRR' : 'H'
           resultCell  = `<td class="mono" style="padding:5px 10px;font-size:10px;font-weight:700;color:${col};white-space:nowrap;text-align:right;vertical-align:middle;letter-spacing:0.08em">${label} <span style="font-size:9px;opacity:0.6">${actual}${suffix}</span></td>`
         } else if (isPast) {
-          resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
+          const _isPremium = _userProfile?.premium_until && new Date(_userProfile.premium_until) > new Date()
+          resultCell = (!_isPremium && isFirstPlayer && idx === 0 && f === 'DB')
+            ? `<td style="padding:5px 10px;text-align:right;vertical-align:middle"><button onclick="event.stopPropagation();openPaloPlus()" style="background:#1a1200;border:2px solid #f59e0b;padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#f59e0b;cursor:pointer;white-space:nowrap;">PALO+</button></td>`
+            : `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
         }
         const avgRaw  = effRow?.avg
         const avgStr  = avgRaw != null
@@ -1776,8 +1779,9 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
   let renderIdx = 0
   for (const entries of byTeam.values()) {
     for (const e of entries) {
-      const { normalBg, expandedBg } = abColors(renderIdx++)
-      e.trows = e.buildTrows(normalBg, expandedBg)
+      const { normalBg, expandedBg } = abColors(renderIdx)
+      e.trows = e.buildTrows(normalBg, expandedBg, renderIdx === 0)
+      renderIdx++
     }
   }
 
@@ -2162,10 +2166,13 @@ async function load(force = false) {
     _userProfile = { email: session.user.email, ...(prof ?? {}) }
     updateAccountChip()
 
-    res = await fetch('https://api.palo.mx/payload.json', {
-      headers: { 'Authorization': `Bearer ${session.access_token}` }
-    })
-    if (res.status === 403) res = null // premium expired, fall through to free
+    const isPremiumActive = prof?.premium_until && new Date(prof.premium_until) > new Date()
+    if (isPremiumActive) {
+      res = await fetch('https://api.palo.mx/payload.json', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      })
+      if (res.status === 403) res = null // fallback if server disagrees
+    }
   } else {
     _userProfile = null
     updateAccountChip()
@@ -2800,13 +2807,13 @@ function renderExpansionContent(key) {
     }).join('')
     cell.innerHTML = `
       <div style="position:relative;overflow:hidden;">
-        <div style="display:flex;align-items:stretch;gap:0;width:100%;overflow:hidden;opacity:0.35;pointer-events:none;">
+        <div style="display:flex;align-items:stretch;gap:0;width:100%;overflow:hidden;opacity:0.05;pointer-events:none;">
           <div style="flex-shrink:0;width:22px;"></div>
           <div style="flex:1;display:grid;grid-template-columns:repeat(10,1fr);gap:6px;min-width:0;">${_fakeBarsHtml}</div>
           <div style="flex-shrink:0;width:22px;"></div>
         </div>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
-          <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);text-shadow:0 1px 6px rgba(0,0,0,0.9),0 0 12px rgba(0,0,0,0.8);">Historial de juegos en</span>
+          <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);">Gráficas históricas por filtro x jugador</span>
           <button onclick="closePaloPlus&&openPaloPlus()" style="background:#1a1200;border:2px solid #f59e0b;padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#f59e0b;cursor:pointer;">PALO+</button>
         </div>
       </div>`
@@ -3010,16 +3017,46 @@ function renderExpansionContent(key) {
       <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
       <div style="height:1px;background:var(--border);margin:4px 0;"></div>
 
-      <div id="pp-upsell" style="display:flex;flex-direction:column;gap:12px;">
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">TODOS LOS PARTIDOS</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Accede a todos los partidos del día, todas las props, historial completo y modelo EV actualizado diario.</div>
+      <div id="pp-upsell" style="display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:800;color:#fff;line-height:1.2;">Todos los partidos.<br>Todas las props.</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Historial completo y modelo EV actualizado diario.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="color:var(--green);font-weight:700;font-size:15px;">✓</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);font-weight:600;">Todos los partidos y props del día</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="color:var(--green);font-weight:700;font-size:15px;">✓</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);font-weight:600;">Gráficas históricas por jugador</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="color:var(--green);font-weight:700;font-size:15px;">✓</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);font-weight:600;">Estadísticas por filtro — L5, L10, L30, CS, etc.</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="color:var(--green);font-weight:700;font-size:15px;">✓</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);font-weight:600;">Historial completo de juegos</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="color:var(--green);font-weight:700;font-size:15px;">✓</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);font-weight:600;">Props ganadas y perdidas en las últimas 48 hrs</span>
+          </div>
         </div>
         <div style="height:1px;background:var(--border);"></div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">99 MXN / MES</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);">Cancela cuando quieras. Sin compromisos.</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span style="font-family:'DM Sans',sans-serif;font-size:24px;font-weight:800;color:#f59e0b;">$99 MXN</span>
+          <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);">/ mes · cancela cuando quieras</span>
         </div>
+        <div style="height:1px;background:var(--border);"></div>
+      </div>
+
+      <!-- trial upsell (shown when user clicks trial link) -->
+      <div id="pp-trial-upsell" style="display:none;flex-direction:column;gap:10px;">
+        <div style="font-family:'DM Sans',sans-serif;font-size:20px;font-weight:800;color:#fff;line-height:1.2;">7 días gratis.<br>Sin cobros hoy.</div>
+        <div style="height:1px;background:var(--border);"></div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;">Se requiere tarjeta. Si no cancelas antes del día 8, se cobra <span style="color:#f59e0b;font-weight:700;">$99/mes</span> automáticamente.</div>
         <div style="height:1px;background:var(--border);"></div>
       </div>
 
@@ -3037,6 +3074,8 @@ function renderExpansionContent(key) {
         style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         CONTINUAR
       </button>
+
+      <button id="pp-trial-link" onclick="openTrialFlow()" style="background:none;border:none;color:#555;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;padding:0;margin-top:-6px;text-align:center;width:100%;">prueba 7 días gratis →</button>
 
       <button onclick="ppToggleLoginMode()" id="pp-toggle-mode"
         style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:center;width:100%;">
@@ -3059,15 +3098,17 @@ function renderExpansionContent(key) {
           <div id="pp-card-cvc" style="flex:1;background:var(--surface);border:2px solid var(--border);padding:12px;"></div>
         </div>
       </div>
+      <div id="pp-password-section" style="display:contents">
       <div style="height:1px;background:var(--border);margin:4px 0;"></div>
       <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">CREA TU CONTRASEÑA</div>
+      </div>
       <input id="pp-password" type="password" placeholder="contraseña"
         style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;" />
       <button id="pp-pay-btn" onclick="ppPay()"
         style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         PAGAR 99 MXN / MES
       </button>
-      <button onclick="ppBack()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">← volver</button>
+      <button onclick="_isRenewal ? (closePaloPlus(), openAccount()) : ppBack()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">← volver</button>
       <div id="pp-err2" style="font-family:'DM Sans',sans-serif;font-size:12px;color:#e63946;display:none;"></div>
     </div>
 
@@ -3287,7 +3328,12 @@ function closePaloPlus() {
 function ppBack() {
   document.getElementById('pp-step2').style.display = 'none'
   document.getElementById('pp-step1').style.display = 'flex'
-  _destroyCards(); _clientSecret = null
+  if (_isTrialFlow) {
+    document.getElementById('pp-upsell').style.display       = 'none'
+    document.getElementById('pp-trial-upsell').style.display = 'flex'
+    document.getElementById('pp-step1-btn').textContent      = 'EMPEZAR PRUEBA'
+  }
+  _destroyCards(); _clientSecret = null; _trialSetupIntentId = null
 }
 
 function ppErr(step, msg) {
@@ -3358,11 +3404,14 @@ async function ppContinue() {
   }
 }
 
+let _trialSetupIntentId = null
+
 async function ppPay() {
+  if (_isTrialFlow) { await ppTrialActivate(); return }
   if (!_stripe || !_cardNumber || !_clientSecret) return
   const email    = document.getElementById('pp-email-display').textContent
   const password = document.getElementById('pp-password').value.trim()
-  if (!password || password.length < 6) { ppErr(2, 'Contraseña mínimo 6 caracteres'); return }
+  if (!_isRenewal && (!password || password.length < 6)) { ppErr(2, 'Contraseña mínimo 6 caracteres'); return }
 
   const btn = document.getElementById('pp-pay-btn')
   btn.textContent = 'Procesando…'; btn.disabled = true
@@ -3412,10 +3461,33 @@ async function ppPay() {
 }
 
 let _ppLoginMode = false
+let _isTrialFlow = false
+
+function openTrialFlow() {
+  _isTrialFlow = true
+  document.getElementById('pp-upsell').style.display       = 'none'
+  document.getElementById('pp-trial-upsell').style.display = 'flex'
+  document.getElementById('pp-trial-link').style.display   = 'none'
+  document.getElementById('pp-step1-btn').textContent      = 'EMPEZAR PRUEBA'
+  document.getElementById('pp-err1').style.display         = 'none'
+}
+
+function closeTrialFlow() {
+  _isTrialFlow = false
+  document.getElementById('pp-trial-upsell').style.display = 'none'
+  document.getElementById('pp-upsell').style.display       = 'flex'
+  document.getElementById('pp-step1-btn').textContent      = 'CONTINUAR'
+  document.getElementById('pp-err1').style.display         = 'none'
+}
 
 function ppToggleLoginMode() {
   _ppLoginMode = !_ppLoginMode
-  document.getElementById('pp-upsell').style.display    = _ppLoginMode ? 'none' : 'flex'
+  if (_ppLoginMode) {
+    _isTrialFlow = false
+    document.getElementById('pp-trial-upsell').style.display = 'none'
+  }
+  document.getElementById('pp-upsell').style.display     = _ppLoginMode ? 'none' : 'flex'
+  document.getElementById('pp-trial-link').style.display = _ppLoginMode ? 'none' : 'block'
   document.getElementById('pp-login-pw').style.display  = _ppLoginMode ? 'block' : 'none'
   document.getElementById('pp-forgot').style.display    = _ppLoginMode ? 'block' : 'none'
   document.getElementById('pp-step1-btn').textContent   = _ppLoginMode ? 'ENTRAR' : 'CONTINUAR'
@@ -3441,8 +3513,121 @@ async function ppForgotPassword() {
 async function ppModeAction() {
   if (_ppLoginMode) {
     await ppLogin()
+  } else if (_isTrialFlow) {
+    await ppTrialContinue()
   } else {
     await ppContinue()
+  }
+}
+
+async function ppTrialContinue() {
+  const email = document.getElementById('pp-email').value.trim()
+  if (!email || !email.includes('@')) { ppErr(1, 'Ingresa un email válido'); return }
+
+  const btn = document.getElementById('pp-step1-btn')
+  btn.textContent = 'Cargando…'; btn.disabled = true
+
+  try {
+    const checkRes = await fetch(`${API}/check-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const { exists } = await checkRes.json()
+    if (exists) {
+      ppErr(1, 'Ya tienes una cuenta. Inicia sesión.')
+      closeTrialFlow()
+      if (!_ppLoginMode) ppToggleLoginMode()
+      btn.disabled = false
+      return
+    }
+
+    const res = await fetch(`${API}/create-trial-setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const data = await res.json()
+    if (res.status === 409 && data.error === 'trial_already_used') {
+      ppErr(1, 'Este email ya usó la prueba gratuita. Puedes suscribirte directamente.')
+      closeTrialFlow()
+      return
+    }
+    if (!res.ok) throw new Error(data.error ?? 'Error al iniciar prueba')
+
+    _clientSecret = data.clientSecret
+    _trialSetupIntentId = data.setupIntentId
+
+    if (!_stripe) _stripe = Stripe(STRIPE_PK)
+    const elements = _stripe.elements()
+    const style = {
+      base: { color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: '14px', '::placeholder': { color: '#555' } },
+      invalid: { color: '#e63946' },
+    }
+    _cardNumber = elements.create('cardNumber', { style })
+    _cardExpiry = elements.create('cardExpiry', { style })
+    _cardCvc    = elements.create('cardCvc',    { style })
+
+    document.getElementById('pp-step1').style.display = 'none'
+    document.getElementById('pp-step2').style.display = 'flex'
+    document.getElementById('pp-email-display').textContent = email
+    document.getElementById('pp-pay-btn').textContent = 'INICIAR PRUEBA — $0 HOY'
+    document.getElementById('pp-err2').style.display = 'none'
+
+    setTimeout(() => {
+      _cardNumber.mount('#pp-card-number')
+      _cardExpiry.mount('#pp-card-expiry')
+      _cardCvc.mount('#pp-card-cvc')
+    }, 50)
+
+  } catch(e) {
+    ppErr(1, e.message)
+  } finally {
+    if (_isTrialFlow) btn.textContent = 'EMPEZAR PRUEBA'
+    btn.disabled = false
+  }
+}
+
+async function ppTrialActivate() {
+  if (!_stripe || !_cardNumber || !_clientSecret) return
+  const email    = document.getElementById('pp-email-display').textContent
+  const password = document.getElementById('pp-password').value.trim()
+  if (!password || password.length < 6) { ppErr(2, 'Contraseña mínimo 6 caracteres'); return }
+
+  const btn = document.getElementById('pp-pay-btn')
+  btn.textContent = 'Procesando…'; btn.disabled = true
+  document.getElementById('pp-err2').style.display = 'none'
+
+  try {
+    const { error, setupIntent } = await _stripe.confirmCardSetup(_clientSecret, {
+      payment_method: { card: _cardNumber, billing_details: { email } }
+    })
+    if (error) throw new Error(error.message)
+
+    const activateRes = await fetch(`${API}/activate-trial`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, setupIntentId: setupIntent.id }),
+    })
+    const activateData = await activateRes.json()
+
+    if (activateRes.status === 409 && activateData.error === 'trial_fingerprint_used') {
+      ppErr(2, 'Esta tarjeta ya usó el período de prueba — se aplicará la tarifa regular.')
+      btn.textContent = 'INICIAR PRUEBA — $0 HOY'; btn.disabled = false
+      return
+    }
+    if (!activateRes.ok) throw new Error(activateData.error ?? 'Error al activar prueba')
+
+    const { error: signInErr } = await db.auth.signInWithPassword({ email, password })
+    if (signInErr) throw new Error(signInErr.message)
+
+    document.getElementById('pp-step2').style.display = 'none'
+    document.getElementById('pp-welcome-email').textContent = email
+    document.getElementById('pp-step3').style.display = 'flex'
+
+  } catch(e) {
+    ppErr(2, e.message)
+    btn.textContent = 'INICIAR PRUEBA — $0 HOY'; btn.disabled = false
   }
 }
 
@@ -3529,7 +3714,7 @@ function updateRenewalBanner() {
     banner.style.display = 'block'
     banner.style.background = '#7c2d12'
     banner.style.color = '#fca5a5'
-    banner.innerHTML = `Tu acceso vence en <strong>${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong> y no se renovará. <button onclick="closeAccount();openPaloPlus(true)" style="margin-left:8px;background:#ef4444;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:2px 10px;cursor:pointer;">Renovar</button>`
+    banner.innerHTML = `Tu acceso vence en <strong>${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong> y no se renovará. <button onclick="closeAccount();openPaloPlus(true)" style="margin-left:8px;background:#ef4444;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:2px 10px;cursor:pointer;">RENOVAR</button>`
   } else {
     banner.style.display = 'block'
     banner.style.background = '#713f12'
@@ -3598,7 +3783,7 @@ async function openAccount() {
     const expiredStr = until ? `Venció el ${fmtDate(until)}` : 'Sin suscripción activa'
     statusEl.innerHTML = `<span style="color:var(--magenta)">${expiredStr}</span>`
     const renewBtn = document.createElement('button')
-    renewBtn.textContent = 'Renovar →'
+    renewBtn.textContent = 'RENOVAR'
     renewBtn.style.cssText = 'background:#f59e0b;border:none;padding:10px 20px;font-family:\'Press Start 2P\',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;'
     renewBtn.onclick = () => { closeAccount(); openPaloPlus(true) }
     actionsEl.appendChild(renewBtn)
@@ -3774,14 +3959,17 @@ async function doLogout() {
 // ── Renew flow: open Palo+ modal starting at card step (skip email) ───────────
 function openPaloPlus(renewal = false) {
   _isRenewal = renewal
+  _isTrialFlow = false
   if (!renewal) {
     _ppLoginMode = false
-    document.getElementById('pp-upsell').style.display    = 'flex'
-    document.getElementById('pp-login-pw').style.display  = 'none'
-    document.getElementById('pp-forgot').style.display    = 'none'
-    document.getElementById('pp-step1-btn').textContent   = 'CONTINUAR'
-    document.getElementById('pp-toggle-mode').textContent = '¿Ya tienes cuenta? Inicia sesión'
-    document.getElementById('pp-toggle-mode').style.color = 'var(--muted)'
+    document.getElementById('pp-upsell').style.display       = 'flex'
+    document.getElementById('pp-trial-upsell').style.display = 'none'
+    document.getElementById('pp-trial-link').style.display   = 'block'
+    document.getElementById('pp-login-pw').style.display     = 'none'
+    document.getElementById('pp-forgot').style.display       = 'none'
+    document.getElementById('pp-step1-btn').textContent      = 'CONTINUAR'
+    document.getElementById('pp-toggle-mode').textContent    = '¿Ya tienes cuenta? Inicia sesión'
+    document.getElementById('pp-toggle-mode').style.color    = 'var(--muted)'
   }
   const overlay = document.getElementById('paloplus-overlay')
   overlay.style.display = 'flex'
@@ -3793,7 +3981,8 @@ function openPaloPlus(renewal = false) {
     document.getElementById('pp-step1').style.display = 'none'
     document.getElementById('pp-step2').style.display = 'flex'
     document.getElementById('pp-email-display').textContent = _userProfile.email
-    document.getElementById('pp-password').style.display = 'none' // no pw needed for renewal
+    document.getElementById('pp-password').style.display = 'none'
+    document.getElementById('pp-password-section').style.display = 'none'
     document.getElementById('pp-err2').style.display = 'none'
     if (!_stripe) _stripe = Stripe(STRIPE_PK)
     // Get a new payment intent for this user
