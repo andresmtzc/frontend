@@ -1234,11 +1234,14 @@ function cleanMktName(name) {
     .replace(/\bPITCHER\s+STRIKEOUTS\b/gi, "PITCHER K'S")
     .replace(/\s+DEL\s+BATEADOR/gi, '')
     .replace(/\s*\(INCL\.?\s*EXTRA\s*INNINGS\)/gi, '')
-    .replace(/\s+M[AÁ]S\s+DE\s*[\/]\s*MENOS\s+DE/gi, ' OVER/UNDER')
-    .replace(/\s+M[AÁ]S\s*[\/]\s*MENOS/gi, ' OVER/UNDER')
-    .replace(/\s+M[AÁ]S\s+DE\s+MENOS\s+DE/gi, ' OVER/UNDER')
-    .replace(/\s+M[AÁ]S\s+DE/gi, ' OVER')
-    .replace(/\s+MENOS\s+DE/gi, ' UNDER')
+    .replace(/\s+M[AÁ]S\s+DE\s*[\/]\s*MENOS\s+DE/gi, '')
+    .replace(/\s+M[AÁ]S\s*[\/]\s*MENOS/gi, '')
+    .replace(/\s+M[AÁ]S\s+DE\s+MENOS\s+DE/gi, '')
+    .replace(/\s+M[AÁ]S\s+DE/gi, '')
+    .replace(/\s+MENOS\s+DE/gi, '')
+    .replace(/\s+OVER\/UNDER/gi, '')
+    .replace(/\s+OVER/gi, '')
+    .replace(/\s+UNDER/gi, '')
     .trim()
 }
 
@@ -1853,6 +1856,7 @@ function updateOUToggle() {
 function cycleDirection() {
   activeDirection = activeDirection === 'over' ? 'under' : 'over'
   updateOUToggle()
+  document.querySelectorAll('[data-mkt-dir]').forEach(el => el.textContent = activeDirection.toUpperCase())
   refreshMktTbodies([...activeFilters])
   for (const [key, exp] of expansions) {
     exp.lockedDirection = activeDirection
@@ -2496,8 +2500,7 @@ function renderMatch(entry) {
         <span style="display:flex;align-items:center;gap:8px">
           <span class="mkt-drag-handle" onclick="event.stopPropagation()" style="cursor:grab;color:var(--muted);font-size:13px;padding:0 4px 0 0;line-height:1;user-select:none">☰</span>
           <span style="display:flex;align-items:baseline;gap:8px">
-            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${cleanMktName(mktName)}</span>
-            <span style="font-size:10px;color:var(--text)">${activeDirection.toUpperCase()}</span>
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${cleanMktName(mktName)} <span data-mkt-dir>${activeDirection.toUpperCase()}</span></span>
             <span style="font-size:10px;color:var(--muted)">·</span>
             <span style="font-size:10px;color:var(--text)">${playerCount} lines</span>
             ${isPastMatch ? `<span style="font-size:10px;color:var(--muted)">·</span><span data-mkt-summary style="font-size:10px;color:var(--text)">${totalCount > 0 ? `${wonCount}/${totalCount} ${Math.round(wonCount/totalCount*100)}%` : ''}</span>` : ''}
