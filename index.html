@@ -4418,6 +4418,15 @@ function openSimReglas() {
     </div>`
 }
 
+async function unpickFromResults(pickId, weekStart) {
+  const { error } = await db.from('simulation_picks').delete().eq('id', pickId)
+  if (error) { console.error('[sim] unpick error', error.message); return }
+  for (const k of Object.keys(simPicks)) {
+    if (simPicks[k].id == pickId) { delete simPicks[k]; break }
+  }
+  openSimResultados(null, weekStart)
+}
+
 async function openSimResultados(username = null, weekStart = null) {
   if (!username) localStorage.setItem('sim_last_tab', 'rslt')
   _openSimModal('RESULTS')
@@ -4456,15 +4465,23 @@ async function openSimResultados(username = null, weekStart = null) {
   const _nc = v => v > 0 ? 'var(--green)' : v < 0 ? 'var(--magenta)' : 'var(--text)'
 
   const rowsHtml = picks.map(p => {
-    const dir     = p.direction === 'under' ? '<' : '>'
-    const res     = p.result === 'won' ? 'WON' : p.result === 'lost' ? 'LOST' : p.result === 'push' ? 'PUSH' : 'PEND.'
-    const resCol  = p.result === 'won' ? 'var(--green)' : p.result === 'lost' ? 'var(--magenta)' : 'var(--text)'
-    const pnl     = p.profit != null ? (p.profit >= 0 ? `+$${Math.abs(p.profit).toFixed(0)}` : `-$${Math.abs(p.profit).toFixed(0)}`) : ''
-    const propLbl = PROP_LABELS[p.prop_type] ?? p.prop_type
+    const dir      = p.direction === 'under' ? '<' : '>'
+    const isPend   = !p.result
+    const res      = p.result === 'won' ? 'WON' : p.result === 'lost' ? 'LOST' : p.result === 'push' ? 'PUSH' : 'PEND.'
+    const resCol   = p.result === 'won' ? 'var(--green)' : p.result === 'lost' ? 'var(--magenta)' : 'var(--muted)'
+    const pnl      = p.profit != null ? (p.profit >= 0 ? `+$${Math.abs(p.profit).toFixed(0)}` : `-$${Math.abs(p.profit).toFixed(0)}`) : ''
+    const propLbl  = PROP_LABELS[p.prop_type] ?? p.prop_type
+    const _matchDate = allMatches.find(e => e.matchId === p.match_id)?.match?.match_date
+    const unpickBtn = (!username && isPend && !isMatchStarted(_matchDate))
+      ? `<button onclick="unpickFromResults('${p.id}','${week}')" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0 0 0 6px;line-height:1;flex-shrink:0;" title="Cancelar pick">×</button>`
+      : ''
     return `<div style="padding:7px 0;border-bottom:1px solid #222;display:flex;flex-direction:column;gap:2px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <span style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.player_display}${p.team_abbrev ? ` <span style="color:var(--muted);font-weight:400;font-size:11px">(${p.team_abbrev})</span>` : ''}</span>
-        <span style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;color:${resCol};white-space:nowrap;flex-shrink:0">${res}${pnl ? ` <span style="color:${_nc(p.profit)}">${pnl}</span>` : ''}</span>
+        <span style="display:flex;align-items:center;gap:0">
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;color:${resCol};white-space:nowrap">${res}${pnl ? ` <span style="color:${_nc(p.profit)}">${pnl}</span>` : ''}</span>
+          ${unpickBtn}
+        </span>
       </div>
       <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · ${p.odds != null ? (p.odds > 0 ? '+'+p.odds : p.odds) : '—'} · ${p.game_date ?? ''}</div>
     </div>`
