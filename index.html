@@ -1463,7 +1463,7 @@ function computeStatsFromGames(windowGames, propType, line) {
 
   const totalHits = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_hits    ?? 0), 0)
   const totalAB   = windowGames.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
-  const gwh       = windowGames.filter(g => Number(g.stats?.hitting_hits ?? 0) > 0).length
+  const gwh       = windowGames.filter(g => Number(g.stats?.hitting_hits ?? 0) > line).length
 
   return {
     avg:             totalAB > 0 ? totalHits / totalAB : null,
