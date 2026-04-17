@@ -4181,14 +4181,6 @@ function _updatePickBtn(matchId, norm, propType, picked) {
 function toggleSimMode() {
   simMode = !simMode
   if (simMode) {
-    // Switch to $ mode so bet-amt box is visible
-    const dollarIdx = MODES.findIndex(m => m.id === '$')
-    if (modeIdx !== dollarIdx) {
-      modeIdx = dollarIdx
-      document.getElementById('mode-btn').textContent = MODES[modeIdx].label
-      document.getElementById('bet-wrapper').style.display = 'flex'
-      updateOddsInPlace()
-    }
     closeAccount()
   }
   renderPills()
