@@ -2125,7 +2125,8 @@ async function load(force = false) {
     const isPremiumActive = prof?.premium_until && new Date(prof.premium_until) > new Date()
     if (isPremiumActive) {
       res = await fetch('https://api.palo.mx/payload.json', {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        cache: 'no-cache'
       })
       if (res.status === 403) res = null // fallback if server disagrees
     }
@@ -3138,8 +3139,9 @@ function renderExpansionContent(key) {
   <div onmousedown="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);padding:24px 28px;min-width:320px;max-width:460px;width:92%;position:relative;display:flex;flex-direction:column;gap:0;max-height:88vh;overflow:hidden;">
     <button onclick="closeSimModal()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
     <div id="sim-modal-title" style="font-family:'Press Start 2P',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:16px;flex-shrink:0"></div>
+    <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;flex-shrink:0">Nickname público · leaderboard</div>
     <div style="display:flex;gap:0;margin-bottom:4px;flex-shrink:0">
-      <input id="sim-username" type="text" placeholder="tu apodo" maxlength="24"
+      <input id="sim-username" type="text" placeholder="tu nickname" maxlength="24"
         style="flex:2;background:var(--surface);border:2px solid var(--border);padding:9px 12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:0;" />
       <button onclick="saveSimUsername()" id="sim-save-btn"
         style="flex:1;background:var(--surface);border:2px solid var(--border);border-left:none;padding:9px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>
@@ -3275,8 +3277,12 @@ function getPaloRef() {
 
 // ── Device fingerprint ───────────────────────────────────────────────────────
 function getDeviceId() {
-  let id = localStorage.getItem('palo_device_id')
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem('palo_device_id', id) }
+  const match = document.cookie.match(/(?:^|; )palo_did=([^;]+)/)
+  let id = match?.[1] ?? localStorage.getItem('palo_device_id')
+  if (!id) id = crypto.randomUUID()
+  const exp = new Date(); exp.setFullYear(exp.getFullYear() + 2)
+  document.cookie = `palo_did=${id};expires=${exp.toUTCString()};path=/;SameSite=Strict`
+  localStorage.setItem('palo_device_id', id)
   return id
 }
 
@@ -4194,7 +4200,7 @@ async function saveSimUsername() {
   const val  = document.getElementById('sim-username').value.trim()
   const msg  = document.getElementById('sim-apodo-msg')
   const btn  = document.getElementById('sim-save-btn')
-  if (!val) { msg.style.color = 'var(--magenta)'; msg.textContent = 'Escribe un apodo primero'; return }
+  if (!val) { msg.style.color = 'var(--magenta)'; msg.textContent = 'Escribe un nickname primero'; return }
 
   // 7-day cooldown check
   if (_userProfile.sim_username && _userProfile.sim_username_updated_at) {
@@ -4206,20 +4212,23 @@ async function saveSimUsername() {
   const { data: { session } } = await db.auth.getSession()
   if (!session) return
   const now = new Date().toISOString()
+  // Propagate to picks + ranking BEFORE updating profiles so RLS still sees old username
+  await Promise.all([
+    db.from('simulation_picks').update({ sim_username: val }).eq('user_id', session.user.id),
+    db.from('sim_ranking').update({ sim_username: val }).eq('sim_username', _userProfile.sim_username),
+  ])
   const { error } = await db.from('profiles')
     .update({ sim_username: val, sim_username_updated_at: now })
     .eq('id', session.user.id)
   if (error) {
-    msg.style.color = 'var(--magenta)'; msg.textContent = 'Error al guardar'
+    const taken = error.code === '23505'
+    msg.style.color = 'var(--magenta)'; msg.textContent = taken ? 'Ese nickname ya está en uso' : 'Error al guardar'
     btn.disabled = false; btn.style.opacity = '1'
     return
   }
-  // Propagate to pending picks for ranking
-  await db.from('simulation_picks').update({ sim_username: val })
-    .eq('user_id', session.user.id).is('result', null)
   _userProfile.sim_username = val
   _userProfile.sim_username_updated_at = now
-  msg.style.color = 'var(--green)'; msg.textContent = '✓ Apodo guardado'
+  msg.style.color = 'var(--green)'; msg.textContent = '✓ Nickname guardado'
   btn.disabled = true; btn.textContent = 'Guardar'; btn.style.opacity = '1'
   btn.style.background = '#111'; btn.style.color = '#444'; btn.style.cursor = 'default'; btn.style.textDecoration = 'line-through'
   setTimeout(() => { msg.textContent = `Puedes cambiar en 7 días` }, 2000)
@@ -4237,7 +4246,7 @@ function _openSimModal(title) {
     if (_hasApodo && _userProfile.sim_username_updated_at) {
       const _daysLeft = 7 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
       if (_daysLeft > 0) {
-        _msgEl.textContent = `Puedes cambiar tu apodo en ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''}`
+        _msgEl.textContent = `Puedes cambiar tu nickname en ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''}`
         _sb.disabled = true; _sb.textContent = 'Guardar'; _sb.style.opacity = '1'
         _sb.style.background = '#111'; _sb.style.color = '#444'; _sb.style.cursor = 'default'; _sb.style.textDecoration = 'line-through'
       } else {
