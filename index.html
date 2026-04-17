@@ -4231,7 +4231,7 @@ async function saveSimUsername() {
   msg.style.color = 'var(--green)'; msg.textContent = '✓ Nickname guardado'
   btn.disabled = true; btn.textContent = 'Guardar'; btn.style.opacity = '1'
   btn.style.background = '#111'; btn.style.color = '#444'; btn.style.cursor = 'default'; btn.style.textDecoration = 'line-through'
-  setTimeout(() => { msg.textContent = `Puedes cambiar en 7 días` }, 2000)
+  setTimeout(() => { msg.textContent = '' }, 2000)
 }
 
 function _openSimModal(title) {
@@ -4246,7 +4246,7 @@ function _openSimModal(title) {
     if (_hasApodo && _userProfile.sim_username_updated_at) {
       const _daysLeft = 7 - Math.floor((Date.now() - new Date(_userProfile.sim_username_updated_at)) / 86400000)
       if (_daysLeft > 0) {
-        _msgEl.textContent = `Puedes cambiar tu nickname en ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''}`
+        _msgEl.textContent = ''
         _sb.disabled = true; _sb.textContent = 'Guardar'; _sb.style.opacity = '1'
         _sb.style.background = '#111'; _sb.style.color = '#444'; _sb.style.cursor = 'default'; _sb.style.textDecoration = 'line-through'
       } else {
@@ -4270,12 +4270,19 @@ function _openSimModal(title) {
           .eq('user_id', session.user.id)
           .eq('week_start', weekStartMX())
           .then(({ data: _wp }) => {
-            const _all     = _wp ?? []
-            const n        = _all.filter(p => p.result === 'won' || p.result === 'lost').length
-            const _pend    = _all.filter(p => !p.result).length
-            const col      = n >= 35 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
-            const pendHtml = _pend > 0 ? ` <span style="color:var(--muted)">· ${_pend} pend.</span>` : ''
-            _progEl.innerHTML = `<span style="color:${col}">${n}/35 picks</span>${pendHtml}`
+            const _all      = _wp ?? []
+            const _resolved = _all.filter(p => p.result === 'won' || p.result === 'lost').length
+            const _pend     = _all.filter(p => !p.result).length
+            const n         = _resolved + _pend
+            const col       = n >= 35 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
+            const _mxNow    = new Date(Date.now() - 6 * 3600000)
+            const _wsDate   = new Date(weekStartMX())
+            const _daysLeft = Math.max(0, 7 - Math.floor((_mxNow - _wsDate) / 86400000))
+            const _need     = Math.max(0, 35 - n)
+            const hintHtml  = n < 35 && _daysLeft > 0
+              ? ` <span style="color:var(--muted)">(te quedan ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''} para ${_need} picks)</span>`
+              : ''
+            _progEl.innerHTML = `<span style="color:${col}">${n}/35 picks</span>${hintHtml}`
           })
       })
     }
@@ -4438,7 +4445,7 @@ async function openSimResultados(username = null, weekStart = null) {
 
   const roiNum  = staked > 0 ? parseFloat(roi) : 0
   const backBtn = username
-    ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;margin-bottom:8px;flex-shrink:0">← ranking</button>`
+    ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;margin-bottom:8px;flex-shrink:0;text-align:left;width:100%">← LEADERBOARD</button>`
     : ''
   const userHeader = username
     ? `<div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#ff6600;margin-bottom:8px;flex-shrink:0">${username}</div>`
@@ -4521,7 +4528,7 @@ async function openSimRanking(weekStart = null) {
         <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.sim_username}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;font-family:'Geist Mono',monospace;font-size:10px">
-        <span style="color:var(--text)">${u.won}W-${u.lost}L</span>
+        <span><span style="color:${u.won > 0 ? 'var(--green)' : 'var(--text)'}">${u.won}</span><span style="color:var(--text)"> W - </span><span style="color:${u.lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${u.lost}</span><span style="color:var(--text)"> L</span></span>
         <span style="color:var(--muted)">·</span>
         <span style="color:var(--text)">ROI <span style="font-weight:700;color:${_nc2(roi)}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span></span>
         <span style="color:var(--muted)">·</span>
@@ -4544,13 +4551,11 @@ async function openSimRanking(weekStart = null) {
       <div style="height:1px;background:var(--border);width:100%;margin-bottom:4px"></div>
     </div>` : ''
 
-  const weekToggle = showLastWeekToggle ? `
-    <div style="flex-shrink:0;margin-bottom:10px">
-      ${isLastWeek
-        ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;">← ESTA SEMANA</button>`
-        : `<button onclick="openSimRanking('${prevWeek}')" style="background:none;border:none;color:#ff6600;font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;">ÚLTIMA SEMANA →</button>`
-      }
-    </div>` : ''
+  const weekToggle = showLastWeekToggle
+    ? (isLastWeek
+        ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:left;width:100%;flex-shrink:0;margin-bottom:6px">← ESTA SEMANA</button>`
+        : `<button onclick="openSimRanking('${prevWeek}')" style="background:none;border:none;color:#ff6600;font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:right;width:100%;flex-shrink:0;margin-bottom:14px">ÚLTIMA SEMANA →</button>`)
+    : ''
 
   const dqdHtml = dqd.length ? `
     <div style="height:1px;background:#222;width:100%;margin:4px 0"></div>
