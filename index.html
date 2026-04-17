@@ -1651,11 +1651,11 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           if (!_started || _picked) {
             pickBtnHtml = `<button id="pick-btn-${matchId}-${norm}-${propType}"
               onclick="event.stopPropagation();togglePick(${matchId},'${norm}','${propType}',${lineVal},${usOdds ?? 'null'},'${safeName}')"
-              style="display:block;margin:4px 0 0 auto;padding:2px 8px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.08em;cursor:${_started ? 'default' : 'pointer'};border:2px solid ${_picked ? 'var(--palo)' : 'var(--border)'};background:${_picked ? 'var(--palo)' : 'transparent'};color:${_picked ? '#fff' : 'var(--muted)'}">PICK</button>`
+              style="display:block;margin:0 -6px 4px auto;padding:2px 8px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.08em;cursor:${_started ? 'default' : 'pointer'};border:2px solid ${_picked ? 'var(--palo)' : 'var(--border)'};background:${_picked ? 'var(--palo)' : 'transparent'};color:${_picked ? '#fff' : 'var(--muted)'}">PICK</button>`
           }
         }
         // For past matches, determine HIT/MISS from actual result
-        let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${evStr}${pickBtnHtml}</td>`
+        let resultCell = `<td class="mono" style="padding:5px 10px;font-size:11px;font-weight:700;color:${evCol};white-space:nowrap;text-align:right;vertical-align:middle">${pickBtnHtml}${evStr}</td>`
         if (isPast && gameResult) {
           const actual = propType === 'strikeouts' ? gameResult.so : propType === 'runs' ? gameResult.r : propType === 'rbi' ? gameResult.rbi : propType === 'bases' ? gameResult.tb : propType === 'hr' ? gameResult.hr : propType === 'singles' ? gameResult.s1 : propType === 'doubles' ? gameResult.d2 : propType === 'pitcher_outs' ? gameResult.po : propType === 'hrr' ? gameResult.hrr : gameResult.hits
           const won = activeDirection === 'under' ? actual < lineVal : actual > lineVal
