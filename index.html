@@ -4167,7 +4167,7 @@ async function togglePick(matchId, norm, propType, line, odds, playerDisplay, te
     user_id:        session.user.id,
     sim_username:   _userProfile?.sim_username ?? null,
     match_id:       Number(matchId),
-    game_date:      match.match_date?.slice(0, 10),
+    game_date:      match.match_date ? new Date(new Date(match.match_date).getTime() - 6 * 3600000).toISOString().slice(0, 10) : null,
     week_start:     weekStartMX(),
     home_team_uid:  match.home_team_uid,
     away_team_uid:  match.away_team_uid,
