@@ -4250,22 +4250,23 @@ function _openSimModal(title) {
       _sb.disabled = false; _sb.textContent = 'Guardar'; _sb.style.opacity = '1'
       _sb.style.background = 'var(--surface)'; _sb.style.color = 'var(--text)'; _sb.style.cursor = 'pointer'
     }
-    // x/35 live count
+    // x/35 live count (resolved + pending)
     const _progEl = document.getElementById('sim-week-progress')
     if (_progEl) {
-      _progEl.textContent = '…/35'
+      _progEl.innerHTML = '…/35'
       db.auth.getSession().then(({ data: { session } }) => {
-        if (!session) { _progEl.textContent = ''; return }
+        if (!session) { _progEl.innerHTML = ''; return }
         db.from('simulation_picks')
-          .select('id', { count: 'exact', head: true })
+          .select('result')
           .eq('user_id', session.user.id)
           .eq('week_start', weekStartMX())
-          .not('result', 'is', null)
-          .then(({ count }) => {
-            const n = count ?? 0
-            const col = n >= 35 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
-            _progEl.textContent = `${n}/35 picks esta semana`
-            _progEl.style.color = col
+          .then(({ data: _wp }) => {
+            const _all     = _wp ?? []
+            const n        = _all.filter(p => p.result === 'won' || p.result === 'lost').length
+            const _pend    = _all.filter(p => !p.result).length
+            const col      = n >= 35 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
+            const pendHtml = _pend > 0 ? ` <span style="color:var(--muted)">· ${_pend} pend.</span>` : ''
+            _progEl.innerHTML = `<span style="color:${col}">${n}/35 picks</span>${pendHtml}`
           })
       })
     }
