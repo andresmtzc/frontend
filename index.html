@@ -4267,10 +4267,10 @@ function _openSimModal(title) {
       _sb.disabled = false; _sb.textContent = 'Guardar'; _sb.style.opacity = '1'
       _sb.style.background = 'var(--surface)'; _sb.style.color = 'var(--text)'; _sb.style.cursor = 'pointer'
     }
-    // x/35 live count (resolved + pending)
+    // x/25 live count (resolved + pending)
     const _progEl = document.getElementById('sim-week-progress')
     if (_progEl) {
-      _progEl.innerHTML = '…/35'
+      _progEl.innerHTML = '…/25'
       db.auth.getSession().then(({ data: { session } }) => {
         if (!session) { _progEl.innerHTML = ''; return }
         db.from('simulation_picks')
@@ -4282,15 +4282,15 @@ function _openSimModal(title) {
             const _resolved = _all.filter(p => p.result === 'won' || p.result === 'lost').length
             const _pend     = _all.filter(p => !p.result).length
             const n         = _resolved + _pend
-            const col       = n >= 35 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
+            const col       = n >= 25 ? 'var(--green)' : n >= 20 ? 'var(--text)' : n >= 10 ? 'var(--gold)' : 'var(--magenta)'
             const _mxNow    = new Date(Date.now() - 6 * 3600000)
             const _wsDate   = new Date(weekStartMX())
             const _daysLeft = Math.max(0, 7 - Math.floor((_mxNow - _wsDate) / 86400000))
-            const _need     = Math.max(0, 35 - n)
-            const hintHtml  = n < 35 && _daysLeft > 0
+            const _need     = Math.max(0, 25 - n)
+            const hintHtml  = n < 25 && _daysLeft > 0
               ? ` <span style="color:var(--muted)">(te quedan ${_daysLeft} día${_daysLeft !== 1 ? 's' : ''} para ${_need} picks)</span>`
               : ''
-            _progEl.innerHTML = `<span style="color:${col}">${n}/35 picks</span>${hintHtml}`
+            _progEl.innerHTML = `<span style="color:${col}">${n}/25 picks</span>${hintHtml}`
           })
       })
     }
@@ -4381,7 +4381,7 @@ function openSimReglas() {
       </div>
       <div>
         <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">CUOTA</div>
-        <div style="color:var(--text)">Necesitas <strong>35 picks resueltos</strong> en la semana para calificar — lo fácil es meter 5 al día. Si no llegas, quedas <span style="color:var(--magenta);font-weight:700">DQ</span> y te mandamos al fondo del leaderboard.</div>
+        <div style="color:var(--text)">Necesitas <strong>25 picks resueltos</strong> en la semana para calificar — lo fácil es meter 5 al día. Si no llegas, quedas <span style="color:var(--magenta);font-weight:700">DQ</span> y te mandamos al fondo del leaderboard.</div>
       </div>
       <div>
         <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">JUEVES</div>
@@ -4521,7 +4521,7 @@ async function openSimRanking(weekStart = null) {
 
   const _rankRow = (u, i, highlight = false) => {
     const rc       = u.resolved_count ?? 0
-    const dq       = weekOver && rc < 35
+    const dq       = weekOver && rc < 25
     const warn     = !weekOver && rc < 15 && hrsElapsed >= 72
     const roi      = Number(u.roi ?? (u.total_staked > 0 ? u.total_profit / u.total_staked * 100 : 0))
     const pnl      = Number(u.total_profit ?? 0)
@@ -4529,7 +4529,7 @@ async function openSimRanking(weekStart = null) {
     const rankCol  = dq ? 'var(--magenta)' : 'var(--muted)'
     const nameCol  = dq ? '#555' : highlight ? 'var(--palo)' : 'var(--text)'
     const opacity  = dq ? '0.5' : '1'
-    const quota    = `<span style="color:${rc >= 35 ? 'var(--green)' : warn ? 'var(--magenta)' : 'var(--muted)'}">${rc}/35${warn ? ' ⚠' : ''}</span>`
+    const quota    = `<span style="color:${rc >= 25 ? 'var(--green)' : warn ? 'var(--magenta)' : 'var(--muted)'}">${rc}/25${warn ? ' ⚠' : ''}</span>`
     return `<div onclick="openSimResultados('${u.sim_username}','${activeWeek}')" style="cursor:pointer;padding:8px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px;opacity:${opacity}">
       <div style="display:flex;align-items:center;gap:8px;min-width:0">
         <span style="font-family:'Geist Mono',monospace;font-size:10px;color:${rankCol};flex-shrink:0;font-weight:700">${rankLbl}</span>
@@ -4547,8 +4547,8 @@ async function openSimRanking(weekStart = null) {
 
   // Sort: non-DQ by ROI desc, DQ pushed to bottom
   const withRoi = (rows ?? []).map(r => ({ ...r, roi: r.total_staked > 0 ? r.total_profit / r.total_staked * 100 : 0 }))
-  const active  = withRoi.filter(r => !weekOver || (r.resolved_count ?? 0) >= 35).sort((a, b) => b.roi - a.roi)
-  const dqd     = withRoi.filter(r => weekOver && (r.resolved_count ?? 0) < 35)
+  const active  = withRoi.filter(r => !weekOver || (r.resolved_count ?? 0) >= 25).sort((a, b) => b.roi - a.roi)
+  const dqd     = withRoi.filter(r => weekOver && (r.resolved_count ?? 0) < 25)
 
   const myIdx = myUsername ? active.findIndex(u => u.sim_username === myUsername) : -1
 
