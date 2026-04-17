@@ -4454,7 +4454,7 @@ async function openSimResultados(username = null, weekStart = null) {
     ${backBtn}
     ${userHeader}
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);flex-shrink:0;font-family:'Geist Mono',monospace;font-size:11px">
-      <span style="color:var(--text)">${won}W-${lost}L${pending ? ` ${pending} PEND.` : ''}</span>
+      <span><span style="color:${won > 0 ? 'var(--green)' : 'var(--text)'}">${won}</span><span style="color:var(--text)"> W - </span><span style="color:${lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${lost}</span><span style="color:var(--text)"> L${pending ? ` · ${pending} PEND.` : ''}</span></span>
       <span style="color:var(--muted)">·</span>
       <span style="color:var(--text)">ROI <span style="color:${_nc(roiNum)}">${roiNum >= 0 ? '+' : ''}${roiNum.toFixed(1)}%</span></span>
       <span style="color:var(--muted)">·</span>
