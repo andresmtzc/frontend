@@ -30,6 +30,7 @@
       --magenta:   #e63946;
       --sport:     #8BE9FD;
       --gold:      #FFD700;
+      --palo:      #ff6600;
       --green:     #4ade80;
       --muted:     #555555;
       --text:      #ffffff;
@@ -132,7 +133,7 @@
         </div>
       </div>
       <div id="sport-switcher" class="flex items-center gap-1.5"></div>
-      <span id="sim-header-btn" onclick="openSimLastTab()" style="display:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;color:#ff6600;letter-spacing:0.08em;cursor:pointer;text-transform:uppercase;">SIM</span>
+      <span id="sim-header-btn" onclick="openSimLastTab()" style="display:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;color:var(--palo);letter-spacing:0.08em;cursor:pointer;text-transform:uppercase;">SIM</span>
     </div>
     <div class="flex items-center gap-2 ml-auto">
       <div id="bet-wrapper" class="flex items-center gap-1" style="display:none!important">
@@ -1650,7 +1651,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
           if (!_started || _picked) {
             pickBtnHtml = `<button id="pick-btn-${matchId}-${norm}-${propType}"
               onclick="event.stopPropagation();togglePick(${matchId},'${norm}','${propType}',${lineVal},${usOdds ?? 'null'},'${safeName}')"
-              style="display:block;margin:4px 0 0 auto;padding:2px 8px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.08em;cursor:${_started ? 'default' : 'pointer'};border:2px solid ${_picked ? '#ff6600' : 'var(--border)'};background:${_picked ? '#ff6600' : 'transparent'};color:${_picked ? '#fff' : 'var(--muted)'}">PICK</button>`
+              style="display:block;margin:4px 0 0 auto;padding:2px 8px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.08em;cursor:${_started ? 'default' : 'pointer'};border:2px solid ${_picked ? 'var(--palo)' : 'var(--border)'};background:${_picked ? 'var(--palo)' : 'transparent'};color:${_picked ? '#fff' : 'var(--muted)'}">PICK</button>`
           }
         }
         // For past matches, determine HIT/MISS from actual result
@@ -1665,7 +1666,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         } else if (isPast) {
           const _isPremium = _userProfile?.premium_until && new Date(_userProfile.premium_until) > new Date()
           resultCell = (!_isPremium && isFirstPlayer && idx === 0 && f === 'DB')
-            ? `<td style="padding:5px 10px;text-align:right;vertical-align:middle"><button onclick="event.stopPropagation();openPaloPlus()" style="background:#1a1200;border:2px solid #f59e0b;padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#f59e0b;cursor:pointer;white-space:nowrap;">PALO+</button></td>`
+            ? `<td style="padding:5px 10px;text-align:right;vertical-align:middle"><button onclick="event.stopPropagation();openPaloPlus()" style="background:#1a1200;border:2px solid var(--palo);padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--palo);cursor:pointer;white-space:nowrap;">PALO+</button></td>`
             : `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
         }
         const avgRaw  = effRow?.avg
@@ -2365,7 +2366,7 @@ function renderPills() {
     parts.push(`
       <button onclick="openPaloPlus()"
         class="match-pill whitespace-nowrap shrink-0"
-        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer;background:#1a1200;border-color:#f59e0b;color:#f59e0b;">
+        style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-width:2px;border-style:solid;cursor:pointer;background:#1a1200;border-color:var(--palo);color:var(--palo);">
         PALO+
       </button>`)
   }
@@ -2771,7 +2772,7 @@ function renderExpansionContent(key) {
         </div>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
           <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);">Gráficas históricas por filtro x jugador</span>
-          <button onclick="closePaloPlus&&openPaloPlus()" style="background:#1a1200;border:2px solid #f59e0b;padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#f59e0b;cursor:pointer;">PALO+</button>
+          <button onclick="closePaloPlus&&openPaloPlus()" style="background:#1a1200;border:2px solid var(--palo);padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--palo);cursor:pointer;">PALO+</button>
         </div>
       </div>`
     return
@@ -2971,7 +2972,7 @@ function renderExpansionContent(key) {
 
     <!-- step 1: info + email -->
     <div id="pp-step1" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:var(--palo);letter-spacing:1px;">PALO+</div>
       <div style="height:1px;background:var(--border);margin:4px 0;"></div>
 
       <div id="pp-upsell" style="display:flex;flex-direction:column;gap:16px;">
@@ -3003,7 +3004,7 @@ function renderExpansionContent(key) {
         </div>
         <div style="height:1px;background:var(--border);"></div>
         <div style="display:flex;align-items:baseline;gap:8px;">
-          <span style="font-family:'DM Sans',sans-serif;font-size:24px;font-weight:800;color:#f59e0b;">$99 MXN</span>
+          <span style="font-family:'DM Sans',sans-serif;font-size:24px;font-weight:800;color:var(--palo);">$99 MXN</span>
           <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);">/ mes · cancela cuando quieras</span>
         </div>
         <div style="height:1px;background:var(--border);"></div>
@@ -3013,7 +3014,7 @@ function renderExpansionContent(key) {
       <div id="pp-trial-upsell" style="display:none;flex-direction:column;gap:10px;">
         <div style="font-family:'DM Sans',sans-serif;font-size:20px;font-weight:800;color:#fff;line-height:1.2;">7 días gratis.<br>Sin cobros hoy.</div>
         <div style="height:1px;background:var(--border);"></div>
-        <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;">Se requiere tarjeta. Si no cancelas antes del día 8, se cobra <span style="color:#f59e0b;font-weight:700;">$99/mes</span> automáticamente.</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;">Se requiere tarjeta. Si no cancelas antes del día 8, se cobra <span style="color:var(--palo);font-weight:700;">$99/mes</span> automáticamente.</div>
         <div style="height:1px;background:var(--border);"></div>
       </div>
 
@@ -3028,7 +3029,7 @@ function renderExpansionContent(key) {
       <button id="pp-forgot" onclick="ppForgotPassword()" style="display:none;background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">¿Olvidaste tu contraseña?</button>
 
       <button onclick="ppModeAction()" id="pp-step1-btn"
-        style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        style="width:100%;background:var(--palo);border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         CONTINUAR
       </button>
 
@@ -3044,7 +3045,7 @@ function renderExpansionContent(key) {
 
     <!-- step 2: card form -->
     <div id="pp-step2" style="display:none;flex-direction:column;gap:12px;">
-      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:var(--palo);letter-spacing:1px;">PALO+</div>
       <div style="height:1px;background:var(--border);margin:4px 0;"></div>
       <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;letter-spacing:1px;">DATOS DE PAGO</div>
       <div id="pp-email-display" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);"></div>
@@ -3062,7 +3063,7 @@ function renderExpansionContent(key) {
       <input id="pp-password" type="password" placeholder="contraseña"
         style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;" />
       <button id="pp-pay-btn" onclick="ppPay()"
-        style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        style="width:100%;background:var(--palo);border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         PAGAR 99 MXN / MES
       </button>
       <button onclick="_isRenewal ? (closePaloPlus(), openAccount()) : ppBack()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:0;text-align:left;">← volver</button>
@@ -3071,14 +3072,14 @@ function renderExpansionContent(key) {
 
     <!-- step 3: success -->
     <div id="pp-step3" style="display:none;flex-direction:column;gap:14px;align-items:flex-start;">
-      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;">PALO+</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:var(--palo);letter-spacing:1px;">PALO+</div>
       <div style="height:1px;background:var(--border);width:100%;margin:2px 0;"></div>
       <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:#fff;letter-spacing:1px;">¡BIENVENIDO!</div>
       <div id="pp-welcome-email" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);"></div>
       <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.6;">Tienes acceso completo a todos los partidos y props.</div>
       <div style="height:1px;background:var(--border);width:100%;margin:2px 0;"></div>
       <button onclick="ppEnter()"
-        style="background:#f59e0b;border:none;padding:10px 24px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+        style="background:var(--palo);border:none;padding:10px 24px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
         ENTRAR
       </button>
     </div>
@@ -3126,7 +3127,7 @@ function renderExpansionContent(key) {
       style="background:var(--surface);border:2px solid var(--border);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;outline:none;width:100%;resize:none;"></textarea>
 
     <button onclick="enviarSugerencia()" id="sg-btn"
-      style="width:100%;background:#f59e0b;border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
+      style="width:100%;background:var(--palo);border:none;padding:10px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">
       ENVIAR
     </button>
     <div id="sg-err" style="font-family:'DM Sans',sans-serif;font-size:12px;color:#e63946;display:none;"></div>
@@ -3138,7 +3139,7 @@ function renderExpansionContent(key) {
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:1010;align-items:center;justify-content:center;">
   <div onmousedown="event.stopPropagation()" style="background:var(--surface-2);border:3px solid var(--border);padding:24px 28px;min-width:320px;max-width:460px;width:92%;position:relative;display:flex;flex-direction:column;gap:0;max-height:88vh;overflow:hidden;">
     <button onclick="closeSimModal()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
-    <div id="sim-modal-title" style="font-family:'Press Start 2P',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:16px;flex-shrink:0"></div>
+    <div id="sim-modal-title" style="font-family:'Press Start 2P',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:16px;flex-shrink:0"></div>
     <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;flex-shrink:0">Nickname público · leaderboard</div>
     <div style="display:flex;gap:0;margin-bottom:4px;flex-shrink:0">
       <input id="sim-username" type="text" placeholder="tu nickname" maxlength="24"
@@ -3170,7 +3171,7 @@ function renderExpansionContent(key) {
     <button onclick="closeAccount()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;font-family:'Press Start 2P',monospace;">✕</button>
 
     <!-- header -->
-    <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f59e0b;letter-spacing:1px;margin-bottom:16px;">PALO+</div>
+    <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:var(--palo);letter-spacing:1px;margin-bottom:16px;">PALO+</div>
     <div style="height:1px;background:var(--border);width:100%;margin-bottom:20px;"></div>
 
     <!-- CUENTA -->
@@ -3322,7 +3323,7 @@ function showDeviceBlock(canSwitch, daysLeft) {
   if (canSwitch) {
     msg.innerHTML = `Tu cuenta está activa en <strong style="color:#fff">otro dispositivo</strong>.<br><br>¿Quieres cambiar a este? Solo puedes cambiar una vez cada 5 días.`
     actions.innerHTML = `
-      <button onclick="switchDevice()" style="background:#f59e0b;border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">CAMBIAR DISPOSITIVO</button>
+      <button onclick="switchDevice()" style="background:var(--palo);border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">CAMBIAR DISPOSITIVO</button>
       <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;padding:4px 0;text-decoration:underline;">Cerrar sesión</button>`
   } else {
     msg.innerHTML = `Este dispositivo no está autorizado.<br><br>Podrás cambiar en <strong style="color:#fff">${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong>.`
@@ -3524,7 +3525,7 @@ function ppToggleLoginMode() {
   document.getElementById('pp-forgot').style.display    = _ppLoginMode ? 'block' : 'none'
   document.getElementById('pp-step1-btn').textContent   = _ppLoginMode ? 'ENTRAR' : 'CONTINUAR'
   document.getElementById('pp-toggle-mode').textContent = _ppLoginMode ? '¿Usuario nuevo? Suscríbete' : '¿Ya tienes cuenta? Inicia sesión'
-  document.getElementById('pp-toggle-mode').style.color = _ppLoginMode ? '#f59e0b' : 'var(--muted)'
+  document.getElementById('pp-toggle-mode').style.color = _ppLoginMode ? 'var(--palo)' : 'var(--muted)'
   document.getElementById('pp-err1').style.display = 'none'
 }
 
@@ -3866,7 +3867,7 @@ async function openAccount() {
     statusEl.innerHTML = `<span style="color:var(--magenta)">${expiredStr}</span>`
     const renewBtn = document.createElement('button')
     renewBtn.textContent = 'RENOVAR'
-    renewBtn.style.cssText = 'background:#f59e0b;border:none;padding:10px 20px;font-family:\'Press Start 2P\',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;'
+    renewBtn.style.cssText = 'background:var(--palo);border:none;padding:10px 20px;font-family:\'Press Start 2P\',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;'
     renewBtn.onclick = () => { closeAccount(); openPaloPlus(true) }
     actionsEl.appendChild(renewBtn)
   }
@@ -4156,8 +4157,8 @@ async function togglePick(matchId, norm, propType, line, odds, playerDisplay) {
 function _updatePickBtn(matchId, norm, propType, picked) {
   const btn = document.getElementById(`pick-btn-${matchId}-${norm}-${propType}`)
   if (!btn) return
-  btn.style.border     = `2px solid ${picked ? '#ff6600' : 'var(--border)'}`
-  btn.style.background = picked ? '#ff6600' : 'transparent'
+  btn.style.border     = `2px solid ${picked ? 'var(--palo)' : 'var(--border)'}`
+  btn.style.background = picked ? 'var(--palo)' : 'transparent'
   btn.style.color      = picked ? '#fff'    : 'var(--muted)'
 }
 
@@ -4298,12 +4299,12 @@ function _openSimModal(title) {
     if (t === 'picks') {
       const picksOn = simMode
       el.style.background   = 'var(--surface)'
-      el.style.color        = picksOn ? '#ff6600' : 'var(--text)'
-      el.style.borderColor  = picksOn ? '#ff6600' : 'var(--border)'
-      el.style.borderLeft   = picksOn ? '2px solid #ff6600' : 'none'
+      el.style.color        = picksOn ? 'var(--palo)' : 'var(--text)'
+      el.style.borderColor  = picksOn ? 'var(--palo)' : 'var(--border)'
+      el.style.borderLeft   = picksOn ? '2px solid var(--palo)' : 'none'
     } else {
       const on = t === active
-      el.style.background  = on ? '#ff6600' : 'var(--surface)'
+      el.style.background  = on ? 'var(--palo)' : 'var(--surface)'
       el.style.color       = on ? '#fff'    : 'var(--text)'
       el.style.borderColor = 'var(--border)'
     }
@@ -4368,26 +4369,26 @@ function openSimReglas() {
     <div style="flex:1;min-height:0;overflow-y:auto;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);display:flex;flex-direction:column;gap:14px;line-height:1.6">
       <p style="color:var(--muted);font-size:12px;margin:0">Elige props de jugadores y compite contra todos sin apostar dinero real.</p>
       <div>
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">SEMANA</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">SEMANA</div>
         <div style="color:var(--text)">Jueves a miércoles. El <strong>miércoles</strong> es tu último día para hacer picks — úsalo bien.</div>
       </div>
       <div>
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">CUOTA</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">CUOTA</div>
         <div style="color:var(--text)">Necesitas <strong>35 picks resueltos</strong> en la semana para calificar — lo fácil es meter 5 al día. Si no llegas, quedas <span style="color:var(--magenta);font-weight:700">DQ</span> y te mandamos al fondo del leaderboard.</div>
       </div>
       <div>
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">JUEVES</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">JUEVES</div>
         <div style="color:var(--text)">Se resuelven los juegos del miércoles, se congela el leaderboard y empieza la nueva semana.</div>
       </div>
       <div>
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">LEADERBOARD</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">LEADERBOARD</div>
         <div style="color:var(--text)">Por <strong>ROI</strong> entre los que cumplieron la cuota. Puedes ver los picks de cualquier jugador.</div>
       </div>
       <div>
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:#ff6600;letter-spacing:1px;margin-bottom:4px;">PICKS</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--palo);letter-spacing:1px;margin-bottom:4px;">PICKS</div>
         <div style="color:var(--text)">Activa el modo picks con el botón de arriba, elige <strong>OVER</strong> o <strong>UNDER</strong>, ingresa tu apuesta y selecciona el jugador que quieras.</div>
       </div>
-      <button onclick="closeSimModal();toggleSimMode()" style="margin-top:4px;background:#ff6600;border:none;padding:10px;color:#fff;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.08em;cursor:pointer;">EMPEZAR A PICKEAR →</button>
+      <button onclick="closeSimModal();toggleSimMode()" style="margin-top:4px;background:var(--palo);border:none;padding:10px;color:#fff;font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.08em;cursor:pointer;">EMPEZAR A PICKEAR →</button>
     </div>`
 }
 
@@ -4448,7 +4449,7 @@ async function openSimResultados(username = null, weekStart = null) {
     ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;margin-bottom:8px;flex-shrink:0;text-align:left;width:100%">← LEADERBOARD</button>`
     : ''
   const userHeader = username
-    ? `<div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#ff6600;margin-bottom:8px;flex-shrink:0">${username}</div>`
+    ? `<div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--palo);margin-bottom:8px;flex-shrink:0">${username}</div>`
     : ''
   body.innerHTML = `
     ${backBtn}
@@ -4519,7 +4520,7 @@ async function openSimRanking(weekStart = null) {
     const pnl      = Number(u.total_profit ?? 0)
     const rankLbl  = dq ? 'DQ' : i >= 0 ? `#${i+1}` : '—'
     const rankCol  = dq ? 'var(--magenta)' : 'var(--muted)'
-    const nameCol  = dq ? '#555' : highlight ? '#ff6600' : 'var(--text)'
+    const nameCol  = dq ? '#555' : highlight ? 'var(--palo)' : 'var(--text)'
     const opacity  = dq ? '0.5' : '1'
     const quota    = `<span style="color:${rc >= 35 ? 'var(--green)' : warn ? 'var(--magenta)' : 'var(--muted)'}">${rc}/35${warn ? ' ⚠' : ''}</span>`
     return `<div onclick="openSimResultados('${u.sim_username}','${activeWeek}')" style="cursor:pointer;padding:8px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px;opacity:${opacity}">
@@ -4554,7 +4555,7 @@ async function openSimRanking(weekStart = null) {
   const weekToggle = showLastWeekToggle
     ? (isLastWeek
         ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--muted);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:left;width:100%;flex-shrink:0;margin-bottom:6px">← ESTA SEMANA</button>`
-        : `<button onclick="openSimRanking('${prevWeek}')" style="background:none;border:none;color:#ff6600;font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:right;width:100%;flex-shrink:0;margin-bottom:14px">ÚLTIMA SEMANA →</button>`)
+        : `<button onclick="openSimRanking('${prevWeek}')" style="background:none;border:none;color:var(--palo);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:right;width:100%;flex-shrink:0;margin-bottom:14px">ÚLTIMA SEMANA →</button>`)
     : ''
 
   const dqdHtml = dqd.length ? `
