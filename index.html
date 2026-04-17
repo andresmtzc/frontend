@@ -1640,7 +1640,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const evStr    = evPct == null ? '—' : (evPct > 0 ? `+${evPct.toFixed(1)}%` : `${evPct.toFixed(1)}%`)
         const mktProb  = activeDirection === 'under' ? 1 - (dbRow.true_over_prob ?? 0.5) : (dbRow.true_over_prob ?? 0.5)
         const modelProb = evRaw != null ? evRaw + mktProb : null
-        const evCol    = evStr === '—' ? 'var(--text)' : modelProb != null && modelProb >= 0.50 ? 'var(--green)' : 'var(--magenta)'
+        const evCol    = evStr === '—' ? 'var(--text)' : modelProb != null && modelProb >= 0.58 ? 'var(--green)' : 'var(--magenta)'
 
         // PICK button — simMode, non-past, DB row only
         let pickBtnHtml = ''
