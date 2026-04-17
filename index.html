@@ -1528,8 +1528,9 @@ function computeVenueStats(norm, filterKey, cache, seasonId, entry, propType = '
 
 function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
   if (!cache?.playerStats) {
-    return `<tbody><tr><td colspan="6" style="padding:12px 10px;text-align:center;font-size:10px;color:var(--muted);font-family:'Geist Mono',monospace">No cache data</td></tr></tbody>`
+    return { html: `<tbody><tr><td colspan="6" style="padding:12px 10px;text-align:center;font-size:10px;color:var(--muted);font-family:'Geist Mono',monospace">No cache data</td></tr></tbody>`, wonCount: 0, totalCount: 0 }
   }
+  let _wonCount = 0, _totalCount = 0
 
   const propType  = mktPropType(mktName)
   const homeUid   = entry?.match?.home_team_uid
@@ -1662,6 +1663,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         if (isPast && gameResult) {
           const actual = propType === 'strikeouts' ? gameResult.so : propType === 'runs' ? gameResult.r : propType === 'rbi' ? gameResult.rbi : propType === 'bases' ? gameResult.tb : propType === 'hr' ? gameResult.hr : propType === 'singles' ? gameResult.s1 : propType === 'doubles' ? gameResult.d2 : propType === 'pitcher_outs' ? gameResult.po : propType === 'hrr' ? gameResult.hrr : gameResult.hits
           const won = activeDirection === 'under' ? actual < lineVal : actual > lineVal
+          if (f === 'DB' && idx === 0) { _totalCount++; if (won) _wonCount++ }
           const label = won ? 'WON' : 'LOST'
           const col   = won ? 'var(--green)' : 'var(--magenta)'
           const suffix = propType === 'strikeouts' ? 'K' : propType === 'runs' ? 'R' : propType === 'rbi' ? 'RBI' : propType === 'bases' ? 'TB' : propType === 'hr' ? 'HR' : propType === 'singles' ? '1B' : propType === 'doubles' ? '2B' : propType === 'pitcher_outs' ? 'OUT' : propType === 'hrr' ? 'HRR' : 'H'
@@ -1791,7 +1793,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
     tbodys += `</tbody>`
   }
 
-  return tbodys
+  return { html: tbodys, wonCount: _wonCount, totalCount: _totalCount }
 }
 
 function groupHover(key, bg) {
@@ -1927,7 +1929,14 @@ function refreshMktTbodies(filterKeys) {
       const mktName = Object.keys(entry.markets).find(k => normName(k) === normMkt)
       if (!mktName) return
       table.querySelectorAll('tbody').forEach(b => b.remove())
-      table.insertAdjacentHTML('beforeend', renderMktTbodyContent(mktName, cache, filterKeys, entry))
+      const { html: _tbodyHtml, wonCount: _wc, totalCount: _tc } = renderMktTbodyContent(mktName, cache, filterKeys, entry)
+      table.insertAdjacentHTML('beforeend', _tbodyHtml)
+      // Update title summary if past match
+      const _card = table.closest('.mkt-item')
+      if (_card) {
+        const _sumEl = _card.querySelector('[data-mkt-summary]')
+        if (_sumEl && _tc > 0) _sumEl.textContent = `${_wc}/${_tc} ${Math.round(_wc/_tc*100)}%`
+      }
     })
   }
   updateOddsInPlace()
@@ -2474,7 +2483,7 @@ function renderMatch(entry) {
   const mktsHtml = mktsEntries.map(([mktName, rows], mi) => {
     const normMkt     = normName(mktName)
     const playerCount = rows.length
-    const tbodyHtml   = renderMktTbodyContent(mktName, cache, filterKeys, entry)
+    const { html: tbodyHtml, wonCount, totalCount } = renderMktTbodyContent(mktName, cache, filterKeys, entry)
     const isLastMkt   = mi === mktCount - 1
     const thBase      = `position:sticky;top:calc(var(--nav-h) + var(--mkt-title-h));z-index:15;background:var(--surface-2);padding:6px 10px;color:var(--muted);font-weight:700;font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;will-change:transform;box-shadow:0 2px 0 0 var(--surface-2)`
 
@@ -2488,7 +2497,10 @@ function renderMatch(entry) {
           <span class="mkt-drag-handle" onclick="event.stopPropagation()" style="cursor:grab;color:var(--muted);font-size:13px;padding:0 4px 0 0;line-height:1;user-select:none">☰</span>
           <span style="display:flex;align-items:baseline;gap:8px">
             <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${cleanMktName(mktName)}</span>
-            <span style="font-size:10px;color:var(--muted)">${mktSubtitle(mktName, playerCount)}</span>
+            <span style="font-size:10px;color:var(--text)">${activeDirection.toUpperCase()}</span>
+            <span style="font-size:10px;color:var(--muted)">·</span>
+            <span style="font-size:10px;color:var(--text)">${playerCount} lines</span>
+            ${isPastMatch ? `<span style="font-size:10px;color:var(--muted)">·</span><span data-mkt-summary style="font-size:10px;color:var(--text)">${totalCount > 0 ? `${wonCount}/${totalCount} ${Math.round(wonCount/totalCount*100)}%` : ''}</span>` : ''}
           </span>
         </span>
         <span class="chev" style="color:var(--muted);font-size:9px">▶</span>
