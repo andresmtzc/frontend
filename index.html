@@ -3372,6 +3372,7 @@ let _isRenewal = false   // true when expired user opens Palo+ to renew
 // ── Simulation state ──────────────────────────────────────────────────────────
 let simMode      = false
 let simPicks     = {} // key: `${matchId}_${norm}_${propType}` → pick row from DB
+const simInFlight = new Set() // pick keys currently being processed
 let simWeekTotal = 0  // total picks this week (resolved + pending)
 
 
@@ -4149,40 +4150,46 @@ async function togglePick(matchId, norm, propType, line, odds, playerDisplay, te
   const { data: { session } } = await db.auth.getSession()
   if (!session) { console.warn('[sim] no session'); return }
   const pickKey = `${matchId}_${norm}_${propType}`
+  if (simInFlight.has(pickKey)) return
+  simInFlight.add(pickKey)
   const existing = simPicks[pickKey]
   if (!existing && simWeekTotal >= 50) { console.warn('[sim] weekly max reached'); return }
 
-  if (existing) {
-    const { error } = await db.from('simulation_picks').delete().eq('id', existing.id)
-    if (error) { console.error('[sim] delete error', error.message); return }
-    delete simPicks[pickKey]; simWeekTotal = Math.max(0, simWeekTotal - 1); _updatePickBtn(matchId, norm, propType, false)
-    return
+  try {
+    if (existing) {
+      const { error } = await db.from('simulation_picks').delete().eq('id', existing.id)
+      if (error) { console.error('[sim] delete error', error.message); return }
+      delete simPicks[pickKey]; simWeekTotal = Math.max(0, simWeekTotal - 1); _updatePickBtn(matchId, norm, propType, false)
+      return
+    }
+
+    const entry = allMatches.find(e => e.matchId === Number(matchId))
+    const match = entry?.match
+    if (!match) { console.warn('[sim] match not found for matchId', matchId); return }
+
+    const { data, error } = await db.from('simulation_picks').insert({
+      user_id:        session.user.id,
+      sim_username:   _userProfile?.sim_username ?? null,
+      match_id:       Number(matchId),
+      game_date:      match.match_date ? new Date(new Date(match.match_date).getTime() - 6 * 3600000).toISOString().slice(0, 10) : null,
+      week_start:     weekStartMX(),
+      home_team_uid:  match.home_team_uid,
+      away_team_uid:  match.away_team_uid,
+      player_norm:    norm,
+      player_display: playerDisplay,
+      team_abbrev:    teamAbbr || null,
+      prop_type:      propType,
+      line:           parseFloat(line),
+      direction:      activeDirection,
+      odds:           odds != null ? parseInt(odds) : null,
+      stake:          betAmt(),
+    }).select().single()
+
+    if (error) { console.error('[sim] insert error', error.message, error); return }
+    simPicks[pickKey] = data; simWeekTotal++; _updatePickBtn(matchId, norm, propType, true)
+  } finally {
+    simInFlight.delete(pickKey)
   }
-
-  const entry = allMatches.find(e => e.matchId === Number(matchId))
-  const match = entry?.match
-  if (!match) { console.warn('[sim] match not found for matchId', matchId, 'allMatches ids:', allMatches.map(e=>e.matchId)); return }
-
-  const { data, error } = await db.from('simulation_picks').insert({
-    user_id:        session.user.id,
-    sim_username:   _userProfile?.sim_username ?? null,
-    match_id:       Number(matchId),
-    game_date:      match.match_date ? new Date(new Date(match.match_date).getTime() - 6 * 3600000).toISOString().slice(0, 10) : null,
-    week_start:     weekStartMX(),
-    home_team_uid:  match.home_team_uid,
-    away_team_uid:  match.away_team_uid,
-    player_norm:    norm,
-    player_display: playerDisplay,
-    team_abbrev:    teamAbbr || null,
-    prop_type:      propType,
-    line:           parseFloat(line),
-    direction:      activeDirection,
-    odds:           odds != null ? parseInt(odds) : null,
-    stake:          betAmt(),
-  }).select().single()
-
-  if (error) { console.error('[sim] insert error', error.message, error); return }
-  simPicks[pickKey] = data; simWeekTotal++; _updatePickBtn(matchId, norm, propType, true)
 }
 
 function _updatePickBtn(matchId, norm, propType, picked) {
