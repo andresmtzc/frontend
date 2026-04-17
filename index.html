@@ -1680,7 +1680,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         const avgRaw  = effRow?.avg
         const avgStr  = avgRaw != null
           ? (propType === 'strikeouts' || propType === 'runs' || propType === 'rbi' || propType === 'bases' || propType === 'hr' || propType === 'singles' || propType === 'doubles' || propType === 'pitcher_outs' || propType === 'hrr')
-            ? propType === 'hr' ? avgRaw.toFixed(2) : avgRaw.toFixed(1)
+            ? (propType === 'hr' || propType === 'doubles' || propType === 'singles') ? avgRaw.toFixed(2) : avgRaw.toFixed(1)
             : avgRaw >= 1 ? '1.000' : `.${Math.round(avgRaw * 1000).toString().padStart(3,'0')}`
           : '—'
         const abStr = effRow?.avg_ab_per_game != null
@@ -2502,7 +2502,7 @@ function renderMatch(entry) {
           <span style="display:flex;align-items:baseline;gap:8px">
             <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold)">${cleanMktName(mktName)} <span data-mkt-dir>${activeDirection.toUpperCase()}</span></span>
             <span style="font-size:10px;color:var(--muted)">·</span>
-            <span style="font-size:10px;color:var(--text)">${playerCount} lines</span>
+            <span style="font-size:10px;color:var(--muted)">${playerCount} lines</span>
             ${isPastMatch ? `<span style="font-size:10px;color:var(--muted)">·</span><span data-mkt-summary style="font-size:10px;color:var(--text)">${totalCount > 0 ? `${wonCount}/${totalCount} ${Math.round(wonCount/totalCount*100)}%` : ''}</span>` : ''}
           </span>
         </span>
