@@ -4247,6 +4247,7 @@ async function saveSimUsername() {
   await Promise.all([
     db.from('simulation_picks').update({ sim_username: val }).eq('user_id', session.user.id),
     db.from('sim_ranking').update({ sim_username: val }).eq('sim_username', _userProfile.sim_username),
+    db.from('sim_alltime').update({ sim_username: val }).eq('sim_username', _userProfile.sim_username),
   ])
   const { error } = await db.from('profiles')
     .update({ sim_username: val, sim_username_updated_at: now })
