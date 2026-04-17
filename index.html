@@ -4431,12 +4431,12 @@ async function unpickFromResults(pickId, weekStart) {
   for (const k of Object.keys(simPicks)) {
     if (simPicks[k].id == pickId) { delete simPicks[k]; break }
   }
-  openSimResultados(null, weekStart)
+  openSimResultados(null, weekStart, true)
 }
 
-async function openSimResultados(username = null, weekStart = null) {
+async function openSimResultados(username = null, weekStart = null, silent = false) {
   if (!username) localStorage.setItem('sim_last_tab', 'rslt')
-  _openSimModal('RESULTS')
+  if (!silent) _openSimModal('RESULTS')
   const body = document.getElementById('sim-modal-body')
 
   const { data: { session } } = await db.auth.getSession()
