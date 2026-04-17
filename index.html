@@ -4466,7 +4466,7 @@ async function openSimResultados(username = null, weekStart = null) {
         <span style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.player_display}${p.team_abbrev ? ` <span style="color:var(--muted);font-weight:400;font-size:11px">(${p.team_abbrev})</span>` : ''}</span>
         <span style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;color:${resCol};white-space:nowrap;flex-shrink:0">${res}${pnl ? ` <span style="color:${_nc(p.profit)}">${pnl}</span>` : ''}</span>
       </div>
-      <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · $${p.stake} · ${p.game_date ?? ''}</div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · ${p.odds != null ? (p.odds > 0 ? '+'+p.odds : p.odds) : '—'} · ${p.game_date ?? ''}</div>
     </div>`
   }).join('')
 
@@ -4481,7 +4481,7 @@ async function openSimResultados(username = null, weekStart = null) {
     ${backBtn}
     ${userHeader}
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);flex-shrink:0;font-family:'Geist Mono',monospace;font-size:11px">
-      <span><span style="color:${won > 0 ? 'var(--green)' : 'var(--text)'}">${won}</span><span style="color:var(--text)">W - </span><span style="color:${lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${lost}</span><span style="color:var(--text)">L</span>${pending ? `<span style="color:var(--text)"> · ${pending} PEND.</span>` : ''}</span>
+      <span><span style="color:var(--green)">${won}W</span> - <span style="color:var(--magenta)">${lost}L</span>${pending ? `<span style="color:var(--muted)"> · ${pending} PEND.</span>` : ''}</span>
       <span style="color:var(--muted)">·</span>
       <span style="color:var(--text)">ROI <span style="color:${_nc(roiNum)}">${roiNum >= 0 ? '+' : ''}${roiNum.toFixed(1)}%</span></span>
       <span style="color:var(--muted)">·</span>
