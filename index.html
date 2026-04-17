@@ -2108,6 +2108,12 @@ async function load(force = false) {
   if (session?.access_token) {
     // Device check — block if wrong device
     const dv = await verifyDevice(session.access_token)
+    if (dv.error === 'unauthorized') {
+      // Session expired/revoked on server — sign out and reload cleanly
+      await db.auth.signOut()
+      window.location.reload()
+      return
+    }
     if (!dv.ok) {
       showDeviceBlock(dv.canSwitch, dv.daysLeft)
       hideLoader()
@@ -3326,7 +3332,8 @@ function showDeviceBlock(canSwitch, daysLeft) {
       <button onclick="switchDevice()" style="background:var(--palo);border:none;padding:10px 20px;font-family:'Press Start 2P',monospace;font-size:8px;color:#111;cursor:pointer;letter-spacing:1px;">CAMBIAR DISPOSITIVO</button>
       <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;padding:4px 0;text-decoration:underline;">Cerrar sesión</button>`
   } else {
-    msg.innerHTML = `Este dispositivo no está autorizado.<br><br>Podrás cambiar en <strong style="color:#fff">${daysLeft} día${daysLeft !== 1 ? 's' : ''}</strong>.`
+    const dl = daysLeft != null && !isNaN(daysLeft) ? daysLeft : 5
+    msg.innerHTML = `Este dispositivo no está autorizado.<br><br>Podrás cambiar en <strong style="color:#fff">${dl} día${dl !== 1 ? 's' : ''}</strong>.`
     actions.innerHTML = `
       <button onclick="doLogout()" style="background:none;border:2px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;">Cerrar sesión</button>`
   }
