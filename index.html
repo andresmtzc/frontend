@@ -1652,7 +1652,7 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
         let pickBtnHtml = ''
         if (simMode && !isPast && f === 'DB' && idx === 0 && _userProfile) {
           const _pickKey  = `${matchId}_${norm}_${propType}`
-          const _picked   = !!simPicks[_pickKey]
+          const _picked   = !!simPicks[_pickKey] && simPicks[_pickKey].direction === activeDirection
           const _started  = isMatchStarted(entry?.match?.match_date)
           const _maxed    = !_picked && simWeekTotal >= 50
           if (!_started || _picked) {
