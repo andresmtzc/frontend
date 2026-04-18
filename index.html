@@ -4580,7 +4580,7 @@ async function openSimRanking(weekStart = null) {
         <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.sim_username}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;font-family:'Geist Mono',monospace;font-size:10px">
-        <span><span style="color:${u.won > 0 ? 'var(--green)' : 'var(--text)'}">${u.won}</span><span style="color:var(--text)">W - </span><span style="color:${u.lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${u.lost}</span><span style="color:var(--text)">L</span>${u.pending ? `<span style="color:var(--text)"> · ${u.pending} PEND.</span>` : ''}</span>
+        <span><span style="color:${u.won > 0 ? 'var(--green)' : 'var(--text)'}">${u.won}</span><span style="color:var(--green)">W</span><span style="color:var(--muted)"> - </span><span style="color:${u.lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${u.lost}</span><span style="color:var(--magenta)">L</span>${u.pending ? `<span style="color:var(--text)"> · ${u.pending} PEND.</span>` : ''}</span>
         <span style="color:var(--muted)">·</span>
         <span style="color:var(--text)">ROI <span style="font-weight:700;color:${_nc2(roi)}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span></span>
         <span style="color:var(--muted)">·</span>
