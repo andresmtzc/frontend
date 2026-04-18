@@ -2527,7 +2527,9 @@ function renderMatch(entry) {
   }).join('')
 
   const _favDots = matchFavDots(entry, 'var(--text)')
-  const matchLbl = `${_favDots.away}${awayNick} @ ${_favDots.home}${homeNick}`
+  const awayRank = away?.standing ? ` (${away.standing})` : ''
+  const homeRank = home?.standing ? ` (${home.standing})` : ''
+  const matchLbl = `${_favDots.away}${awayNick}${awayRank} @ ${_favDots.home}${homeNick}${homeRank}`
   const dateLbl  = match?.match_date
     ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: TZ })
     : '—'
