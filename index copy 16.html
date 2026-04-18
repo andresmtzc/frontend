@@ -2535,26 +2535,9 @@ function renderMatch(entry) {
   const _favDots = matchFavDots(entry, 'var(--text)')
   const awayRank = away?.standing ? ` (${away.standing})` : ''
   const homeRank = home?.standing ? ` (${home.standing})` : ''
-
-  const winner     = match?.result?.winner   // 'home' | 'away' | null
-  const hasResult  = winner && match?.home_score != null
-  const dimColor   = '#777'
-
-  let matchLbl
-  if (hasResult) {
-    const awayStr = `${_favDots.away}${awayNick}${awayRank} ${match.away_score}`
-    const homeStr = `${_favDots.home}${homeNick}${homeRank} ${match.home_score}`
-    const awayStyle = winner === 'away' ? 'color:var(--text)' : `color:${dimColor}`
-    const homeStyle = winner === 'home' ? 'color:var(--text)' : `color:${dimColor}`
-    matchLbl = `<span style="${awayStyle}">${awayStr}</span><span style="color:var(--text)"> @ </span><span style="${homeStyle}">${homeStr}</span>`
-  } else {
-    matchLbl = `${_favDots.away}${awayNick}${awayRank} @ ${_favDots.home}${homeNick}${homeRank}`
-  }
-
-  const dateLbl = match?.match_date
-    ? hasResult
-      ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: TZ })
-      : new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: TZ })
+  const matchLbl = `${_favDots.away}${awayNick}${awayRank} @ ${_favDots.home}${homeNick}${homeRank}`
+  const dateLbl  = match?.match_date
+    ? new Date(match.match_date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: TZ })
     : '—'
 
   return `
