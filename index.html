@@ -2542,13 +2542,19 @@ function renderMatch(entry) {
 
   let matchLbl
   if (hasResult) {
-    const awayStr = `${_favDots.away}${awayNick}${awayRank} ${match.away_score}`
-    const homeStr = `${_favDots.home}${homeNick}${homeRank} ${match.home_score}`
-    const awayStyle = winner === 'away' ? 'color:var(--text)' : `color:${dimColor}`
-    const homeStyle = winner === 'home' ? 'color:var(--text)' : `color:${dimColor}`
-    matchLbl = `<span style="${awayStyle}">${awayStr}</span><span style="color:var(--text)"> @ </span><span style="${homeStyle}">${homeStr}</span>`
+    const awayStr = `${_favDots.away}${awayNick}`
+    const homeStr = `${_favDots.home}${homeNick}`
+    const awayNameHtml = awayStr
+    const homeNameHtml = homeStr
+    const awayRankSpan = awayRank ? `<span style="color:var(--text)">${awayRank} </span>` : ''
+    const homeRankInline = homeRank ? `<span style="color:var(--text)">${homeRank}</span>` : ''
+    const scoreBase = `font-family:'Geist Mono',monospace;font-size:10px;font-weight:400`
+    const awayScoreColor = winner === 'away' ? 'var(--green)' : 'var(--magenta)'
+    const homeScoreColor = winner === 'home' ? 'var(--green)' : 'var(--magenta)'
+    matchLbl = `${awayRankSpan}${awayNameHtml} <span style="${scoreBase};color:${awayScoreColor}">${match.away_score}</span><span style="color:var(--text)"> @ </span><span style="${scoreBase};color:${homeScoreColor}">${match.home_score}</span> ${homeNameHtml}${homeRankInline}`
   } else {
-    matchLbl = `${_favDots.away}${awayNick}${awayRank} @ ${_favDots.home}${homeNick}${homeRank}`
+    const awayRankSpanPlain = awayRank ? `${awayRank} ` : ''
+    matchLbl = `${awayRankSpanPlain}${_favDots.away}${awayNick} @ ${_favDots.home}${homeNick}${homeRank}`
   }
 
   const dateLbl = match?.match_date
