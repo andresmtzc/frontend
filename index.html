@@ -2141,6 +2141,12 @@ async function load(force = false) {
       .select('premium_until, is_tipster, referral_code, user_referral_code, cancel_at_period_end, payment_failed, sim_username, sim_username_updated_at')
       .eq('id', session.user.id).single()
     _userProfile = { email: session.user.email, ...(prof ?? {}) }
+    // Auto-assign a username if the user has none yet (free first change, no cooldown)
+    if (!prof?.sim_username) {
+      const autoName = await generateUniqueSimUsername()
+      await db.from('profiles').update({ sim_username: autoName }).eq('id', session.user.id)
+      _userProfile.sim_username = autoName
+    }
     posthog.identify(session.user.id, { email: session.user.email, premium: !!(prof?.premium_until && new Date(prof.premium_until) > new Date()) })
     updateAccountChip()
     loadSimPicks()
@@ -4221,12 +4227,39 @@ function weekStartMX() {
   return mx.toISOString().slice(0, 10)
 }
 
+const _SIM_NAME_POOL = [
+  'Alma Marcela Goza','Rosa Melano','Debora Melo','Agapito','Penelope',
+  'Elber Galarga','Aquiles Castro','Queso Badon','Queso Bass','Queso Plas',
+  'Leche de Zacatecas','Techo Blanco','Paco Merlo','Jorge Nitales','Aquiles Baeza',
+  'Larry Cañonga','Kerry Copito','Carmela Pelas','Susana Oria','Lomas Turbas',
+  'Lomas Ajeas','Tepito','Te de Rama','Platano Macho','Chile Relleno',
+  'Chile Ancho','Pajaro Quema-maiz','Pajaro con suelas','Tela de juir','Maderas Gruesas',
+  'Alma Madero','Zacarías Blanco','Melo Rosas','Virginia del Hoyo','Tu tia la pelona',
+  'El Sapito','Lucho Portuano','Monica Galindo','El Fierro','El Maestro Longaniza',
+  'Palo de billar','Consome de Pichon','Chile Tepico','La Pajara Pinta','El Camello',
+  'El Burro','Palo Encebado','Palo de Escoba','Paloma','Palomino',
+  'Palomon','El Garrote','La Vara','El Leño','La Macana',
+  'El Taladro','La Brocha',
+  'La Teniente Rada','Fam. Ledezma Madas','Elsa Capuntas','Elsa Bueso',
+  'Willy Milano','Zoila Cerda','Lola Meraz'
+]
+
 function generateSimUsername() {
-  const adj  = ['Clutch','Iron','Slider','Hammer','Rogue','Swift','Wild','Sticky','Grand','Frozen']
-  const noun = ['Slugger','Pitcher','Closer','Rook','Ace','Cannon','Glove','Batter','Homer','Catcher']
-  const a = adj[Math.floor(Math.random() * adj.length)]
-  const n = noun[Math.floor(Math.random() * noun.length)]
-  return `${a}${n}${Math.floor(Math.random() * 99) + 1}`
+  return _SIM_NAME_POOL[Math.floor(Math.random() * _SIM_NAME_POOL.length)]
+}
+
+async function generateUniqueSimUsername() {
+  const base = generateSimUsername()
+  // Check if taken
+  const { data } = await db.from('profiles').select('id').eq('sim_username', base).maybeSingle()
+  if (!data) return base
+  // Try with numbers appended
+  for (let i = 2; i <= 99; i++) {
+    const candidate = `${base} ${i}`
+    const { data: taken } = await db.from('profiles').select('id').eq('sim_username', candidate).maybeSingle()
+    if (!taken) return candidate
+  }
+  return `${base} ${Date.now() % 1000}`
 }
 
 async function saveSimUsername() {
