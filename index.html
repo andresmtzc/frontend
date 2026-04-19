@@ -4549,7 +4549,7 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
           ${unpickBtn}
         </span>
       </div>
-      <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · ${p.odds != null ? (p.odds > 0 ? '+'+p.odds : p.odds) : '—'} · ${p.game_date ?? ''}</div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · <span data-us="${p.odds ?? ''}" data-other-us="" style="color:${p.odds > 0 ? 'var(--green)' : p.odds < 0 ? 'var(--magenta)' : 'var(--muted)'}">${p.odds != null ? fmtOdds(p.odds, null) : '—'}</span> · ${p.game_date ?? ''}</div>
     </div>`
   }).join('')
 
