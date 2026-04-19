@@ -140,7 +140,7 @@
         <span class="mono" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:var(--muted);pointer-events:none;z-index:1">$</span>
         <input type="number" id="bet-amt" value="100" min="1" step="10"
           class="mono w-full"
-          style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--gold);font-size:11px;font-weight:600;border-radius:2px;outline:none;padding:3px 4px 3px 14px;width:100%"
+          style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--gold);font-size:11px;font-weight:600;border-radius:2px;outline:none;padding:3px 4px 3px 14px;text-align:center;width:100%"
           onfocus="this.style.borderColor='var(--sport)'" onblur="this.style.borderColor='var(--border-2)'"
           oninput="updateOddsInPlace()" />
       </div>
@@ -1113,7 +1113,10 @@ let modeIdx = 0
 
 function cycleMode() {
   modeIdx = (modeIdx + 1) % MODES.length
-  document.getElementById('mode-btn').textContent = MODES[modeIdx].label
+  const lbl = MODES[modeIdx].label
+  document.getElementById('mode-btn').textContent = lbl
+  const simBtn = document.getElementById('sim-mode-btn')
+  if (simBtn) simBtn.textContent = lbl
   document.getElementById('bet-wrapper').style.display = MODES[modeIdx].id === '$' ? 'flex' : 'none'
   updateOddsInPlace()
 }
@@ -4563,12 +4566,15 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
   body.innerHTML = `
     ${backBtn}
     ${userHeader}
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);flex-shrink:0;font-family:'Geist Mono',monospace;font-size:11px">
-      <span><span style="color:var(--green)">${won}W</span> - <span style="color:var(--magenta)">${lost}L</span>${pending ? `<span style="color:var(--muted)"> · ${pending} PEND.</span>` : ''}</span>
-      <span style="color:var(--muted)">·</span>
-      <span style="color:var(--text)">ROI <span style="color:${_nc(roiNum)}">${roiNum >= 0 ? '+' : ''}${roiNum.toFixed(1)}%</span></span>
-      <span style="color:var(--muted)">·</span>
-      <span style="color:var(--text)">P&L <span style="color:${_nc(profit)}">${profit >= 0 ? '+' : ''}$${profit.toFixed(0)}</span></span>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);flex-shrink:0;font-family:'Geist Mono',monospace;font-size:11px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span><span style="color:var(--green)">${won}W</span> - <span style="color:var(--magenta)">${lost}L</span>${pending ? `<span style="color:var(--muted)"> · ${pending} PEND.</span>` : ''}</span>
+        <span style="color:var(--muted)">·</span>
+        <span style="color:var(--text)">ROI <span style="color:${_nc(roiNum)}">${roiNum >= 0 ? '+' : ''}${roiNum.toFixed(1)}%</span></span>
+        <span style="color:var(--muted)">·</span>
+        <span style="color:var(--text)">P&L <span style="color:${_nc(profit)}">${profit >= 0 ? '+' : ''}$${profit.toFixed(0)}</span></span>
+      </div>
+      <button onclick="cycleMode()" style="font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer;letter-spacing:0.08em;flex-shrink:0" id="sim-mode-btn">${MODES[modeIdx].label}</button>
     </div>
     <div style="flex:1;min-height:0;overflow-y:auto">${rowsHtml}</div>`
 }
