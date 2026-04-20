@@ -1681,9 +1681,11 @@ function renderMktTbodyContent(mktName, cache, filterKeys, entry) {
             : `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
         } else if (f !== 'DB') {
           const _isPremium = _userProfile?.premium_until && new Date(_userProfile.premium_until) > new Date()
-          resultCell = (!_isPremium && isFirstPlayer && idx === 1)
-            ? `<td style="padding:5px 10px;text-align:right;vertical-align:middle"><button onclick="event.stopPropagation();openPaloPlus()" style="background:#1a1200;border:2px solid var(--palo);padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--palo);cursor:pointer;white-space:nowrap;">PALO+</button></td>`
-            : `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
+          if (!_isPremium) {
+            resultCell = (isFirstPlayer && idx === 1)
+              ? `<td style="padding:5px 10px;text-align:right;vertical-align:middle"><button onclick="event.stopPropagation();openPaloPlus()" style="background:#1a1200;border:2px solid var(--palo);padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--palo);cursor:pointer;white-space:nowrap;">PALO+</button></td>`
+              : `<td class="mono" style="padding:5px 10px;font-size:11px;color:var(--muted);text-align:right;vertical-align:middle">—</td>`
+          }
         }
         const avgRaw  = effRow?.avg
         const avgStr  = avgRaw != null
