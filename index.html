@@ -4526,6 +4526,7 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
   const won      = resolved.filter(p => p.result === 'won').length
   const lost     = resolved.filter(p => p.result === 'lost').length
   const pending  = picks.filter(p => !p.result).length
+  const voided   = picks.filter(p => p.result === 'void').length
   const staked   = resolved.reduce((s, p) => s + (p.stake ?? 0), 0)
   const profit   = resolved.reduce((s, p) => s + (p.profit ?? 0), 0)
   const roi      = staked > 0 ? (profit / staked * 100).toFixed(1) : '—'
@@ -4536,7 +4537,7 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
   const rowsHtml = picks.map(p => {
     const dir      = p.direction === 'under' ? '<' : '>'
     const isPend   = !p.result
-    const res      = p.result === 'won' ? 'WON' : p.result === 'lost' ? 'LOST' : p.result === 'push' ? 'PUSH' : 'PEND.'
+    const res      = p.result === 'won' ? 'WON' : p.result === 'lost' ? 'LOST' : p.result === 'push' ? 'PUSH' : p.result === 'void' ? '—' : 'PEND.'
     const resCol   = p.result === 'won' ? 'var(--green)' : p.result === 'lost' ? 'var(--magenta)' : 'var(--muted)'
     const pnl      = p.profit != null ? (p.profit >= 0 ? `+$${Math.abs(p.profit).toFixed(0)}` : `-$${Math.abs(p.profit).toFixed(0)}`) : ''
     const propLbl  = PROP_LABELS[p.prop_type] ?? p.prop_type
@@ -4568,7 +4569,7 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
     ${userHeader}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);flex-shrink:0;font-family:'Geist Mono',monospace;font-size:11px">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span><span style="color:var(--green)">${won}W</span> - <span style="color:var(--magenta)">${lost}L</span>${pending ? `<span style="color:var(--muted)"> · ${pending} PEND.</span>` : ''}</span>
+        <span><span style="color:var(--green)">${won}W</span> - <span style="color:var(--magenta)">${lost}L</span>${pending ? `<span style="color:var(--muted)"> · ${pending} PEND.</span>` : ''}${voided ? `<span style="color:var(--muted)"> · ${voided} —</span>` : ''}</span>
         <span style="color:var(--muted)">·</span>
         <span style="color:var(--text)">ROI <span style="color:${_nc(roiNum)}">${roiNum >= 0 ? '+' : ''}${roiNum.toFixed(1)}%</span></span>
         <span style="color:var(--muted)">·</span>
