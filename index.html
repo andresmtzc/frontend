@@ -2175,7 +2175,7 @@ async function load(force = false) {
   }
   let isFreePayload = false
   if (!res || !res.ok) {
-    res = await fetch('./payload-free.json')
+    res = await fetch('./payload-free.json?v=' + Date.now())
     if (!res.ok) throw new Error(`payload-free.json not found — generate it from the Props Cache section first`)
     isFreePayload = true
   }
@@ -4515,23 +4515,36 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
   const { data: { session } } = await db.auth.getSession()
   if (!session) { body.innerHTML = _skeletonRslt(); return }
 
-  const week = weekStart ?? weekStartMX()
+  const thisWeek = weekStartMX()
+  const prevWeek = (() => { const d = new Date(thisWeek); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().slice(0, 10) })()
 
-  let picks
-  if (username) {
-    const { data } = await db.from('simulation_picks')
-      .select('*').eq('sim_username', username).eq('week_start', week)
-      .not('result', 'is', null)
-      .order('game_date', { ascending: false })
-    picks = data
-  } else {
-    const { data } = await db.from('simulation_picks')
-      .select('*').eq('user_id', session.user.id).eq('week_start', week)
-      .order('game_date', { ascending: false })
-    picks = data
+  const fetchPicks = async (week) => {
+    if (username) {
+      const { data } = await db.from('simulation_picks')
+        .select('*').eq('sim_username', username).eq('week_start', week)
+        .not('result', 'is', null).order('game_date', { ascending: false })
+      return data ?? []
+    } else {
+      const { data } = await db.from('simulation_picks')
+        .select('*').eq('user_id', session.user.id).eq('week_start', week)
+        .order('game_date', { ascending: false })
+      return data ?? []
+    }
   }
 
-  if (!picks?.length) { body.innerHTML = _skeletonRslt(); return }
+  let week = weekStart ?? thisWeek
+  let picks = await fetchPicks(week)
+
+  // If current week has no resolved picks and no explicit week was passed, show previous week
+  const hasResolved = picks.some(p => p.result === 'won' || p.result === 'lost')
+  let newWeekPicks = []
+  if (!weekStart && !hasResolved) {
+    newWeekPicks = picks.filter(p => !p.result) // pending picks in new week
+    week = prevWeek
+    picks = await fetchPicks(week)
+  }
+
+  if (!picks?.length && !newWeekPicks.length) { body.innerHTML = _skeletonRslt(); return }
 
   const resolved = picks.filter(p => p.result === 'won' || p.result === 'lost')
   const won      = resolved.filter(p => p.result === 'won').length
@@ -4588,7 +4601,22 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
       </div>
       <button onclick="cycleMode()" style="font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer;letter-spacing:0.08em;flex-shrink:0" id="sim-mode-btn">${MODES[modeIdx].label}</button>
     </div>
-    <div style="flex:1;min-height:0;overflow-y:auto">${rowsHtml}</div>`
+    <div style="flex:1;min-height:0;overflow-y:auto">
+      ${rowsHtml}
+      ${newWeekPicks.length ? `
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:6px">NUEVA SEMANA</div>
+        ${newWeekPicks.map(p => {
+          const dir = p.direction === 'under' ? '<' : '>'
+          const propLbl = PROP_LABELS[p.prop_type] ?? p.prop_type
+          return `<div style="padding:7px 0;border-bottom:1px solid #222;display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <span style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.player_display}${p.team_abbrev ? ` <span style="color:var(--muted);font-weight:400;font-size:11px">(${p.team_abbrev})</span>` : ''}</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;color:var(--muted)">PEND.</span>
+            </div>
+            <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · ${p.game_date ?? ''}</div>
+          </div>`
+        }).join('')}` : ''}
+    </div>`
 }
 
 async function openSimRanking(weekStart = null) {
@@ -4609,16 +4637,32 @@ async function openSimRanking(weekStart = null) {
   const hrsElapsed  = (mxNow - mxThursday) / 3600000
   const showLastWeekToggle = hrsElapsed >= 0 && hrsElapsed < 48
 
-  const activeWeek  = weekStart ?? thisWeek
+  const myUsername = _userProfile?.sim_username ?? null
+
+  const [{ data: thisWeekRows }, { data: { session } }] = await Promise.all([
+    db.from('sim_ranking').select('*').eq('week_start', thisWeek),
+    db.auth.getSession()
+  ])
+
+  // If current week has no resolved data and no explicit week passed, show previous week
+  const hasResolved = (thisWeekRows ?? []).some(r => (r.resolved_count ?? 0) > 0)
+  let activeWeek = weekStart ?? (hasResolved ? thisWeek : prevWeek)
   const isLastWeek  = activeWeek === prevWeek
   const weekOver    = activeWeek < thisWeek
 
-  const myUsername = _userProfile?.sim_username ?? null
+  const { data: rows } = activeWeek === thisWeek
+    ? { data: thisWeekRows }
+    : await db.from('sim_ranking').select('*').eq('week_start', activeWeek)
 
-  const [{ data: rows }, { data: { session } }] = await Promise.all([
-    db.from('sim_ranking').select('*').eq('week_start', activeWeek),
-    db.auth.getSession()
-  ])
+  // Fetch new week pending picks (grouped by user) when showing prev week
+  let newWeekByUser = {}
+  if (activeWeek === prevWeek && !weekStart) {
+    const { data: nwp } = await db.from('simulation_picks')
+      .select('sim_username, result').eq('week_start', thisWeek)
+    ;(nwp ?? []).filter(p => !p.result).forEach(p => {
+      newWeekByUser[p.sim_username] = (newWeekByUser[p.sim_username] ?? 0) + 1
+    })
+  }
 
   // Fetch user's own current-week picks to build pinned row even with 0 resolved
   let myRow = null
@@ -4691,11 +4735,21 @@ async function openSimRanking(weekStart = null) {
 
   const listHtml = active.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('')
 
+  const newWeekUsers = Object.entries(newWeekByUser)
+  const newWeekHtml = newWeekUsers.length ? `
+    <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:6px">NUEVA SEMANA</div>
+    ${newWeekUsers.map(([name, count]) => `
+      <div style="padding:7px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${name === myUsername ? 'var(--palo)' : 'var(--text)'}">${name}</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${count} PEND.</span>
+      </div>`).join('')}` : ''
+
   body.innerHTML = `
     ${weekToggle}
     ${mePinned}
     <div style="flex:1;min-height:0;overflow-y:auto">
       ${active.length || dqd.length ? listHtml + dqdHtml : _skeletonRank()}
+      ${newWeekHtml}
     </div>`
 }
 
