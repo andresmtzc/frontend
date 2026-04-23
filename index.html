@@ -2167,6 +2167,7 @@ async function load(force = false) {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
         cache: 'no-cache'
       })
+      if (res.status === 429) throw new Error('Demasiadas solicitudes — espera un momento e intenta de nuevo.')
       if (res.status === 403) res = null // fallback if server disagrees
     }
   } else {
