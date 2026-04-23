@@ -4740,8 +4740,11 @@ async function openSimRanking(weekStart = null) {
       <div style="height:1px;background:var(--border);width:100%;margin-bottom:4px"></div>
     </div>` : ''
 
+  const weekLabel = isLastWeek
+    ? `<div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;flex-shrink:0">SEMANA PASADA</div>`
+    : ''
   const weekToggle = isLastWeek
-    ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--palo);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:left;width:100%;flex-shrink:0;margin-bottom:6px">ESTA SEMANA →</button>`
+    ? (hasResolved ? `<button onclick="openSimRanking()" style="background:none;border:none;color:var(--palo);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:right;width:100%;flex-shrink:0;margin-bottom:6px">ESTA SEMANA →</button>` : '')
     : `<button onclick="openSimRanking('${prevWeek}')" style="background:none;border:none;color:var(--palo);font-family:'Geist Mono',monospace;font-size:9px;cursor:pointer;padding:0;letter-spacing:0.06em;text-align:right;width:100%;flex-shrink:0;margin-bottom:14px">← SEMANA PASADA</button>`
 
   const dqdHtml = dqd.length ? `
@@ -4758,6 +4761,7 @@ async function openSimRanking(weekStart = null) {
       </div>`).join('')}` : ''
 
   body.innerHTML = `
+    ${weekLabel}
     ${weekToggle}
     ${mePinned}
     <div style="flex:1;min-height:0;overflow-y:auto">
