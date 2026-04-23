@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Palo Picks</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    body { background: #111; color: #e5e5e5; font-family: 'ui-monospace', monospace; }
+    .card { background: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 10px; }
+    .badge-over  { background: #14532d; color: #4ade80; }
+    .badge-under { background: #1e3a5f; color: #60a5fa; }
+    .tag  { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: #2a2a2a; color: #9ca3af; }
+    .w-pos { background:#14532d44; color:#4ade80; font-size:11px; padding:2px 6px; border-radius:4px; }
+    .w-neg { background:#7f1d1d44; color:#f87171; font-size:11px; padding:2px 6px; border-radius:4px; }
+    .w-neu { background:#1f293744; color:#9ca3af; font-size:11px; padding:2px 6px; border-radius:4px; }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<div class="max-w-5xl mx-auto space-y-4">
+  <div class="flex items-center justify-between py-2 flex-wrap gap-2">
+    <div>
+      <h1 class="text-lg font-bold text-white">Palo Picks</h1>
+      <p id="dateLabel" class="text-xs text-gray-500"></p>
+    </div>
+    <div class="flex gap-2 items-center flex-wrap">
+      <select id="propFilter" class="text-xs bg-gray-800 text-gray-300 border border-gray-700 rounded px-2 py-1">
+        <option value="">All props</option>
+        <option value="hits">Hits</option>
+        <option value="runs">Runs</option>
+        <option value="pitcher_outs">Pitcher Outs</option>
+        <option value="strikeouts">Strikeouts</option>
+        <option value="hrr">H+R+RBI</option>
+        <option value="hr">Home Runs</option>
+        <option value="bases">Total Bases</option>
+        <option value="rbi">RBIs</option>
+        <option value="doubles">Doubles</option>
+        <option value="singles">Singles</option>
+      </select>
+      <select id="venueConsensus" class="text-xs bg-gray-800 text-gray-300 border border-gray-700 rounded px-2 py-1">
+        <option value="">Any venue</option>
+        <option value="ha_home">H&A + Home</option>
+        <option value="ha_away">H&A + Away</option>
+        <option value="all3">All 3 venues</option>
+      </select>
+      <select id="dirFilter" class="text-xs bg-gray-800 text-gray-300 border border-gray-700 rounded px-2 py-1">
+        <option value="">Over + Under</option>
+        <option value="over">Over only</option>
+        <option value="under">Under only</option>
+      </select>
+      <select id="minWindows" class="text-xs bg-gray-800 text-gray-300 border border-gray-700 rounded px-2 py-1">
+        <option value="2">≥2 windows</option>
+        <option value="3" selected>≥3 windows</option>
+        <option value="4">≥4 windows</option>
+        <option value="5">≥5 windows</option>
+        <option value="7">All 7 windows</option>
+      </select>
+      <button id="refreshBtn" class="text-xs px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white transition-colors">Refresh</button>
+    </div>
+  </div>
+
+  <div id="authRow" class="flex gap-2 items-center">
+    <span id="authStatus" class="text-xs text-gray-500"></span>
+    <button id="authBtn" class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors">Login</button>
+  </div>
+  <div id="status" class="text-xs text-gray-500"></div>
+  <div id="picks" class="space-y-3"></div>
+</div>
+
+<script>
+const SUPABASE_URL  = 'https://xiooucmfmftuqemhlmpd.supabase.co'
+const SUPABASE_ANON = 'sb_publishable_WnR9lmgM8CAFskD6TtWTZg_2Q0ACtaZ'
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+let today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date())
+document.getElementById('dateLabel').textContent = today
+
+// ── Math (same as index.html) ─────────────────────────────────────────────────
+function impliedProb(us) {
+  if (us == null) return null
+  return us < 0 ? Math.abs(us) / (Math.abs(us) + 100) : 100 / (us + 100)
+}
+function poissonProb(lambda, line) {
+  if (lambda == null || lambda <= 0) return null
+  const k = Math.floor(line)
+  let cdf = 0, term = Math.exp(-lambda)
+  for (let i = 0; i <= k; i++) { cdf += term; term *= lambda / (i + 1) }
+  return Math.min(Math.max(1 - cdf, 0), 1)
+}
+function binomCoeff(n, k) {
+  if (k > n || k < 0) return 0
+  if (k === 0 || k === n) return 1
+  if (k > n - k) k = n - k
+  let r = 1
+  for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1)
+  return r
+}
+function binomCDF(k, n, p) {
+  if (p <= 0) return k >= 0 ? 1 : 0
+  if (p >= 1) return k >= n ? 1 : 0
+  let sum = 0
+  for (let i = 0; i <= Math.min(k, n); i++) sum += binomCoeff(n, i) * Math.pow(p, i) * Math.pow(1 - p, n - i)
+  return Math.min(sum, 1)
+}
+function computeEV(avg, abAvgPerGame, line, direction, overUs, underUs, propType, empiricalRate) {
+  if (avg == null || line == null) return null
+  if (overUs == null && underUs == null) return null
+  const rawOver  = impliedProb(overUs)
+  const rawUnder = impliedProb(underUs)
+  if (rawOver == null) return null
+  const mktOver   = rawUnder != null ? rawOver  / (rawOver + rawUnder) : rawOver
+  const mktUnder  = rawUnder != null ? rawUnder / (rawOver + rawUnder) : 1 - rawOver
+  const modelProb = direction === 'under' ? mktUnder : mktOver
+  let trueProb
+  if (propType === 'pitcher_outs') {
+    if (empiricalRate == null) return null
+    trueProb = direction === 'under' ? 1 - empiricalRate : empiricalRate
+  } else if (propType === 'strikeouts') {
+    if (!abAvgPerGame || abAvgPerGame <= 0) return null
+    const n = Math.floor(abAvgPerGame)
+    if (n <= 0) return null
+    const kRate = Math.min(Math.max(avg / abAvgPerGame, 0), 1)
+    trueProb = direction === 'under' ? binomCDF(Math.floor(line), n, kRate) : 1 - binomCDF(Math.floor(line), n, kRate)
+  } else if (['runs','rbi','bases','hr','singles','doubles','hrr'].includes(propType)) {
+    const pOver = poissonProb(avg, line)
+    if (pOver == null) return null
+    trueProb = direction === 'under' ? 1 - pOver : pOver
+  } else {
+    if (!abAvgPerGame) return null
+    const n = Math.floor(abAvgPerGame)
+    if (n <= 0) return null
+    const p = Math.min(Math.max(avg, 0), 1)
+    trueProb = direction === 'under' ? binomCDF(Math.floor(line), n, p) : 1 - binomCDF(Math.floor(line), n, p)
+  }
+  return trueProb - modelProb
+}
+
+// ── buildGameStats + computeStatsFromGames (same as index.html) ───────────────
+function buildGameStats(propType, g) {
+  return propType === 'strikeouts'
+    ? { pitching_overall_games_started: g.gs, pitching_overall_total_strikeouts: g.so, pitching_overall_innings_pitched: g.ip, pitching_overall_strikeouts_per_9_innings: g.k9, pitching_overall_pitch_count: g.pc, pitching_overall_strikeouts_swinging: g.ks, pitching_overall_batters_faced: g.bf, pitching_overall_not_in_play_strikes_swinging: g.sws, pitching_overall_opponents_batting_average: g.oba }
+    : propType === 'runs'         ? { hitting_total_runs_scored: g.r,   hitting_at_bats: g.ab, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp, hitting_plate_appearances: g.pa }
+    : propType === 'pitcher_outs' ? { pitcher_outs_computed: g.po, pitching_overall_games_started: g.gs ?? 1, pitching_overall_pitch_count: g.pc }
+    : propType === 'hrr'          ? { hrr_computed: g.hrr, hitting_at_bats: g.ab, hitting_plate_appearances: g.pa, hitting_hits: g.hi, hitting_walks: g.bb, hitting_hit_by_pitch: g.hbp }
+    : propType === 'rbi'          ? { hitting_runs_batted_in: g.rbi, hitting_at_bats: g.ab, hitting_at_bats_with_runners_in_scoring_position: g.risp }
+    : propType === 'bases'        ? { hitting_total_bases: g.tb,  hitting_at_bats: g.ab }
+    : propType === 'hr'           ? { hitting_home_runs: g.hr,    hitting_at_bats: g.ab }
+    : propType === 'singles'      ? { hitting_singles: g.s1,      hitting_at_bats: g.ab }
+    : propType === 'doubles'      ? { hitting_doubles: g.d2,      hitting_at_bats: g.ab }
+    : { hitting_hits: g.hi, hitting_at_bats: g.ab }
+}
+
+function computeStatsFromGames(wg, propType, line) {
+  const gc = wg.length
+  if (gc === 0) return { avg: null, avg_ab_per_game: null, games_count: 0, games_with_hit: 0 }
+  if (propType === 'strikeouts') {
+    const so = wg.reduce((s, g) => s + Number(g.stats?.pitching_overall_total_strikeouts ?? 0), 0)
+    const bf = wg.reduce((s, g) => s + Number(g.stats?.pitching_overall_batters_faced   ?? 0), 0)
+    return { avg: so/gc, avg_ab_per_game: bf/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.pitching_overall_total_strikeouts ?? 0) > line).length }
+  }
+  if (propType === 'pitcher_outs') {
+    const po = wg.reduce((s, g) => s + Number(g.stats?.pitcher_outs_computed ?? 0), 0)
+    const pc = wg.reduce((s, g) => s + Number(g.stats?.pitching_overall_pitch_count ?? 0), 0)
+    return { avg: po/gc, avg_ab_per_game: pc/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.pitcher_outs_computed ?? 0) > line).length }
+  }
+  if (propType === 'runs') {
+    const r  = wg.reduce((s, g) => s + Number(g.stats?.hitting_total_runs_scored ?? 0), 0)
+    const hi = wg.reduce((s, g) => s + Number(g.stats?.hitting_hits ?? 0), 0)
+    const bb = wg.reduce((s, g) => s + Number(g.stats?.hitting_walks ?? 0), 0)
+    const hb = wg.reduce((s, g) => s + Number(g.stats?.hitting_hit_by_pitch ?? 0), 0)
+    const pa = wg.reduce((s, g) => s + Number(g.stats?.hitting_plate_appearances ?? 0), 0)
+    return { avg: r/gc, avg_ab_per_game: pa > 0 ? (hi+bb+hb)/pa : null, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_total_runs_scored ?? 0) > line).length }
+  }
+  if (propType === 'rbi') {
+    const rbi  = wg.reduce((s, g) => s + Number(g.stats?.hitting_runs_batted_in ?? 0), 0)
+    const risp = wg.reduce((s, g) => s + Number(g.stats?.hitting_at_bats_with_runners_in_scoring_position ?? 0), 0)
+    return { avg: rbi/gc, avg_ab_per_game: risp/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_runs_batted_in ?? 0) > line).length }
+  }
+  if (propType === 'bases') {
+    const tb = wg.reduce((s, g) => s + Number(g.stats?.hitting_total_bases ?? 0), 0)
+    const ab = wg.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    return { avg: tb/gc, avg_ab_per_game: ab > 0 ? tb/ab : null, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_total_bases ?? 0) > line).length }
+  }
+  if (propType === 'hr') {
+    const hr = wg.reduce((s, g) => s + Number(g.stats?.hitting_home_runs ?? 0), 0)
+    const ab = wg.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    return { avg: hr/gc, avg_ab_per_game: ab/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_home_runs ?? 0) > line).length }
+  }
+  if (propType === 'singles') {
+    const s1 = wg.reduce((s, g) => s + Number(g.stats?.hitting_singles ?? 0), 0)
+    const ab = wg.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    return { avg: s1/gc, avg_ab_per_game: ab/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_singles ?? 0) > line).length }
+  }
+  if (propType === 'doubles') {
+    const d2 = wg.reduce((s, g) => s + Number(g.stats?.hitting_doubles ?? 0), 0)
+    const ab = wg.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+    return { avg: d2/gc, avg_ab_per_game: ab/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_doubles ?? 0) > line).length }
+  }
+  if (propType === 'hrr') {
+    const hrr = wg.reduce((s, g) => s + Number(g.stats?.hrr_computed ?? 0), 0)
+    const hi  = wg.reduce((s, g) => s + Number(g.stats?.hitting_hits ?? 0), 0)
+    const bb  = wg.reduce((s, g) => s + Number(g.stats?.hitting_walks ?? 0), 0)
+    const hb  = wg.reduce((s, g) => s + Number(g.stats?.hitting_hit_by_pitch ?? 0), 0)
+    const pa  = wg.reduce((s, g) => s + Number(g.stats?.hitting_plate_appearances ?? 0), 0)
+    return { avg: hrr/gc, avg_ab_per_game: pa > 0 ? (hi+bb+hb)/pa : null, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hrr_computed ?? 0) > line).length }
+  }
+  // hits (default)
+  const hi = wg.reduce((s, g) => s + Number(g.stats?.hitting_hits ?? 0), 0)
+  const ab = wg.reduce((s, g) => s + Number(g.stats?.hitting_at_bats ?? 0), 0)
+  return { avg: ab > 0 ? hi/ab : null, avg_ab_per_game: ab/gc, games_count: gc, games_with_hit: wg.filter(g => Number(g.stats?.hitting_hits ?? 0) > line).length }
+}
+
+// ── Venue-split computation (mirrors computeVenueStats from index.html) ───────
+function computeVenueSplit(pre, venueCtx, row, season_id, line, direction, over_us_odds, under_us_odds, prop_type) {
+  const { player_team_uid, home_team_uid, away_team_uid } = row
+
+  let filtered = pre
+  if (venueCtx === 'home' || venueCtx === 'away') {
+    filtered = pre.filter(g => {
+      const gTeam  = g.gameTeamUid != null ? g.gameTeamUid : player_team_uid
+      const isHome = gTeam != null ? g.homeTeamUid === gTeam : null
+      if (isHome === null) return true
+      return venueCtx === 'home' ? isHome : !isHome
+    })
+  }
+
+  const allSids = [...new Set(filtered.map(g => g.season_id).filter(Boolean))].sort((a, b) => a - b)
+  const sidIdx  = allSids.indexOf(season_id)
+  const lastSid = sidIdx > 0 ? allSids[sidIdx - 1] : null
+
+  const opp = player_team_uid === home_team_uid ? away_team_uid
+            : player_team_uid === away_team_uid  ? home_team_uid
+            : home_team_uid ?? null
+  const vsGames = opp != null ? filtered.filter(g => {
+    const gTeam  = g.gameTeamUid != null ? g.gameTeamUid : player_team_uid
+    const oppUid = gTeam === g.homeTeamUid ? g.awayTeamUid : gTeam === g.awayTeamUid ? g.homeTeamUid : null
+    return oppUid === opp
+  }) : []
+
+  const slices = {
+    ALL: filtered, L5: filtered.slice(0,5), L10: filtered.slice(0,10), L30: filtered.slice(0,30),
+    CS: filtered.filter(g => g.season_id === season_id),
+    LS: lastSid ? filtered.filter(g => g.season_id === lastSid) : [],
+    VS: vsGames,
+  }
+
+  const windows = WINDOW_KEYS.map(key => {
+    const wg = slices[key]
+    if (!wg.length) return { key, ev: null, games: 0 }
+    const st  = computeStatsFromGames(wg, prop_type, line)
+    const emp = st.games_count > 0 ? st.games_with_hit / st.games_count : null
+    const ev  = computeEV(st.avg, st.avg_ab_per_game, line, direction, over_us_odds, under_us_odds, prop_type, emp)
+    return { key, ev, games: wg.length }
+  })
+
+  return { windows, wev: weightedEV(windows), count: filtered.length }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+const PROP_LABELS  = { pitcher_outs:'Outs', strikeouts:'Ks', hits:'Hits', runs:'Runs', doubles:'2B', hr:'HR', bases:'TB', rbi:'RBI', singles:'1B', hrr:'H+R+RBI' }
+const WINDOW_KEYS  = ['ALL','L5','L10','L30','CS','LS','VS']
+const WINDOW_WEIGHTS = { ALL:0.5, L5:2.0, L10:1.5, L30:1.0, CS:2.0, LS:0.7, VS:2.5 }
+
+function weightedEV(windows) {
+  let wSum = 0, wEvSum = 0
+  for (const w of windows) {
+    if (w.ev == null) continue
+    const wt = WINDOW_WEIGHTS[w.key] ?? 1
+    wEvSum += wt * w.ev
+    wSum   += wt
+  }
+  return wSum > 0 ? wEvSum / wSum : null
+}
+
+function evStr(ev) { return ev == null ? '—' : (ev >= 0 ? '+' : '') + (ev * 100).toFixed(1) + '%' }
+function evCls(ev) { return ev == null ? 'w-neu' : ev > 0.005 ? 'w-pos' : ev < -0.005 ? 'w-neg' : 'w-neu' }
+function oddsStr(us) { return us == null ? '—' : us >= 0 ? '+' + us : String(us) }
+
+function renderPick(p) {
+  const betOdds   = p.direction === 'over' ? p.over_us_odds : p.under_us_odds
+  const propLabel = PROP_LABELS[p.prop_type] ?? p.prop_type
+  const wev       = p.wev
+  const wevColor  = wev == null ? '#6b7280' : wev > 0.02 ? '#4ade80' : wev > 0 ? '#a3e635' : '#f87171'
+  const cells = p.windows.map(w =>
+    `<span class="${evCls(w.ev)}" title="${w.key}: ${w.games}g · weight ${WINDOW_WEIGHTS[w.key]}">${w.key} ${evStr(w.ev)}</span>`
+  ).join(' ')
+  return `
+  <div class="card p-4 space-y-2">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-white font-semibold">${p.player_name}</span>
+      <span class="text-xs text-gray-500">${p.team}</span>
+      <span class="tag">${propLabel}</span>
+      <span class="badge-${p.direction} text-xs px-2 py-0.5 rounded font-bold">
+        ${p.direction === 'over' ? 'Over' : 'Under'} ${p.line} ${oddsStr(betOdds)}
+      </span>
+      <span class="text-xs text-gray-600">${p.agreeing}/${WINDOW_KEYS.length} windows</span>
+      <span class="tag">${p.totalGames}g</span>
+      <span style="margin-left:auto;font-size:13px;font-weight:700;color:${wevColor}" title="Weighted EV (VS×2.5, CS×2, L5×2, L10×1.5, L30×1, LS×0.7, ALL×0.5)">
+        ${evStr(wev)}
+      </span>
+    </div>
+    <div class="flex flex-wrap gap-1.5">${cells}</div>
+    <div class="flex gap-2 text-xs" style="opacity:0.75">
+      <span style="color:#6b7280">venue:</span>
+      <span class="${evCls(p.wev)}"     title="Home+Away">H&A ${evStr(p.wev)}</span>
+      <span class="${evCls(p.wevHome)}" title="Home only">🏠 ${evStr(p.wevHome)}</span>
+      <span class="${evCls(p.wevAway)}" title="Away only">✈️ ${evStr(p.wevAway)}</span>
+    </div>
+  </div>`
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+async function updateAuthUI() {
+  const { data: { session } } = await db.auth.getSession()
+  const authBtn    = document.getElementById('authBtn')
+  const authStatus = document.getElementById('authStatus')
+  if (session) {
+    authStatus.textContent = session.user.email
+    authBtn.textContent = 'Logout'
+    authBtn.onclick = async () => { await db.auth.signOut(); updateAuthUI(); load() }
+  } else {
+    authStatus.textContent = 'Not logged in'
+    authBtn.textContent = 'Login'
+    authBtn.onclick = async () => {
+      const email = prompt('Email:')
+      if (!email) return
+      const password = prompt('Password:')
+      if (!password) return
+      const { error } = await db.auth.signInWithPassword({ email, password })
+      if (error) { alert(error.message); return }
+      updateAuthUI(); load()
+    }
+  }
+}
+
+async function getPayload() {
+  const { data: { session } } = await db.auth.getSession()
+  if (!session?.access_token) throw new Error('Not logged in — click Login first')
+  const res = await fetch('http://localhost:3001/full-payload', {
+    cache: 'no-cache',
+    headers: { 'x-auth-token': session.access_token }
+  })
+  if (!res.ok) throw new Error(`Payload fetch failed: ${res.status}`)
+  return res.json()
+}
+
+// ── Module-level cache (avoid re-fetching on every filter change) ─────────────
+let _todayRows = null   // deduped payload rows for today
+let _logsMap   = null   // game_logs keyed by player+prop
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+async function fetchData() {
+  const statusEl = document.getElementById('status')
+
+  statusEl.textContent = 'Loading payload…'
+
+  let payload
+  try { payload = await getPayload() } catch (e) { statusEl.textContent = 'Error: ' + e.message; return false }
+
+  // Mirror index.html: only show matches where match_date >= today in Mexico City (same as match pills)
+  today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date())
+  document.getElementById('dateLabel').textContent = today
+
+  const todayMatchIds = new Set(
+    (payload.matchRows ?? [])
+      .filter(m => m.match_date &&
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date(m.match_date)) >= today)
+      .map(m => m.id)
+  )
+
+  _todayRows = (payload.cacheRows ?? []).filter(r => todayMatchIds.has(r.match_id))
+  if (!_todayRows.length) { statusEl.textContent = 'No data for today in payload.'; return false }
+
+  const matchIds = [...new Set(_todayRows.map(r => r.match_id))]
+  statusEl.textContent = `Loading game logs for ${matchIds.length} match(es)…`
+
+  // Query one match_id at a time sequentially — same pattern as index.html
+  let logRows = [], logError = null
+  for (let i = 0; i < matchIds.length; i++) {
+    statusEl.textContent = `Loading game logs… ${i + 1}/${matchIds.length}`
+    const { data, error } = await db
+      .from('player_prop_cache')
+      .select('match_id,player_name,prop_type,game_logs')
+      .eq('match_id', matchIds[i])
+      .eq('filter', 'DB')
+    if (error) { logError = error; break }
+    if (data?.length) logRows = logRows.concat(data)
+  }
+
+  if (logError) { statusEl.textContent = 'Error fetching game_logs: ' + logError.message; return false }
+
+  // Build game_logs lookups:
+  // 1. Primary: match_id|player_name|prop_type — exact match, separates same-name players on different teams
+  // 2. Fallback: player_name|prop_type — best available (most game_logs), for when today's match_id has no entry yet
+  _logsMap = {}
+  const _logsMapFallback = {}
+  for (const r of logRows ?? []) {
+    const mapped = (r.game_logs ?? []).map(g => ({
+      match_date: g.d, season_id: g.s,
+      gameTeamUid: g.t != null ? Number(g.t) : null,
+      homeTeamUid: g.h != null ? Number(g.h) : null,
+      awayTeamUid: g.a != null ? Number(g.a) : null,
+      stats: buildGameStats(r.prop_type, g),
+    }))
+    const exact = `${r.match_id}|${r.player_name}|${r.prop_type}`
+    if (!_logsMap[exact] || mapped.length > _logsMap[exact].length) _logsMap[exact] = mapped
+    const fb = `${r.player_name}|${r.prop_type}`
+    if (!_logsMapFallback[fb] || mapped.length > _logsMapFallback[fb].length) _logsMapFallback[fb] = mapped
+  }
+  _logsMap.__fallback = _logsMapFallback
+
+  return true
+}
+
+function render() {
+  const statusEl      = document.getElementById('status')
+  const picksEl       = document.getElementById('picks')
+  const propFilter    = document.getElementById('propFilter').value
+  const venueConsensus= document.getElementById('venueConsensus').value
+  const dirFilter     = document.getElementById('dirFilter').value
+  const minWindows    = parseInt(document.getElementById('minWindows').value)
+
+  if (!_todayRows || !_logsMap) return
+
+  const picks = []
+
+  for (const row of _todayRows) {
+    const { player_name, player_team_abbr, is_home, prop_type, line,
+            over_us_odds, under_us_odds, season_id,
+            home_team_uid, away_team_uid, player_team_uid } = row
+
+    if (propFilter && prop_type !== propFilter) continue
+
+    const games = _logsMap[`${row.match_id}|${player_name}|${prop_type}`]
+              ?? _logsMap.__fallback[`${player_name}|${prop_type}`]
+              ?? []
+    if (!games.length) continue
+
+    // Pre-filter by plate appearances / starts (before any venue split)
+    const pre = (prop_type === 'strikeouts' || prop_type === 'pitcher_outs')
+      ? games.filter(g => { const gs = g.stats?.pitching_overall_games_started; return gs != null ? gs === 1 : (g.stats?.pitching_overall_innings_pitched ?? 0) > 0 })
+      : games.filter(g => (g.stats?.hitting_at_bats ?? 0) > 0)
+    const totalGames = pre.length
+
+    for (const direction of ['over', 'under']) {
+      if (dirFilter && direction !== dirFilter) continue
+
+      // Compute all 3 venue splits
+      const splitHA   = computeVenueSplit(pre, '',     row, season_id, line, direction, over_us_odds, under_us_odds, prop_type)
+      const splitHome = computeVenueSplit(pre, 'home', row, season_id, line, direction, over_us_odds, under_us_odds, prop_type)
+      const splitAway = computeVenueSplit(pre, 'away', row, season_id, line, direction, over_us_odds, under_us_odds, prop_type)
+
+      // Venue consensus filter — also enforces today's game venue
+      const haPos   = splitHA.wev   != null && splitHA.wev   > 0
+      const homePos = splitHome.wev != null && splitHome.wev > 0
+      const awayPos = splitAway.wev != null && splitAway.wev > 0
+      if (venueConsensus === 'ha_home' && !(haPos && homePos && is_home))  continue
+      if (venueConsensus === 'ha_away' && !(haPos && awayPos && !is_home)) continue
+      if (venueConsensus === 'all3'    && !(haPos && homePos && awayPos))  continue
+
+      const { windows, wev } = splitHA
+      const agreeing = windows.filter(w => w.ev != null && w.ev > 0).length
+      if (agreeing < minWindows) continue
+
+      picks.push({ player_name, team: player_team_abbr, prop_type, line,
+                   over_us_odds, under_us_odds, direction, totalGames,
+                   windows, agreeing, wev,
+                   wevHome: splitHome.wev, wevAway: splitAway.wev })
+    }
+  }
+
+  picks.sort((a, b) => (b.wev ?? -Infinity) - (a.wev ?? -Infinity))
+
+  picksEl.innerHTML = picks.length ? picks.map(renderPick).join('') : ''
+  statusEl.textContent = picks.length
+    ? `${picks.length} pick${picks.length !== 1 ? 's' : ''} · ${_todayRows.length} rows scanned`
+    : `No picks (${_todayRows.length} rows · minWindows=${minWindows})`
+}
+
+async function load() {
+  _todayRows = null
+  _logsMap   = null
+  document.getElementById('picks').innerHTML = ''
+  const ok = await fetchData()
+  if (ok) {
+    try { render() }
+    catch (e) { document.getElementById('status').textContent = 'Render error: ' + e.message; console.error(e) }
+  }
+}
+
+['propFilter','venueConsensus','dirFilter','minWindows'].forEach(id =>
+  document.getElementById(id).addEventListener('change', render)
+)
+document.getElementById('refreshBtn').addEventListener('click', load)
+
+updateAuthUI()
+load()
+</script>
+</body>
+</html>
