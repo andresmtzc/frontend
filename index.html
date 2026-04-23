@@ -4602,7 +4602,6 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
     </div>
     <div style="flex:1;min-height:0;overflow-y:auto">
       ${newWeekPicks.length ? `
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:6px">NUEVA SEMANA</div>
         ${newWeekPicks.map(p => {
           const dir = p.direction === 'under' ? '<' : '>'
           const propLbl = PROP_LABELS[p.prop_type] ?? p.prop_type
@@ -4613,7 +4612,10 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
             </div>
             <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · ${p.game_date ?? ''}</div>
           </div>`
-        }).join('')}` : ''}
+        }).join('')}
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:6px 0 2px;border-top:1px solid var(--border);margin-top:6px">NUEVA SEMANA</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;padding:4px 0 8px">SEMANA PREVIA</div>
+      ` : ''}
       ${rowsHtml}
     </div>`
 }
