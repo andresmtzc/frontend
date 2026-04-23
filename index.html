@@ -4601,9 +4601,8 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
       <button onclick="cycleMode()" style="font-family:'Geist Mono',monospace;font-size:9px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:2px solid var(--gold);color:var(--gold);cursor:pointer;letter-spacing:0.08em;flex-shrink:0" id="sim-mode-btn">${MODES[modeIdx].label}</button>
     </div>
     <div style="flex:1;min-height:0;overflow-y:auto">
-      ${rowsHtml}
       ${newWeekPicks.length ? `
-        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:6px">NUEVA SEMANA</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:6px">NUEVA SEMANA</div>
         ${newWeekPicks.map(p => {
           const dir = p.direction === 'under' ? '<' : '>'
           const propLbl = PROP_LABELS[p.prop_type] ?? p.prop_type
@@ -4615,6 +4614,7 @@ async function openSimResultados(username = null, weekStart = null, silent = fal
             <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--muted)">${propLbl} ${dir}${p.line} · ${p.game_date ?? ''}</div>
           </div>`
         }).join('')}` : ''}
+      ${rowsHtml}
     </div>`
 }
 
@@ -4765,8 +4765,8 @@ async function openSimRanking(weekStart = null) {
     ${weekToggle}
     ${mePinned}
     <div style="flex:1;min-height:0;overflow-y:auto">
-      ${active.length || dqd.length ? active.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('') + dqdHtml : _skeletonRank()}
       ${newWeekHtml}
+      ${active.length || dqd.length ? active.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('') + dqdHtml : _skeletonRank()}
     </div>`
 }
 
