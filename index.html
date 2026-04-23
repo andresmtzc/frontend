@@ -4318,7 +4318,6 @@ async function saveSimUsername() {
   // Propagate to picks + ranking BEFORE updating profiles so RLS still sees old username
   await Promise.all([
     db.from('simulation_picks').update({ sim_username: val }).eq('user_id', session.user.id),
-    db.from('sim_ranking').update({ sim_username: val }).eq('sim_username', _userProfile.sim_username),
     db.from('sim_alltime').update({ sim_username: val }).eq('sim_username', _userProfile.sim_username),
   ])
   const { error } = await db.from('profiles')
@@ -4626,81 +4625,100 @@ async function openSimRanking(weekStart = null) {
 
   const thisWeek = weekStartMX()
   const prevWeek = (() => {
-    const d = new Date(thisWeek)
-    d.setUTCDate(d.getUTCDate() - 7)
-    return d.toISOString().slice(0, 10)
+    const d = new Date(thisWeek); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().slice(0, 10)
   })()
 
-  // Show last week if within 48hrs of week start (Thu/Fri) and no explicit week passed
-  const mxNow       = new Date(new Date().getTime() - 6 * 3600000)
-  const mxThursday  = new Date(thisWeek)
-  const hrsElapsed  = (mxNow - mxThursday) / 3600000
-  const showLastWeekToggle = hrsElapsed >= 0 && hrsElapsed < 48
+  const mxNow      = new Date(new Date().getTime() - 6 * 3600000)
+  const hrsElapsed = (mxNow - new Date(thisWeek)) / 3600000
 
   const myUsername = _userProfile?.sim_username ?? null
 
-  const [{ data: thisWeekRows }, { data: { session } }] = await Promise.all([
-    db.from('sim_ranking').select('*').eq('week_start', thisWeek),
+  // Aggregate directly from simulation_picks (always live)
+  const aggregate = (picks) => {
+    const byUser = {}
+    for (const p of picks) {
+      if (!p.sim_username) continue
+      if (!byUser[p.sim_username]) byUser[p.sim_username] = { won: 0, lost: 0, pending: 0, total_staked: 0, total_profit: 0 }
+      const u = byUser[p.sim_username]
+      if (p.result === 'won')  { u.won++;  u.total_staked += p.stake ?? 0; u.total_profit += p.profit ?? 0 }
+      else if (p.result === 'lost') { u.lost++; u.total_staked += p.stake ?? 0; u.total_profit += p.profit ?? 0 }
+      else if (!p.result) u.pending++
+    }
+    return Object.entries(byUser).map(([sim_username, u]) => ({
+      sim_username, ...u,
+      resolved_count: u.won + u.lost,
+      roi: u.total_staked > 0 ? u.total_profit / u.total_staked * 100 : 0,
+    }))
+  }
+
+  // Fetch this week picks to check if any resolved yet
+  const [{ data: thisWeekPicks }, { data: { session } }] = await Promise.all([
+    db.from('simulation_picks').select('sim_username,result,stake,profit').eq('week_start', thisWeek),
     db.auth.getSession()
   ])
 
-  // If current week has no resolved data and no explicit week passed, show previous week
-  const hasResolved = (thisWeekRows ?? []).some(r => (r.resolved_count ?? 0) > 0)
+  const thisWeekRows = aggregate(thisWeekPicks ?? [])
+  const hasResolved  = thisWeekRows.some(r => r.resolved_count > 0)
+
+  // If no resolved picks in current week, default to previous week
   let activeWeek = weekStart ?? (hasResolved ? thisWeek : prevWeek)
-  const isLastWeek  = activeWeek === prevWeek
-  const weekOver    = activeWeek < thisWeek
+  const isLastWeek = activeWeek === prevWeek
+  const weekOver   = activeWeek < thisWeek
 
-  const { data: rows } = activeWeek === thisWeek
-    ? { data: thisWeekRows }
-    : await db.from('sim_ranking').select('*').eq('week_start', activeWeek)
-
-  // Fetch new week pending picks (grouped by user) when showing prev week
-  let newWeekByUser = {}
-  if (activeWeek === prevWeek && !weekStart) {
-    const { data: nwp } = await db.from('simulation_picks')
-      .select('sim_username, result').eq('week_start', thisWeek)
-    ;(nwp ?? []).filter(p => !p.result).forEach(p => {
-      newWeekByUser[p.sim_username] = (newWeekByUser[p.sim_username] ?? 0) + 1
-    })
+  let rows = thisWeekRows
+  if (activeWeek !== thisWeek) {
+    const { data: prevPicks } = await db.from('simulation_picks')
+      .select('sim_username,result,stake,profit').eq('week_start', activeWeek)
+    rows = aggregate(prevPicks ?? [])
   }
 
-  // Fetch user's own current-week picks to build pinned row even with 0 resolved
+  // New week pending section when showing prev week
+  let newWeekByUser = {}
+  if (activeWeek === prevWeek && !weekStart) {
+    thisWeekRows.forEach(r => { if (r.pending > 0) newWeekByUser[r.sim_username] = r.pending })
+  }
+
+  // Pinned row for logged-in user if not already in active list
   let myRow = null
   if (myUsername && session && !isLastWeek) {
-    const { data: myPicks } = await db.from('simulation_picks')
-      .select('result, stake, profit')
-      .eq('user_id', session.user.id)
-      .eq('week_start', activeWeek)
-    const resolved       = (myPicks ?? []).filter(p => p.result === 'won' || p.result === 'lost')
-    const won            = resolved.filter(p => p.result === 'won').length
-    const lost           = resolved.filter(p => p.result === 'lost').length
-    const staked         = resolved.reduce((s, p) => s + (p.stake ?? 0), 0)
-    const profit         = resolved.reduce((s, p) => s + (p.profit ?? 0), 0)
-    const roi            = staked > 0 ? profit / staked * 100 : 0
-    const resolved_count = resolved.length
-    myRow = { sim_username: myUsername, won, lost, total_staked: staked, total_profit: profit, roi, resolved_count }
+    const existing = rows.find(r => r.sim_username === myUsername)
+    if (!existing) {
+      const { data: myPicks } = await db.from('simulation_picks')
+        .select('result,stake,profit').eq('user_id', session.user.id).eq('week_start', activeWeek)
+      const resolved = (myPicks ?? []).filter(p => p.result === 'won' || p.result === 'lost')
+      myRow = {
+        sim_username: myUsername,
+        won: resolved.filter(p => p.result === 'won').length,
+        lost: resolved.filter(p => p.result === 'lost').length,
+        total_staked: resolved.reduce((s, p) => s + (p.stake ?? 0), 0),
+        total_profit: resolved.reduce((s, p) => s + (p.profit ?? 0), 0),
+        resolved_count: resolved.length,
+        roi: 0,
+      }
+      if (myRow.total_staked > 0) myRow.roi = myRow.total_profit / myRow.total_staked * 100
+    }
   }
 
   const _nc2 = v => v > 0 ? 'var(--green)' : v < 0 ? 'var(--magenta)' : 'var(--text)'
 
   const _rankRow = (u, i, highlight = false) => {
-    const rc       = u.resolved_count ?? 0
-    const dq       = weekOver && rc < 25
-    const warn     = !weekOver && rc < 15 && hrsElapsed >= 72
-    const roi      = Number(u.roi ?? (u.total_staked > 0 ? u.total_profit / u.total_staked * 100 : 0))
-    const pnl      = Number(u.total_profit ?? 0)
-    const rankLbl  = dq ? 'DQ' : i >= 0 ? `#${i+1}` : '—'
-    const rankCol  = dq ? 'var(--magenta)' : 'var(--muted)'
-    const nameCol  = dq ? '#555' : highlight ? 'var(--palo)' : 'var(--text)'
-    const opacity  = dq ? '0.5' : '1'
-    const quota    = `<span style="color:${rc >= 25 ? 'var(--green)' : warn ? 'var(--magenta)' : 'var(--muted)'}">${rc}/25${warn ? ' ⚠' : ''}</span>`
+    const rc      = u.resolved_count ?? 0
+    const dq      = weekOver && rc < 25
+    const warn    = !weekOver && rc < 15 && hrsElapsed >= 72
+    const roi     = Number(u.roi ?? 0)
+    const pnl     = Number(u.total_profit ?? 0)
+    const rankLbl = dq ? 'DQ' : i >= 0 ? `#${i+1}` : '—'
+    const rankCol = dq ? 'var(--magenta)' : 'var(--muted)'
+    const nameCol = dq ? '#555' : highlight ? 'var(--palo)' : 'var(--text)'
+    const opacity = dq ? '0.5' : '1'
+    const quota   = `<span style="color:${rc >= 25 ? 'var(--green)' : warn ? 'var(--magenta)' : 'var(--muted)'}">${rc}/25${warn ? ' ⚠' : ''}</span>`
     return `<div onclick="openSimResultados('${u.sim_username}','${activeWeek}')" style="cursor:pointer;padding:8px 0;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;gap:8px;opacity:${opacity}">
       <div style="display:flex;align-items:center;gap:8px;min-width:0">
         <span style="font-family:'Geist Mono',monospace;font-size:10px;color:${rankCol};flex-shrink:0;font-weight:700">${rankLbl}</span>
         <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.sim_username}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;font-family:'Geist Mono',monospace;font-size:10px">
-        <span><span style="color:${u.won > 0 ? 'var(--green)' : 'var(--text)'}">${u.won}</span><span style="color:var(--green)">W</span><span style="color:var(--muted)"> - </span><span style="color:${u.lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${u.lost}</span><span style="color:var(--magenta)">L</span>${u.pending ? `<span style="color:var(--text)"> · ${u.pending} PEND.</span>` : ''}</span>
+        <span><span style="color:${u.won > 0 ? 'var(--green)' : 'var(--text)'}">${u.won}</span><span style="color:var(--green)">W</span><span style="color:var(--muted)"> - </span><span style="color:${u.lost > 0 ? 'var(--magenta)' : 'var(--text)'}">${u.lost}</span><span style="color:var(--magenta)">L</span>${u.pending ? `<span style="color:var(--muted)"> · ${u.pending} PEND.</span>` : ''}</span>
         <span style="color:var(--muted)">·</span>
         <span style="font-weight:700;color:${_nc2(pnl)}">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}</span>
         <span style="color:var(--muted)">·</span>
@@ -4711,12 +4729,9 @@ async function openSimRanking(weekStart = null) {
     </div>`
   }
 
-  // Sort: non-DQ by ROI desc, DQ pushed to bottom
-  const withRoi = (rows ?? []).map(r => ({ ...r, roi: r.total_staked > 0 ? r.total_profit / r.total_staked * 100 : 0 }))
-  const active  = withRoi.filter(r => !weekOver || (r.resolved_count ?? 0) >= 25).sort((a, b) => b.roi - a.roi)
-  const dqd     = withRoi.filter(r => weekOver && (r.resolved_count ?? 0) < 25)
-
-  const myIdx = myUsername ? active.findIndex(u => u.sim_username === myUsername) : -1
+  const active  = rows.filter(r => !weekOver || r.resolved_count >= 25).sort((a, b) => b.roi - a.roi)
+  const dqd     = rows.filter(r => weekOver && r.resolved_count < 25)
+  const myIdx   = myUsername ? active.findIndex(u => u.sim_username === myUsername) : -1
 
   const mePinned = (myRow && myIdx === -1) ? `
     <div style="flex-shrink:0">
@@ -4733,8 +4748,6 @@ async function openSimRanking(weekStart = null) {
     <div style="height:1px;background:#222;width:100%;margin:4px 0"></div>
     ${dqd.map(u => _rankRow(u, -1, u.sim_username === myUsername)).join('')}` : ''
 
-  const listHtml = active.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('')
-
   const newWeekUsers = Object.entries(newWeekByUser)
   const newWeekHtml = newWeekUsers.length ? `
     <div style="font-family:'Geist Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:6px">NUEVA SEMANA</div>
@@ -4748,7 +4761,7 @@ async function openSimRanking(weekStart = null) {
     ${weekToggle}
     ${mePinned}
     <div style="flex:1;min-height:0;overflow-y:auto">
-      ${active.length || dqd.length ? listHtml + dqdHtml : _skeletonRank()}
+      ${active.length || dqd.length ? active.map((u, i) => _rankRow(u, i, u.sim_username === myUsername)).join('') + dqdHtml : _skeletonRank()}
       ${newWeekHtml}
     </div>`
 }
